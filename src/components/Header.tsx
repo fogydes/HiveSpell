@@ -36,19 +36,34 @@ const Header: React.FC = () => {
     setLeaderboardData([]);
 
     try {
-      const usersQuery = query(ref(db, 'users'), orderByChild('corrects'), limitToLast(10));
+      // Query top 20 to allow room for deduplication
+      const usersQuery = query(ref(db, 'users'), orderByChild('corrects'), limitToLast(20));
       const snapshot = await get(usersQuery);
       
       if (snapshot.exists()) {
         const data = snapshot.val();
-        const entries = Object.values(data).map((u: any) => ({
+        let entries = Object.values(data).map((u: any) => ({
           name: u.username || (u.email ? u.email.split('@')[0] : "Player"),
           email: u.email, 
           corrects: u.corrects || 0,
           wins: u.wins || 0
         }));
-        entries.sort((a, b) => b.corrects - a.corrects);
-        setLeaderboardData(entries);
+
+        // Deduplicate by name (keep highest score)
+        const uniqueEntriesMap = new Map();
+        entries.forEach((entry: any) => {
+          const name = entry.name;
+          if (!uniqueEntriesMap.has(name) || uniqueEntriesMap.get(name).corrects < entry.corrects) {
+            uniqueEntriesMap.set(name, entry);
+          }
+        });
+        
+        // Convert back to array and sort
+        const uniqueEntries = Array.from(uniqueEntriesMap.values());
+        uniqueEntries.sort((a: any, b: any) => b.corrects - a.corrects);
+        
+        // Take top 10
+        setLeaderboardData(uniqueEntries.slice(0, 10));
       }
     } catch (error) {
       console.error("Leaderboard access denied:", error);

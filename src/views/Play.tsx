@@ -427,6 +427,27 @@ const Play: React.FC = () => {
     setActiveTab(activeTab === tab ? 'none' : tab);
   };
 
+  // Determine visibility classes based on active tab and desktop state
+  // On mobile: hidden by default unless activeTab matches
+  // On desktop: always visible (forced overrides)
+  const getChatClasses = () => {
+    const base = "fixed z-40 bg-slate-900/95 backdrop-blur-xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden transition-all duration-300";
+    const mobilePos = "right-4 top-1/2 -translate-y-1/2 w-[85vw] h-[50vh] rounded-2xl origin-right";
+    const mobileState = activeTab === 'chat' ? 'scale-100 opacity-100 pointer-events-auto' : 'scale-0 opacity-0 pointer-events-none';
+    const desktop = "lg:right-auto lg:left-4 lg:top-1/2 lg:-translate-y-1/2 lg:w-72 lg:h-[60vh] lg:rounded-xl lg:origin-center lg:scale-100 lg:opacity-100 lg:pointer-events-auto";
+    
+    return `${base} ${mobilePos} ${mobileState} ${desktop}`;
+  };
+
+  const getPlayerListClasses = () => {
+    const base = "fixed z-40 bg-slate-900/95 backdrop-blur-xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden transition-all duration-300";
+    const mobilePos = "right-4 top-1/2 -translate-y-1/2 w-[85vw] h-[50vh] rounded-2xl origin-right";
+    const mobileState = activeTab === 'players' ? 'scale-100 opacity-100 pointer-events-auto' : 'scale-0 opacity-0 pointer-events-none';
+    const desktop = "lg:right-4 lg:top-1/2 lg:-translate-y-1/2 lg:w-64 lg:h-[60vh] lg:rounded-xl lg:origin-center lg:scale-100 lg:opacity-100 lg:pointer-events-auto";
+    
+    return `${base} ${mobilePos} ${mobileState} ${desktop}`;
+  };
+
   return (
     <div className={`min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans text-white transition-colors duration-1000 ${streak > 25 ? 'bg-[#1a0505]' : 'bg-[#050914]'}`}>
       
@@ -453,16 +474,8 @@ const Play: React.FC = () => {
       {/* =======================
           CHAT BOX (Dual Mode)
       ======================== */}
-      {/* On Mobile: It's a drawer. On Desktop: It's a fixed box on left */}
-      <div className={`
-         fixed z-40 bg-slate-900/95 backdrop-blur-xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden transition-all duration-300
-         /* Mobile Styles */
-         lg:hidden right-20 top-1/2 -translate-y-1/2 w-[80vw] h-[50vh] rounded-2xl origin-right
-         ${activeTab === 'chat' ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'}
-         
-         /* Desktop Styles */
-         lg:pointer-events-auto lg:scale-100 lg:opacity-100 lg:left-4 lg:top-1/2 lg:-translate-y-1/2 lg:w-72 lg:h-[60vh] lg:rounded-xl lg:origin-center
-      `}>
+      {/* Replaced complex inline logic with helper function for clarity and fix */}
+      <div className={getChatClasses()}>
          <div className="p-3 border-b border-slate-700 bg-black/20 font-bold text-sm">Hive Chat</div>
          <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-thin scrollbar-thumb-slate-700">
              {messages.length === 0 && (
@@ -495,16 +508,8 @@ const Play: React.FC = () => {
       {/* =======================
           PLAYER LIST (Dual Mode)
       ======================== */}
-      {/* On Mobile: Drawer. On Desktop: Fixed box on right */}
-      <div className={`
-         fixed z-40 bg-slate-900/95 backdrop-blur-xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden transition-all duration-300
-         /* Mobile Styles */
-         lg:hidden right-20 top-1/2 -translate-y-1/2 w-[80vw] h-[50vh] rounded-2xl origin-right
-         ${activeTab === 'players' ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'}
-
-         /* Desktop Styles */
-         lg:pointer-events-auto lg:scale-100 lg:opacity-100 lg:right-4 lg:top-1/2 lg:-translate-y-1/2 lg:w-64 lg:h-[60vh] lg:rounded-xl lg:origin-center
-      `}>
+      {/* Replaced complex inline logic with helper function */}
+      <div className={getPlayerListClasses()}>
          <div className="p-3 border-b border-slate-700 bg-black/20 font-bold text-sm flex justify-between">
             <span>People ({players.length})</span>
          </div>
