@@ -862,7 +862,9 @@ const genius = parseWords(GENIUS_TEXT);
 const omniscient = parseWords(OMNISCIENT_TEXT);
 const polymath = [...baby, ...cakewalk, ...learner, ...intermediate, ...heated, ...genius, ...omniscient];
 
-// 1. Export a 'wordBank' object
+// ORDERED MODES for progression
+export const MODE_ORDER = ['baby', 'cakewalk', 'learner', 'intermediate', 'heated', 'genius', 'omniscient', 'polymath'];
+
 export const wordBank: Record<string, string[]> = {
   baby,
   cakewalk,
@@ -874,13 +876,94 @@ export const wordBank: Record<string, string[]> = {
   polymath,
 };
 
-// 3. Export an async function 'speak(word: string)'
+const HOMOPHONES: Record<string, string[]> = {
+  "air": ["heir"], "heir": ["air"],
+  "ball": ["bawl"], "bawl": ["ball"],
+  "be": ["bee"], "bee": ["be"],
+  "blue": ["blew"], "blew": ["blue"],
+  "eye": ["aye", "i"], "aye": ["eye", "i"],
+  "flour": ["flower"], "flower": ["flour"],
+  "know": ["no"], "no": ["know"],
+  "knight": ["night"], "night": ["knight"],
+  "mail": ["male"], "male": ["mail"],
+  "pair": ["pear", "pare"], "pear": ["pair", "pare"], "pare": ["pair", "pear"],
+  "peace": ["piece"], "piece": ["peace"],
+  "plain": ["plane"], "plane": ["plain"],
+  "rain": ["reign", "rein"], "reign": ["rain", "rein"], "rein": ["rain", "reign"],
+  "read": ["red"], "red": ["read"],
+  "right": ["write", "rite"], "write": ["right", "rite"],
+  "sea": ["see"], "see": ["sea"],
+  "son": ["sun"], "sun": ["son"],
+  "tail": ["tale"], "tale": ["tail"],
+  "to": ["too", "two"], "too": ["to", "two"], "two": ["to", "too"],
+  "way": ["weigh"], "weigh": ["way"],
+  "week": ["weak"], "weak": ["week"],
+  "phish": ["fish"], "fish": ["phish"],
+  "newb": ["noob"], "noob": ["newb"],
+  "sighs": ["size"], "size": ["sighs"],
+  "psi": ["sigh"], "sigh": ["psi"],
+  "noble": ["nobel"], "nobel": ["noble"],
+  "wrought": ["rot"], "rot": ["wrought"],
+  "pharaoh": ["farrow"], "farrow": ["pharaoh"],
+  "colonel": ["kernel"], "kernel": ["colonel"],
+  "armor": ["armour"], "armour": ["armor"],
+  "center": ["centre"], "centre": ["center"],
+  "color": ["colour"], "colour": ["color"],
+  "flavor": ["flavour"], "flavour": ["flavor"],
+  "harbor": ["harbour"], "harbour": ["harbor"],
+  "neighbor": ["neighbour"], "neighbour": ["neighbor"],
+  "honor": ["honour"], "honour": ["honor"],
+};
+
+// Helper to normalize -ize/-ise and -yze/-yse and -our/-or suffixes
+const normalizeSuffix = (word: string) => {
+  return word.toLowerCase()
+    .replace(/isation/g, 'ization')
+    .replace(/ise$/g, 'ize')
+    .replace(/yse$/g, 'yze')
+    .replace(/our/g, 'or') 
+    .replace(/re$/g, 'er'); 
+};
+
+export const checkAnswer = (target: string, input: string): boolean => {
+  const normTarget = normalizeSuffix(target);
+  const normInput = normalizeSuffix(input);
+
+  if (normTarget === normInput) return true;
+
+  const lowerTarget = target.toLowerCase();
+  const lowerInput = input.toLowerCase();
+
+  if (HOMOPHONES[lowerTarget]) {
+    if (HOMOPHONES[lowerTarget].includes(lowerInput)) return true;
+    const matches = HOMOPHONES[lowerTarget].some(h => normalizeSuffix(h) === normInput);
+    if (matches) return true;
+  }
+
+  return false;
+};
+
+export const fetchDefinition = async (word: string): Promise<string> => {
+  try {
+    const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`);
+    if (!res.ok) throw new Error("No def");
+    const data = await res.json();
+    return data[0]?.meanings[0]?.definitions[0]?.definition || "Listen carefully to the pronunciation.";
+  } catch (e) {
+    return "Listen carefully to the pronunciation.";
+  }
+};
+
+export const getTitle = (corrects: number, wins: number): string => {
+  if (corrects >= 50000) return 'Queen Bee';
+  if (corrects >= 10000) return 'Hive Master';
+  if (wins >= 1000) return 'Hive Champion';
+  if (corrects >= 1000 && wins >= 100) return 'Busy Bee';
+  return 'Newbee';
+};
+
 export const speak = async (word: string): Promise<void> => {
   try {
-    // 4. Use 'fetch' to POST to ElevenLabs API
-    // Using Voice ID for "Adam" (deep male voice) as a robust alternative for Stokes
-    // since the Agent ID provided previously is not a valid Voice ID for the TTS endpoint.
-    // Voice ID: pNInz6obpgDQGcFmaJgB
     const response = await fetch('https://api.elevenlabs.io/v1/text-to-speech/pNInz6obpgDQGcFmaJgB', {
       method: 'POST',
       headers: {
@@ -889,8 +972,6 @@ export const speak = async (word: string): Promise<void> => {
       },
       body: JSON.stringify({
         text: word,
-        // CHANGED: Use 'eleven_turbo_v2_5' to support free tier and reduce latency. 
-        // 'eleven_monolingual_v1' is deprecated.
         model_id: "eleven_turbo_v2_5",
         voice_settings: {
           stability: 0.5,
@@ -900,12 +981,9 @@ export const speak = async (word: string): Promise<void> => {
     });
 
     if (!response.ok) {
-      const errText = await response.text();
-      console.error("ElevenLabs API Error:", errText);
       throw new Error(`TTS Failed: ${response.status}`);
     }
 
-    // 6. Play the audio immediately
     const blob = await response.blob();
     const audioUrl = URL.createObjectURL(blob);
     const audio = new Audio(audioUrl);
@@ -913,7 +991,6 @@ export const speak = async (word: string): Promise<void> => {
 
   } catch (error) {
     console.error("Error playing audio:", error);
-    // Fallback if API fails or quota exceeded
     const utterance = new SpeechSynthesisUtterance(word);
     window.speechSynthesis.speak(utterance);
   }

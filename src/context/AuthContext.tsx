@@ -8,6 +8,7 @@ export interface UserData {
   stars: number;
   title: string;
   corrects: number;
+  wins: number; // Added wins
 }
 
 interface AuthContextType {
@@ -26,17 +27,14 @@ export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  // 2. Add 'userData' state
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 3. Listen to auth state changes
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       
       if (currentUser) {
-        // 3 & 4. Listen to real-time database changes for this user
         const userRef = ref(db, `users/${currentUser.uid}`);
         
         const unsubscribeData = onValue(userRef, (snapshot) => {
@@ -46,16 +44,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               stars: data.stars || 0,
               title: data.title || 'Newbee',
               corrects: data.corrects || 0,
+              wins: data.wins || 0,
             });
           } else {
             // Default data if new user
-            setUserData({ stars: 0, title: 'Newbee', corrects: 0 });
+            setUserData({ stars: 0, title: 'Newbee', corrects: 0, wins: 0 });
           }
         });
 
         setLoading(false);
-        
-        // Cleanup database listener when user logs out or component unmounts
         return () => {
            off(userRef);
         }
@@ -68,7 +65,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribeAuth();
   }, []);
 
-  // 5. Export both 'user' and 'userData'
   return (
     <AuthContext.Provider value={{ user, userData, loading }}>
       {!loading && children}

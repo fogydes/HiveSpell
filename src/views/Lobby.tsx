@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { wordBank } from '../services/gameService';
+import { useAuth } from '../context/AuthContext';
 
 const Lobby: React.FC = () => {
   const modes = Object.keys(wordBank);
   const navigate = useNavigate();
   const [joinCode, setJoinCode] = useState('');
+  const { user } = useAuth();
 
   const handleStartPublic = (mode: string) => {
     navigate(`/play/${mode}`, { state: { type: 'public', role: 'player' } });
@@ -19,11 +21,9 @@ const Lobby: React.FC = () => {
   const handleJoinPrivate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!joinCode.trim()) return;
-    // Defaulting to 'polymath' or random as we don't have a backend to query mode from code
     navigate(`/play/polymath`, { state: { type: 'private', role: 'player', code: joinCode } });
   };
 
-  // Helper for mode colors
   const getModeColor = (mode: string) => {
      const colors: any = {
        baby: 'text-cyan-400 border-cyan-500/30 hover:border-cyan-400',
@@ -39,14 +39,15 @@ const Lobby: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen pt-24 p-6 flex flex-col items-center pb-24 bg-slate-900">
+    <div className="min-h-screen pt-24 p-6 flex flex-col items-center bg-slate-900 pb-24">
       
+      {/* Main Content Area */}
       <div className="w-full max-w-6xl text-center mb-10">
         <h2 className="text-4xl font-extrabold text-white mb-2 tracking-tight">Select Difficulty</h2>
         <p className="text-slate-400">Choose your challenge level to enter the hive.</p>
       </div>
       
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 w-full max-w-6xl">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 w-full max-w-6xl pb-20">
         {modes.map(mode => (
           <div 
             key={mode} 
@@ -60,30 +61,29 @@ const Lobby: React.FC = () => {
             </div>
             
             <div className="space-y-3">
-               <button 
+              <button 
                   onClick={() => handleStartPublic(mode)}
                   className="w-full py-3 bg-slate-700 group-hover:bg-white group-hover:text-slate-900 text-white rounded-lg font-bold text-sm tracking-wider transition-colors uppercase"
-               >
-                 Public Match
-               </button>
-               <button 
+              >
+                Public Match
+              </button>
+              <button 
                   onClick={() => handleCreatePrivate(mode)}
                   className="w-full py-2 bg-transparent border border-slate-600 text-slate-400 hover:text-white hover:border-white rounded-lg text-xs font-bold transition-colors uppercase"
-               >
-                 Create Private
-               </button>
+              >
+                Create Private
+              </button>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Join Server Bar */}
       <div className="fixed bottom-0 left-0 w-full bg-slate-900/80 backdrop-blur-xl border-t border-slate-700 p-6 flex justify-center z-40">
         <form onSubmit={handleJoinPrivate} className="flex items-center gap-3 w-full max-w-lg bg-slate-800 p-2 rounded-xl border border-slate-600 focus-within:border-emerald-500 transition-colors">
           <div className="pl-3 text-slate-400">
-             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-             </svg>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+            </svg>
           </div>
           <input 
             type="text" 
