@@ -1,15 +1,21 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useSettings } from '../context/SettingsContext';
 import { auth, db } from '../firebase';
 import { signOut } from 'firebase/auth';
 import { ref, get, query, orderByChild, limitToLast } from 'firebase/database';
 
 const Header: React.FC = () => {
   const { userData, user } = useAuth();
+  const { ttsVolume, setTtsVolume, sfxVolume, setSfxVolume } = useSettings();
+  
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showShop, setShowShop] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [leaderboardData, setLeaderboardData] = useState<Array<{name: string, corrects: number, wins: number}>>([]);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
@@ -33,7 +39,7 @@ const Header: React.FC = () => {
       if (snapshot.exists()) {
         const data = snapshot.val();
         const entries = Object.values(data).map((u: any) => ({
-          name: u.username || u.title || "Player",
+          name: u.username || (u.email ? u.email.split('@')[0] : "Player"),
           email: u.email, 
           corrects: u.corrects || 0,
           wins: u.wins || 0
@@ -88,13 +94,19 @@ const Header: React.FC = () => {
                     <p className="text-sm text-white font-medium truncate">{userData?.username || user.email}</p>
                 </div>
                 <div className="py-1">
-                    <button className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-emerald-600 hover:text-white transition-colors">
+                    <button 
+                      onClick={() => { setShowProfile(true); setIsDropdownOpen(false); }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-emerald-600 hover:text-white transition-colors"
+                    >
                       Profile
                     </button>
-                    <button className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-emerald-600 hover:text-white transition-colors">
-                      Messages
+                    <button className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-emerald-600 hover:text-white transition-colors opacity-50 cursor-not-allowed">
+                      Messages (Soon)
                     </button>
-                    <button className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-emerald-600 hover:text-white transition-colors">
+                    <button 
+                      onClick={() => { setShowSettings(true); setIsDropdownOpen(false); }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-emerald-600 hover:text-white transition-colors"
+                    >
                       Settings
                     </button>
                     <button 
@@ -175,6 +187,90 @@ const Header: React.FC = () => {
                     <div className="p-8 text-center text-slate-500">No data available</div>
                  )}
               </div>
+           </div>
+        </div>
+      )}
+
+      {/* Settings Modal */}
+      {showSettings && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 pointer-events-auto">
+           <div className="bg-[#1a1d21] w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl p-6 animate-scale-in">
+              <h2 className="text-2xl font-bold text-white mb-6">Settings</h2>
+              
+              <div className="space-y-6">
+                <div>
+                   <label className="flex justify-between text-sm font-bold text-slate-400 mb-2">
+                     <span>TTS Volume (Voice)</span>
+                     <span>{Math.round(ttsVolume * 100)}%</span>
+                   </label>
+                   <input 
+                      type="range" 
+                      min="0" 
+                      max="1" 
+                      step="0.1" 
+                      value={ttsVolume} 
+                      onChange={(e) => setTtsVolume(parseFloat(e.target.value))}
+                      className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                   />
+                </div>
+
+                <div>
+                   <label className="flex justify-between text-sm font-bold text-slate-400 mb-2">
+                     <span>SFX Volume (Typing)</span>
+                     <span>{Math.round(sfxVolume * 100)}%</span>
+                   </label>
+                   <input 
+                      type="range" 
+                      min="0" 
+                      max="1" 
+                      step="0.1" 
+                      value={sfxVolume} 
+                      onChange={(e) => setSfxVolume(parseFloat(e.target.value))}
+                      className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                   />
+                </div>
+              </div>
+
+              <div className="mt-8 flex justify-end">
+                <button onClick={() => setShowSettings(false)} className="px-6 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-bold transition-colors">
+                  Close
+                </button>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {/* Profile Modal */}
+      {showProfile && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 pointer-events-auto">
+           <div className="bg-[#1a1d21] w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl p-6 animate-scale-in text-center">
+              <h2 className="text-2xl font-bold text-white mb-6">Player Profile</h2>
+              
+              <div className="w-24 h-24 rounded-full bg-slate-800 mx-auto mb-4 overflow-hidden border-4 border-slate-700">
+                <img 
+                  src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`} 
+                  alt="Profile" 
+                  className="w-full h-full object-cover"
+                />
+              </div>
+
+              <h3 className="text-xl font-bold text-white">{userData?.username || user.email}</h3>
+              <p className="text-emerald-400 font-bold uppercase tracking-widest text-sm mb-6">{userData?.title}</p>
+
+              <div className="grid grid-cols-2 gap-4 mb-8">
+                 <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                    <div className="text-2xl font-mono text-white font-bold">{userData?.corrects}</div>
+                    <div className="text-xs text-slate-500 uppercase tracking-widest mt-1">Words Correct</div>
+                 </div>
+                 <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                    <div className="text-2xl font-mono text-white font-bold">{userData?.wins}</div>
+                    <div className="text-xs text-slate-500 uppercase tracking-widest mt-1">Wins</div>
+                 </div>
+              </div>
+
+              <button onClick={() => setShowProfile(false)} className="px-6 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-bold transition-colors">
+                  Close
+              </button>
            </div>
         </div>
       )}

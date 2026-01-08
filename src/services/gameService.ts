@@ -779,7 +779,7 @@ Worcestershire
 Xiphiplastron
 Xylotypographic`;
 
-const OMNISCIENT_TEXT = `Acetylglucocoroglaucigenin
+const SUPER_HARD_TEXT = `Acetylglucocoroglaucigenin
 Adrenocorticotropin
 -trophin
 Anthropomorphization
@@ -859,11 +859,13 @@ const learner = parseWords(LEARNER_TEXT);
 const intermediate = parseWords(INTERMEDIATE_TEXT);
 const heated = parseWords(HEATED_TEXT);
 const genius = parseWords(GENIUS_TEXT);
-const omniscient = parseWords(OMNISCIENT_TEXT);
-const polymath = [...baby, ...cakewalk, ...learner, ...intermediate, ...heated, ...genius, ...omniscient];
+// SWAP: Polymath is now the hard specific list
+const polymath = parseWords(SUPER_HARD_TEXT);
+// SWAP: Omniscient is now the combination of all
+const omniscient = [...baby, ...cakewalk, ...learner, ...intermediate, ...heated, ...genius, ...polymath];
 
-// ORDERED MODES for progression
-export const MODE_ORDER = ['baby', 'cakewalk', 'learner', 'intermediate', 'heated', 'genius', 'omniscient', 'polymath'];
+// ORDERED MODES for progression - SWAPPED
+export const MODE_ORDER = ['baby', 'cakewalk', 'learner', 'intermediate', 'heated', 'genius', 'polymath', 'omniscient'];
 
 export const wordBank: Record<string, string[]> = {
   baby,
@@ -872,8 +874,8 @@ export const wordBank: Record<string, string[]> = {
   intermediate,
   heated,
   genius,
-  omniscient,
-  polymath,
+  polymath, // Swapped
+  omniscient, // Swapped
 };
 
 const HOMOPHONES: Record<string, string[]> = {
@@ -962,7 +964,7 @@ export const getTitle = (corrects: number, wins: number): string => {
   return 'Newbee';
 };
 
-export const speak = async (word: string): Promise<void> => {
+export const speak = async (word: string, volume: number = 1.0): Promise<void> => {
   try {
     const response = await fetch('https://api.elevenlabs.io/v1/text-to-speech/pNInz6obpgDQGcFmaJgB', {
       method: 'POST',
@@ -986,12 +988,33 @@ export const speak = async (word: string): Promise<void> => {
 
     const blob = await response.blob();
     const audioUrl = URL.createObjectURL(blob);
-    const audio = new Audio(audioUrl);
-    await audio.play();
+    
+    // Return a promise that resolves when playback finishes
+    return new Promise((resolve) => {
+      const audio = new Audio(audioUrl);
+      audio.volume = volume;
+      audio.onended = () => {
+        resolve();
+      };
+      // Handle errors during playback just in case
+      audio.onerror = () => {
+        resolve();
+      }
+      audio.play().catch(e => {
+         console.warn("Autoplay blocked or error", e);
+         resolve();
+      });
+    });
 
   } catch (error) {
     console.error("Error playing audio:", error);
-    const utterance = new SpeechSynthesisUtterance(word);
-    window.speechSynthesis.speak(utterance);
+    // Fallback to basic TTS
+    return new Promise((resolve) => {
+        const utterance = new SpeechSynthesisUtterance(word);
+        utterance.volume = volume;
+        utterance.onend = () => resolve();
+        utterance.onerror = () => resolve();
+        window.speechSynthesis.speak(utterance);
+    });
   }
 };

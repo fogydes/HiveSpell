@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { ref, onValue, off } from 'firebase/database';
+import { ref, onValue, off, update } from 'firebase/database';
 import { auth, db } from '../firebase';
 
 // 1. Define 'UserData' interface
@@ -41,21 +41,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const unsubscribeData = onValue(userRef, (snapshot) => {
           const data = snapshot.val();
           if (data) {
+            // Self-repair: If username is missing in DB (legacy account), fix it.
+            let finalUsername = data.username;
+            if (!finalUsername) {
+               finalUsername = currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Player');
+               // Async update to fix DB
+               update(userRef, { username: finalUsername }).catch(err => console.warn("Auto-fix username failed", err));
+            }
+
             setUserData({
               stars: data.stars || 0,
               title: data.title || 'Newbee',
               corrects: data.corrects || 0,
               wins: data.wins || 0,
-              username: data.username || currentUser.displayName || 'Player',
+              username: finalUsername,
             });
           } else {
             // Default data if new user
+            const newName = currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Player');
             setUserData({ 
               stars: 0, 
               title: 'Newbee', 
               corrects: 0, 
               wins: 0,
-              username: currentUser.displayName || 'Player'
+              username: newName
             });
           }
         }, (error) => {

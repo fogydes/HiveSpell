@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useSettings } from '../context/SettingsContext';
 import { wordBank, speak, checkAnswer, fetchDefinition, getTitle, MODE_ORDER } from '../services/gameService';
 import { db } from '../firebase';
 import { ref, get, update, onValue, set, push, onDisconnect, serverTimestamp, query, limitToLast } from 'firebase/database';
@@ -15,6 +16,7 @@ interface ChatMessage {
   id: string;
   sender: string;
   text: string;
+  timestamp: number;
   type: 'user' | 'server';
 }
 
@@ -31,6 +33,7 @@ const Play: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, userData } = useAuth();
+  const { ttsVolume, playTypingSound } = useSettings();
   const gameState = (location.state as GameState) || { type: 'public', role: 'player' };
 
   const [currentMode, setCurrentMode] = useState(paramMode || 'baby');
@@ -41,15 +44,19 @@ const Play: React.FC = () => {
   const [currentWord, setCurrentWord] = useState('');
   const [definition, setDefinition] = useState('');
   const [inputValue, setInputValue] = useState('');
-  const [status, setStatus] = useState<'playing' | 'intermission'>('playing');
+  const [status, setStatus] = useState<'playing' | 'intermission' | 'speaking'>('playing');
   const [intermissionTime, setIntermissionTime] = useState(10);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error', msg: string } | null>(null);
+  const [isInputDisabled, setIsInputDisabled] = useState(false);
   
   // UI States
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [players, setPlayers] = useState<PlayerPresence[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  
+  // Track join time to filter old chat history
+  const joinTimeRef = useRef<number>(Date.now());
 
   // Sidebar Toggles (Mobile Only)
   const [activeTab, setActiveTab] = useState<'none' | 'chat' | 'players'>('none');
@@ -62,6 +69,7 @@ const Play: React.FC = () => {
   // Track total time spent ONLY during valid words
   const totalTypingTimeSecRef = useRef<number>(0);
   const previousWordRef = useRef<string>('');
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const animationFrameRef = useRef<number>(0);
 
@@ -85,7 +93,8 @@ const Play: React.FC = () => {
            const uData = userSnap.val() || {};
            newPlayers.push({
              uid,
-             title: uData.username || uData.title || (user.uid === uid ? 'You' : 'Player'),
+             // Fix: Show Username for everyone, including self (removed 'You' override)
+             title: uData.username || (uData.email ? uData.email.split('@')[0] : 'Player'),
              photoSeed: uid,
              corrects: uData.corrects || 0,
              wins: uData.wins || 0
@@ -93,7 +102,7 @@ const Play: React.FC = () => {
          } catch (e) {
            newPlayers.push({
              uid,
-             title: uid === user.uid ? 'You' : 'Unknown',
+             title: 'Unknown',
              photoSeed: uid,
              corrects: 0,
              wins: 0
@@ -108,7 +117,7 @@ const Play: React.FC = () => {
       if (user) {
         setPlayers([{
            uid: user.uid,
-           title: userData?.username || 'You',
+           title: userData?.username || (user.email ? user.email.split('@')[0] : 'Player'),
            photoSeed: user.uid,
            corrects: userData?.corrects || 0,
            wins: userData?.wins || 0
@@ -126,23 +135,29 @@ const Play: React.FC = () => {
   useEffect(() => {
     if (!currentMode) return;
     
+    // We still query the last 50, but we will filter them client-side based on joinTime
     const chatRef = query(ref(db, `chat/${currentMode}`), limitToLast(50));
     const unsubscribeChat = onValue(chatRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        const msgList = Object.entries(data).map(([key, val]: [string, any]) => ({
-          id: key,
-          sender: val.sender,
-          text: val.text,
-          type: val.type || 'user'
-        }));
+        const msgList = Object.entries(data)
+          .map(([key, val]: [string, any]) => ({
+            id: key,
+            sender: val.sender,
+            text: val.text,
+            timestamp: val.timestamp,
+            type: val.type || 'user'
+          }))
+          // FILTER: Only show messages sent AFTER I joined this session
+          .filter(msg => msg.timestamp && msg.timestamp >= joinTimeRef.current);
+          
         setMessages(msgList);
       } else {
         setMessages([]);
       }
     }, (error) => {
       console.warn("Chat listener failed:", error);
-      setMessages([{ id: 'sys', sender: 'System', text: 'Chat disconnected (No Permission)', type: 'server'}]);
+      setMessages([{ id: 'sys', sender: 'System', text: 'Chat disconnected', timestamp: Date.now(), type: 'server'}]);
     });
 
     return () => unsubscribeChat();
@@ -160,7 +175,7 @@ const Play: React.FC = () => {
     const chatRef = ref(db, `chat/${currentMode}`);
     try {
       await push(chatRef, {
-        sender: userData?.username || userData?.title || 'Player',
+        sender: userData?.username || (user.email ? user.email.split('@')[0] : 'Player'),
         text: chatInput,
         timestamp: serverTimestamp(),
         type: 'user'
@@ -180,8 +195,8 @@ const Play: React.FC = () => {
       case 'intermediate': return { time: 18, stars: 12 };
       case 'heated': return { time: 20, stars: 14 };
       case 'genius': return { time: 25, stars: 16 };
-      case 'omniscient': return { time: 30, stars: 18 };
-      case 'polymath': return { time: 20, stars: 20 };
+      case 'polymath': return { time: 30, stars: 18 };
+      case 'omniscient': return { time: 20, stars: 20 };
       default: return { time: 15, stars: 5 };
     }
   };
@@ -220,23 +235,36 @@ const Play: React.FC = () => {
     
     setTotalTime(calculatedTime);
     setTimeLeft(calculatedTime);
-    setStatus('playing');
     setIntermissionTime(5); 
     setFeedback(null);
     
+    // Disable input while speaking
+    setIsInputDisabled(true);
+    setStatus('speaking');
+
+    // Wait for TTS to finish
+    await speak(word, ttsVolume);
+
+    // Re-enable and start timer
+    setIsInputDisabled(false);
+    setStatus('playing');
+
     const now = Date.now();
     wordStartTimeRef.current = now;
     timerEndRef.current = now + (calculatedTime * 1000);
     
-    const inputEl = document.getElementById('spelling-input');
-    if (inputEl) inputEl.focus();
+    // Autofocus
+    setTimeout(() => {
+        if(inputRef.current) inputRef.current.focus();
+    }, 10);
 
-    await speak(word);
-  }, [currentMode, streak]);
+  }, [currentMode, streak, ttsVolume]);
 
   const handleModeChange = (newMode: string) => {
     setCurrentMode(newMode);
     setStreak(0);
+    // Reset join time when switching modes so chat clears
+    joinTimeRef.current = Date.now();
     setTimeout(() => nextWord(), 100);
   };
 
@@ -311,6 +339,14 @@ const Play: React.FC = () => {
       setWpm(Math.round(grossWPM));
     }
   };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (val.length > inputValue.length) {
+        playTypingSound();
+    }
+    setInputValue(val);
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -408,6 +444,9 @@ const Play: React.FC = () => {
       `}>
          <div className="p-3 border-b border-slate-700 bg-black/20 font-bold text-sm">Hive Chat</div>
          <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-thin scrollbar-thumb-slate-700">
+             {messages.length === 0 && (
+                <div className="text-xs text-slate-500 text-center mt-4">Welcome to the chat!</div>
+             )}
              {messages.map((msg) => (
                <div key={msg.id} className="text-xs break-words">
                  {msg.type === 'server' ? (
@@ -455,10 +494,12 @@ const Play: React.FC = () => {
          </div>
          <div className="flex-1 overflow-y-auto">
             {players.map((p) => (
-              <div key={p.uid} className="grid grid-cols-[1fr_50px_40px] px-3 py-3 text-xs items-center hover:bg-white/5 transition-colors border-b border-slate-800/50">
+              <div key={p.uid} className={`grid grid-cols-[1fr_50px_40px] px-3 py-3 text-xs items-center transition-colors border-b border-slate-800/50 ${p.uid === user?.uid ? 'bg-emerald-900/20' : 'hover:bg-white/5'}`}>
                   <div className="flex items-center gap-2 overflow-hidden">
                      <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${p.photoSeed}`} className="w-6 h-6 rounded bg-slate-700" alt="p" />
-                     <span className="truncate text-white font-medium">{p.title}</span>
+                     <span className={`truncate font-medium ${p.uid === user?.uid ? 'text-emerald-400' : 'text-white'}`}>
+                       {p.title} {p.uid === user?.uid && '(You)'}
+                     </span>
                   </div>
                   <div className="text-right text-emerald-400 font-mono">{p.corrects}</div>
                   <div className="text-right text-slate-300 font-mono">{p.wins}</div>
@@ -486,7 +527,9 @@ const Play: React.FC = () => {
                "{definition}"
              </p>
            ) : (
-             <div className="h-[50px]"></div>
+             <div className="h-[50px]">
+                {status === 'speaking' && <div className="text-emerald-400 animate-pulse text-sm font-bold tracking-widest">LISTENING TO HIVE...</div>}
+             </div>
            )}
         </div>
 
@@ -528,13 +571,17 @@ const Play: React.FC = () => {
         <div className="mb-8 relative min-h-[100px] flex items-center justify-center w-full">
            {status === 'playing' ? (
              <button 
-               onClick={() => speak(currentWord)}
+               onClick={() => speak(currentWord, ttsVolume)}
                className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center transition-all group cursor-pointer active:scale-95 animate-pulse-slow"
              >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 sm:h-10 sm:w-10 text-emerald-400 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
                 </svg>
              </button>
+           ) : status === 'speaking' ? (
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-emerald-500/20 border-2 border-emerald-400 flex items-center justify-center animate-spin-slow">
+                     <span className="text-2xl">🔊</span>
+                </div>
            ) : (
              <div className="flex flex-col items-center bg-slate-900/90 p-4 rounded-xl border border-slate-700 shadow-xl z-20 w-full max-w-sm">
                <div className="text-red-400 font-bold mb-2 text-center text-lg">{feedback?.msg}</div>
@@ -557,15 +604,16 @@ const Play: React.FC = () => {
            </div>
            <form onSubmit={handleSubmit}>
               <input
+                ref={inputRef}
                 id="spelling-input"
                 type="text"
                 autoComplete="off"
                 autoFocus
                 value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                disabled={status !== 'playing'}
+                onChange={handleInputChange}
+                disabled={isInputDisabled || status !== 'playing'}
                 placeholder="Type word..."
-                className="w-full bg-transparent border-b-2 border-slate-700 focus:border-emerald-500 text-center text-3xl sm:text-5xl font-bold text-white outline-none py-2 sm:py-4 placeholder:text-slate-800 transition-colors"
+                className="w-full bg-transparent border-b-2 border-slate-700 focus:border-emerald-500 text-center text-3xl sm:text-5xl font-bold text-white outline-none py-2 sm:py-4 placeholder:text-slate-800 transition-colors disabled:opacity-50 disabled:cursor-wait"
               />
            </form>
         </div>

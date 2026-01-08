@@ -1,6 +1,7 @@
 import React from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { SettingsProvider } from './context/SettingsContext';
 import Header from './components/Header';
 import Home from './views/Home';
 import Auth from './views/Auth';
@@ -46,11 +47,13 @@ const AppRoutes: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    // 1. Wrap entire app in AuthProvider
+    // 1. Wrap entire app in AuthProvider AND SettingsProvider
     <AuthProvider>
-      <Router>
-        <AppRoutes />
-      </Router>
+      <SettingsProvider>
+        <Router>
+          <AppRoutes />
+        </Router>
+      </SettingsProvider>
     </AuthProvider>
   );
 };
