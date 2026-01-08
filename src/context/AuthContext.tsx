@@ -8,7 +8,8 @@ export interface UserData {
   stars: number;
   title: string;
   corrects: number;
-  wins: number; // Added wins
+  wins: number;
+  username: string; // Added username
 }
 
 interface AuthContextType {
@@ -45,11 +46,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               title: data.title || 'Newbee',
               corrects: data.corrects || 0,
               wins: data.wins || 0,
+              username: data.username || currentUser.displayName || 'Player',
             });
           } else {
             // Default data if new user
-            setUserData({ stars: 0, title: 'Newbee', corrects: 0, wins: 0 });
+            setUserData({ 
+              stars: 0, 
+              title: 'Newbee', 
+              corrects: 0, 
+              wins: 0,
+              username: currentUser.displayName || 'Player'
+            });
           }
+        }, (error) => {
+          console.warn("Auth Data Fetch Error:", error);
+          // Fallback
+          setUserData({ 
+            stars: 0, 
+            title: 'Newbee', 
+            corrects: 0, 
+            wins: 0,
+            username: currentUser.displayName || 'Player'
+          });
         });
 
         setLoading(false);

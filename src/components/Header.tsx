@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth, UserData } from '../context/AuthContext';
+import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { auth, db } from '../firebase';
 import { signOut } from 'firebase/auth';
 import { ref, get, query, orderByChild, limitToLast } from 'firebase/database';
@@ -9,7 +9,10 @@ const Header: React.FC = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showShop, setShowShop] = useState(false);
+  const [showInventory, setShowInventory] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [leaderboardData, setLeaderboardData] = useState<Array<{name: string, corrects: number, wins: number}>>([]);
+  const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
 
   if (!user) return null;
 
@@ -20,25 +23,35 @@ const Header: React.FC = () => {
 
   const fetchLeaderboard = async () => {
     setShowLeaderboard(true);
-    // Simple fetch all for now, in prod use limitToLast and orderByChild
-    const usersRef = ref(db, 'users');
-    const snapshot = await get(usersRef);
-    if (snapshot.exists()) {
-      const data = snapshot.val();
-      const entries = Object.values(data).map((u: any) => ({
-        name: u.title ? "Player" : "Unknown", // In real app store names
-        email: u.email, // Don't show email publicly in real app
-        corrects: u.corrects || 0,
-        wins: u.wins || 0
-      }));
-      // Sort by corrects desc
-      entries.sort((a, b) => b.corrects - a.corrects);
-      setLeaderboardData(entries.slice(0, 10)); // Top 10
+    setLoadingLeaderboard(true);
+    setLeaderboardData([]);
+
+    try {
+      const usersQuery = query(ref(db, 'users'), orderByChild('corrects'), limitToLast(10));
+      const snapshot = await get(usersQuery);
+      
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const entries = Object.values(data).map((u: any) => ({
+          name: u.username || u.title || "Player",
+          email: u.email, 
+          corrects: u.corrects || 0,
+          wins: u.wins || 0
+        }));
+        entries.sort((a, b) => b.corrects - a.corrects);
+        setLeaderboardData(entries);
+      }
+    } catch (error) {
+      console.error("Leaderboard access denied:", error);
+      setLeaderboardData([{name: "Access Denied (Check Rules)", corrects: 0, wins: 0}]);
+    } finally {
+      setLoadingLeaderboard(false);
     }
   };
 
   return (
     <>
+      {/* Top Header: Stats & Profile Only */}
       <header className="fixed top-0 left-0 w-full p-4 flex justify-between items-start z-50 pointer-events-none">
         
         {/* Left: Stats */}
@@ -53,27 +66,8 @@ const Header: React.FC = () => {
           </span>
         </div>
 
-        {/* Right: Actions */}
+        {/* Right: Profile Dropdown */}
         <div className="flex items-center gap-4 pointer-events-auto">
-          {/* Shop Button */}
-          <button 
-            onClick={() => setShowShop(true)}
-            className="p-3 rounded-full bg-slate-800/80 border border-slate-600 hover:bg-emerald-500/20 hover:border-emerald-500 transition-all text-white"
-            title="Shop"
-          >
-            🛒
-          </button>
-
-          {/* Leaderboard Button */}
-          <button 
-             onClick={fetchLeaderboard}
-             className="p-3 rounded-full bg-slate-800/80 border border-slate-600 hover:bg-emerald-500/20 hover:border-emerald-500 transition-all text-white"
-             title="Leaderboard"
-          >
-            🏆
-          </button>
-
-          {/* Profile Dropdown */}
           <div className="relative">
             <button 
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -91,7 +85,7 @@ const Header: React.FC = () => {
             {isDropdownOpen && (
               <div className="absolute right-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden animate-fade-in-down z-50">
                 <div className="px-4 py-3 border-b border-slate-700">
-                    <p className="text-sm text-white font-medium truncate">{user.email}</p>
+                    <p className="text-sm text-white font-medium truncate">{userData?.username || user.email}</p>
                 </div>
                 <div className="py-1">
                     <button className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-emerald-600 hover:text-white transition-colors">
@@ -116,10 +110,42 @@ const Header: React.FC = () => {
         </div>
       </header>
 
+      {/* MOBILE: Burger Menu (Left Middle) - Hidden on md+ */}
+      <div className="fixed left-4 top-1/2 -translate-y-1/2 z-50 flex flex-col items-start gap-2 pointer-events-auto md:hidden">
+         <button 
+           onClick={() => setIsMenuOpen(!isMenuOpen)}
+           className={`p-3 rounded-xl bg-slate-800 border border-slate-600 text-white shadow-xl hover:bg-slate-700 transition-all ${isMenuOpen ? 'bg-emerald-600 border-emerald-500' : ''}`}
+         >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+         </button>
+
+         {isMenuOpen && (
+            <div className="flex flex-col gap-2 animate-fade-in-left origin-top-left">
+              <MenuButtons 
+                 onShop={() => { setShowShop(true); setIsMenuOpen(false); }} 
+                 onLeaderboard={() => { fetchLeaderboard(); setIsMenuOpen(false); }} 
+                 onInventory={() => { setShowInventory(true); setIsMenuOpen(false); }} 
+              />
+            </div>
+         )}
+      </div>
+
+      {/* DESKTOP: Persistent Sidebar (Left Middle) - Visible on md+ */}
+      <div className="hidden md:flex fixed left-6 top-1/2 -translate-y-1/2 z-40 flex-col gap-3 pointer-events-auto">
+         <MenuButtons 
+             onShop={() => setShowShop(true)} 
+             onLeaderboard={() => fetchLeaderboard()} 
+             onInventory={() => setShowInventory(true)} 
+             desktop
+         />
+      </div>
+
       {/* Leaderboard Modal */}
       {showLeaderboard && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 pointer-events-auto">
-           <div className="bg-[#1a1d21] w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl overflow-hidden">
+           <div className="bg-[#1a1d21] w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl overflow-hidden animate-scale-in">
               <div className="p-4 flex justify-between items-center border-b border-slate-700 bg-slate-800/50">
                  <h2 className="text-xl font-bold text-white">Leaderboard</h2>
                  <button onClick={() => setShowLeaderboard(false)} className="text-slate-400 hover:text-white">✕</button>
@@ -130,28 +156,33 @@ const Header: React.FC = () => {
                     <span className="text-right">Correct</span>
                     <span className="text-right">Wins</span>
                  </div>
-                 {leaderboardData.map((p, i) => (
-                    <div key={i} className="grid grid-cols-[1fr_80px_60px] px-6 py-4 border-b border-slate-800 hover:bg-slate-800/50 transition-colors items-center">
-                       <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded bg-slate-700 flex items-center justify-center">
-                             <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${i}`} className="w-6 h-6" />
-                          </div>
-                          <span className="text-white font-medium">{p.name} {i < 3 && '🔥'}</span>
-                       </div>
-                       <div className="text-right text-emerald-400 font-mono">{p.corrects.toLocaleString()}</div>
-                       <div className="text-right text-slate-300 font-mono">{p.wins.toLocaleString()}</div>
-                    </div>
-                 ))}
-                 {leaderboardData.length === 0 && <div className="p-8 text-center text-slate-500">Loading...</div>}
+                 {loadingLeaderboard ? (
+                    <div className="p-8 text-center text-slate-500">Loading...</div>
+                 ) : leaderboardData.length > 0 ? (
+                    leaderboardData.map((p, i) => (
+                      <div key={i} className="grid grid-cols-[1fr_80px_60px] px-6 py-4 border-b border-slate-800 hover:bg-slate-800/50 transition-colors items-center">
+                         <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded bg-slate-700 flex items-center justify-center">
+                               <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${i}`} className="w-6 h-6" />
+                            </div>
+                            <span className="text-white font-medium">{p.name} {i < 3 && '🔥'}</span>
+                         </div>
+                         <div className="text-right text-emerald-400 font-mono">{p.corrects.toLocaleString()}</div>
+                         <div className="text-right text-slate-300 font-mono">{p.wins.toLocaleString()}</div>
+                      </div>
+                    ))
+                 ) : (
+                    <div className="p-8 text-center text-slate-500">No data available</div>
+                 )}
               </div>
            </div>
         </div>
       )}
 
-      {/* Shop Modal Placeholder */}
+      {/* Shop Modal */}
       {showShop && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 pointer-events-auto">
-           <div className="bg-[#1a1d21] w-full max-w-2xl rounded-2xl border border-slate-700 shadow-2xl p-6 text-center">
+           <div className="bg-[#1a1d21] w-full max-w-2xl rounded-2xl border border-slate-700 shadow-2xl p-6 text-center animate-scale-in">
               <h2 className="text-2xl font-bold text-emerald-400 mb-4">Hive Shop</h2>
               <p className="text-slate-300 mb-8">Spend your stars on profile layouts, fonts, and more!</p>
               <div className="grid grid-cols-2 gap-4 mb-8">
@@ -170,8 +201,47 @@ const Header: React.FC = () => {
            </div>
         </div>
       )}
+
+      {/* Inventory Modal */}
+      {showInventory && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 pointer-events-auto">
+           <div className="bg-[#1a1d21] w-full max-w-2xl rounded-2xl border border-slate-700 shadow-2xl p-6 text-center animate-scale-in">
+              <h2 className="text-2xl font-bold text-purple-400 mb-4">Your Inventory</h2>
+              <p className="text-slate-300 mb-8">Items you have collected.</p>
+              <div className="bg-slate-800/50 p-12 rounded-xl border border-slate-700 border-dashed mb-8">
+                 <p className="text-slate-500">Your inventory is empty.</p>
+              </div>
+              <button onClick={() => setShowInventory(false)} className="px-6 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white">Close</button>
+           </div>
+        </div>
+      )}
     </>
   );
+};
+
+// Extracted for reusability
+const MenuButtons: React.FC<{ onShop: () => void, onLeaderboard: () => void, onInventory: () => void, desktop?: boolean }> = ({ onShop, onLeaderboard, onInventory, desktop }) => {
+   const baseClass = "flex items-center gap-3 p-3 rounded-xl bg-slate-800/90 backdrop-blur border border-slate-600 text-white hover:bg-emerald-600/50 hover:border-emerald-400 hover:translate-x-1 transition-all shadow-xl group";
+   const widthClass = desktop ? "w-14 hover:w-48 overflow-hidden whitespace-nowrap" : "w-48";
+   
+   return (
+      <>
+        <button onClick={onShop} className={`${baseClass} ${widthClass}`} title="Shop">
+          <span className="text-xl min-w-[24px]">🛒</span>
+          <span className={`font-bold text-sm ${desktop ? 'opacity-0 group-hover:opacity-100 transition-opacity duration-300' : ''}`}>Shop</span>
+        </button>
+        
+        <button onClick={onLeaderboard} className={`${baseClass} ${widthClass}`} title="Leaderboard">
+          <span className="text-xl min-w-[24px]">🏆</span>
+          <span className={`font-bold text-sm ${desktop ? 'opacity-0 group-hover:opacity-100 transition-opacity duration-300' : ''}`}>Leaderboard</span>
+        </button>
+
+        <button onClick={onInventory} className={`${baseClass} ${widthClass}`} title="Inventory">
+          <span className="text-xl min-w-[24px]">🎒</span>
+          <span className={`font-bold text-sm ${desktop ? 'opacity-0 group-hover:opacity-100 transition-opacity duration-300' : ''}`}>Inventory</span>
+        </button>
+      </>
+   );
 };
 
 export default Header;
