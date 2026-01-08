@@ -5,7 +5,7 @@ import { auth, db } from '../firebase';
 import { useNavigate } from 'react-router-dom';
 
 // Cast firebaseDatabase to any to resolve TS errors
-const { ref, set, get, child } = firebaseDatabase as any;
+const { ref, set, get } = firebaseDatabase as any;
 
 const Auth: React.FC = () => {
   const [emailOrUser, setEmailOrUser] = useState('');
@@ -27,8 +27,11 @@ const Auth: React.FC = () => {
 
         // If input doesn't look like an email, assume it's a username and look it up
         if (!emailOrUser.includes('@')) {
-          const usernameRef = ref(db);
-          const snapshot = await get(child(usernameRef, `usernames/${emailOrUser.toLowerCase()}`));
+          // Clean input: remove spaces and lowercase to match storage format
+          const cleanUser = emailOrUser.trim().replace(/\s/g, '').toLowerCase();
+          
+          // Use direct path reference
+          const snapshot = await get(ref(db, `usernames/${cleanUser}`));
           
           if (snapshot.exists()) {
             emailToUse = snapshot.val();
@@ -41,8 +44,10 @@ const Auth: React.FC = () => {
       } else {
         // Sign Up
         // 1. Check if username exists
-        const usernameRef = ref(db, `usernames/${username.toLowerCase()}`);
+        const cleanUsername = username.trim().replace(/\s/g, '').toLowerCase();
+        const usernameRef = ref(db, `usernames/${cleanUsername}`);
         const userSnap = await get(usernameRef);
+        
         if (userSnap.exists()) {
           throw new Error("Username already taken.");
         }
@@ -52,11 +57,11 @@ const Auth: React.FC = () => {
         const user = userCredential.user;
 
         // 3. Update Profile
-        await updateProfile(user, { displayName: username });
+        await updateProfile(user, { displayName: username.trim() });
 
         // 4. Create DB Entries
         await set(ref(db, `users/${user.uid}`), {
-          username: username,
+          username: username.trim(),
           email: emailOrUser,
           stars: 0,
           title: 'Newbee',
@@ -65,7 +70,7 @@ const Auth: React.FC = () => {
         });
 
         // 5. Create Username Mapping (Username -> Email) for login lookup
-        await set(ref(db, `usernames/${username.toLowerCase()}`), emailOrUser);
+        await set(ref(db, `usernames/${cleanUsername}`), emailOrUser);
       }
       navigate('/lobby');
     } catch (error: any) {
@@ -105,7 +110,7 @@ const Auth: React.FC = () => {
                 type="text" 
                 placeholder="Pick a username" 
                 value={username} 
-                onChange={e => setUsername(e.target.value.replace(/\s/g, ''))} // No spaces
+                onChange={e => setUsername(e.target.value)} 
                 required 
                 minLength={3}
                 maxLength={15}
