@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { ref, set, get, child } from 'firebase/database';
+import * as firebaseDatabase from 'firebase/database';
 import { auth, db } from '../firebase';
 import { useNavigate } from 'react-router-dom';
+
+// Cast firebaseDatabase to any to resolve TS errors
+const { ref, set, get, child } = firebaseDatabase as any;
 
 const Auth: React.FC = () => {
   const [emailOrUser, setEmailOrUser] = useState('');

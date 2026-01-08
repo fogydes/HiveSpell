@@ -1,6 +1,6 @@
 import * as firebaseApp from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getDatabase } from "firebase/database";
+import * as firebaseDatabase from "firebase/database";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDH5327QBuQ99G2-mqp-GKNy2CVbIFVuk8",
@@ -17,4 +17,7 @@ const firebaseConfig = {
 // Access initializeApp via namespace and cast to any to resolve TS error about missing export
 const app = (firebaseApp as any).initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+
+// Cast firebaseDatabase to any to access getDatabase which TS thinks is missing
+const { getDatabase } = firebaseDatabase as any;
 export const db = getDatabase(app);

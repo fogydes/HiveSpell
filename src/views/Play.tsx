@@ -2,9 +2,12 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
-import { wordBank, speak, checkAnswer, fetchDefinition, getTitle, MODE_ORDER } from '../services/gameService';
+import { wordBank, speak, checkAnswer, fetchDefinition, getTitle, MODE_ORDER, stopAudio } from '../services/gameService';
 import { db } from '../firebase';
-import { ref, get, update, onValue, set, push, onDisconnect, serverTimestamp, query, limitToLast } from 'firebase/database';
+import * as firebaseDatabase from 'firebase/database';
+
+// Cast firebaseDatabase to any to resolve TS errors
+const { ref, get, update, onValue, set, push, onDisconnect, serverTimestamp, query, limitToLast } = firebaseDatabase as any;
 
 interface GameState {
   type: 'public' | 'private';
@@ -70,6 +73,7 @@ const Play: React.FC = () => {
   const totalTypingTimeSecRef = useRef<number>(0);
   const previousWordRef = useRef<string>('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const processingRef = useRef(false); // Guard against double calls
 
   const animationFrameRef = useRef<number>(0);
 
@@ -78,11 +82,11 @@ const Play: React.FC = () => {
     if (!user || !currentMode) return;
     
     const presenceRef = ref(db, `presence/${currentMode}/${user.uid}`);
-    set(presenceRef, true).catch(err => {}); // Silent fail for permission
-    onDisconnect(presenceRef).remove().catch(err => {});
+    set(presenceRef, true).catch((err: any) => {}); // Silent fail for permission
+    onDisconnect(presenceRef).remove().catch((err: any) => {});
 
     const modePresenceRef = ref(db, `presence/${currentMode}`);
-    const unsubscribePresence = onValue(modePresenceRef, async (snapshot) => {
+    const unsubscribePresence = onValue(modePresenceRef, async (snapshot: any) => {
       const uids = snapshot.val() ? Object.keys(snapshot.val()) : [];
       
       const newPlayers: PlayerPresence[] = [];
@@ -111,7 +115,7 @@ const Play: React.FC = () => {
       }
       newPlayers.sort((a, b) => b.corrects - a.corrects);
       setPlayers(newPlayers);
-    }, (error) => {
+    }, (error: any) => {
       console.warn("Presence listener failed (Perms?):", error);
       // Fallback
       if (user) {
@@ -137,7 +141,7 @@ const Play: React.FC = () => {
     
     // We still query the last 50, but we will filter them client-side based on joinTime
     const chatRef = query(ref(db, `chat/${currentMode}`), limitToLast(50));
-    const unsubscribeChat = onValue(chatRef, (snapshot) => {
+    const unsubscribeChat = onValue(chatRef, (snapshot: any) => {
       const data = snapshot.val();
       if (data) {
         const msgList = Object.entries(data)
@@ -155,7 +159,7 @@ const Play: React.FC = () => {
       } else {
         setMessages([]);
       }
-    }, (error) => {
+    }, (error: any) => {
       console.warn("Chat listener failed:", error);
       setMessages([{ id: 'sys', sender: 'System', text: 'Chat disconnected', timestamp: Date.now(), type: 'server'}]);
     });
@@ -203,68 +207,80 @@ const Play: React.FC = () => {
 
   const nextWord = useCallback(async () => {
     if (!currentMode || !wordBank[currentMode]) return;
+    if (processingRef.current) return; // Prevent race conditions
+    processingRef.current = true;
     
-    let activeMode = currentMode;
-    if (streak > 25) {
-      const currentIndex = MODE_ORDER.indexOf(currentMode);
-      if (currentIndex !== -1 && currentIndex < MODE_ORDER.length - 1) {
-        activeMode = MODE_ORDER[currentIndex + 1];
+    try {
+      let activeMode = currentMode;
+      if (streak > 25) {
+        const currentIndex = MODE_ORDER.indexOf(currentMode);
+        if (currentIndex !== -1 && currentIndex < MODE_ORDER.length - 1) {
+          activeMode = MODE_ORDER[currentIndex + 1];
+        }
       }
+
+      const words = wordBank[activeMode];
+      let word = '';
+      // Prevent immediate repetition
+      let attempts = 0;
+      do {
+        const randomIndex = Math.floor(Math.random() * words.length);
+        word = words[randomIndex];
+        attempts++;
+      } while (word === previousWordRef.current && attempts < 5);
+      
+      previousWordRef.current = word;
+
+      setCurrentWord(word);
+      setInputValue('');
+      setDefinition('Loading definition...');
+      fetchDefinition(word).then(setDefinition);
+      
+      const { time: baseTime } = getModeConfig(activeMode);
+      const decay = streak * 0.5;
+      const calculatedTime = Math.max(3, baseTime - decay); 
+      
+      setTotalTime(calculatedTime);
+      setTimeLeft(calculatedTime);
+      setIntermissionTime(5); 
+      setFeedback(null);
+      
+      // Disable input while speaking
+      setIsInputDisabled(true);
+      setStatus('speaking');
+
+      // Wait for TTS to finish
+      await speak(word, ttsVolume);
+
+      // Re-enable and start timer
+      setIsInputDisabled(false);
+      setStatus('playing');
+
+      const now = Date.now();
+      wordStartTimeRef.current = now;
+      timerEndRef.current = now + (calculatedTime * 1000);
+      
+      // Autofocus
+      setTimeout(() => {
+          if(inputRef.current) inputRef.current.focus();
+      }, 10);
+    } catch (e) {
+      console.error("Error in loop:", e);
+      setStatus('playing');
+      setIsInputDisabled(false);
+    } finally {
+      processingRef.current = false;
     }
-
-    const words = wordBank[activeMode];
-    let word = '';
-    // Prevent immediate repetition
-    let attempts = 0;
-    do {
-      const randomIndex = Math.floor(Math.random() * words.length);
-      word = words[randomIndex];
-      attempts++;
-    } while (word === previousWordRef.current && attempts < 5);
-    
-    previousWordRef.current = word;
-
-    setCurrentWord(word);
-    setInputValue('');
-    setDefinition('Loading definition...');
-    fetchDefinition(word).then(setDefinition);
-    
-    const { time: baseTime } = getModeConfig(activeMode);
-    const decay = streak * 0.5;
-    const calculatedTime = Math.max(3, baseTime - decay); 
-    
-    setTotalTime(calculatedTime);
-    setTimeLeft(calculatedTime);
-    setIntermissionTime(5); 
-    setFeedback(null);
-    
-    // Disable input while speaking
-    setIsInputDisabled(true);
-    setStatus('speaking');
-
-    // Wait for TTS to finish
-    await speak(word, ttsVolume);
-
-    // Re-enable and start timer
-    setIsInputDisabled(false);
-    setStatus('playing');
-
-    const now = Date.now();
-    wordStartTimeRef.current = now;
-    timerEndRef.current = now + (calculatedTime * 1000);
-    
-    // Autofocus
-    setTimeout(() => {
-        if(inputRef.current) inputRef.current.focus();
-    }, 10);
 
   }, [currentMode, streak, ttsVolume]);
 
   const handleModeChange = (newMode: string) => {
+    stopAudio();
     setCurrentMode(newMode);
     setStreak(0);
     // Reset join time when switching modes so chat clears
     joinTimeRef.current = Date.now();
+    // Allow small delay for state to settle, but nextWord guard will handle overlaps
     setTimeout(() => nextWord(), 100);
   };
 
@@ -272,6 +288,11 @@ const Play: React.FC = () => {
     nextWord();
     totalCorrectCharsRef.current = 0;
     totalTypingTimeSecRef.current = 0;
+    
+    // Cleanup audio on unmount
+    return () => {
+      stopAudio();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

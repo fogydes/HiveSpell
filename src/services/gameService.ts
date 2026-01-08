@@ -964,7 +964,25 @@ export const getTitle = (corrects: number, wins: number): string => {
   return 'Newbee';
 };
 
+// Audio State Management
+let currentAudio: HTMLAudioElement | null = null;
+let activeUtterance: SpeechSynthesisUtterance | null = null; // Prevent GC
+
+export const stopAudio = () => {
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio.currentTime = 0;
+    currentAudio = null;
+  }
+  if (typeof window !== 'undefined' && window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+  }
+  activeUtterance = null;
+};
+
 export const speak = async (word: string, volume: number = 1.0): Promise<void> => {
+  stopAudio(); // Force stop overlapping audio
+
   try {
     const response = await fetch('https://api.elevenlabs.io/v1/text-to-speech/pNInz6obpgDQGcFmaJgB', {
       method: 'POST',
@@ -989,31 +1007,44 @@ export const speak = async (word: string, volume: number = 1.0): Promise<void> =
     const blob = await response.blob();
     const audioUrl = URL.createObjectURL(blob);
     
-    // Return a promise that resolves when playback finishes
     return new Promise((resolve) => {
       const audio = new Audio(audioUrl);
+      currentAudio = audio;
       audio.volume = volume;
-      audio.onended = () => {
+
+      const finish = () => {
+        if (currentAudio === audio) currentAudio = null;
         resolve();
       };
-      // Handle errors during playback just in case
-      audio.onerror = () => {
-        resolve();
+
+      audio.onended = finish;
+      audio.onerror = finish;
+      
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(error => {
+          console.warn("Autoplay prevented:", error);
+          finish();
+        });
       }
-      audio.play().catch(e => {
-         console.warn("Autoplay blocked or error", e);
-         resolve();
-      });
     });
 
   } catch (error) {
-    console.error("Error playing audio:", error);
-    // Fallback to basic TTS
+    console.error("Error playing audio, falling back:", error);
+    
     return new Promise((resolve) => {
+        // Fallback to basic TTS
         const utterance = new SpeechSynthesisUtterance(word);
+        activeUtterance = utterance; // Keep ref to prevent GC
         utterance.volume = volume;
-        utterance.onend = () => resolve();
-        utterance.onerror = () => resolve();
+        
+        const finish = () => {
+          activeUtterance = null;
+          resolve();
+        };
+
+        utterance.onend = finish;
+        utterance.onerror = finish;
         window.speechSynthesis.speak(utterance);
     });
   }

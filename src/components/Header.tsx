@@ -3,7 +3,10 @@ import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { auth, db } from '../firebase';
 import { signOut } from 'firebase/auth';
-import { ref, get, query, orderByChild, limitToLast } from 'firebase/database';
+import * as firebaseDatabase from 'firebase/database';
+
+// Cast firebaseDatabase to any to resolve TS errors
+const { ref, get, query, orderByChild, limitToLast } = firebaseDatabase as any;
 
 const Header: React.FC = () => {
   const { userData, user } = useAuth();

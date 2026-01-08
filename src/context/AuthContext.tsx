@@ -1,7 +1,10 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { ref, onValue, off, update } from 'firebase/database';
+import * as firebaseDatabase from 'firebase/database';
 import { auth, db } from '../firebase';
+
+// Cast firebaseDatabase to any to resolve TS errors
+const { ref, onValue, off, update } = firebaseDatabase as any;
 
 // 1. Define 'UserData' interface
 export interface UserData {
@@ -38,7 +41,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (currentUser) {
         const userRef = ref(db, `users/${currentUser.uid}`);
         
-        const unsubscribeData = onValue(userRef, (snapshot) => {
+        const unsubscribeData = onValue(userRef, (snapshot: any) => {
           const data = snapshot.val();
           if (data) {
             // Self-repair: If username is missing in DB (legacy account), fix it.
@@ -46,7 +49,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (!finalUsername) {
                finalUsername = currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Player');
                // Async update to fix DB
-               update(userRef, { username: finalUsername }).catch(err => console.warn("Auto-fix username failed", err));
+               update(userRef, { username: finalUsername }).catch((err: any) => console.warn("Auto-fix username failed", err));
             }
 
             setUserData({
@@ -67,7 +70,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               username: newName
             });
           }
-        }, (error) => {
+        }, (error: any) => {
           console.warn("Auth Data Fetch Error:", error);
           // Fallback
           setUserData({ 
