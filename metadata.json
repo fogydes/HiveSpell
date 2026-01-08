@@ -1,0 +1,5 @@
+{
+  "name": "HiveSpell",
+  "description": "A real-time multiplayer spelling bee game with voice synthesis and progressive difficulty levels.",
+  "requestFramePermissions": []
+}

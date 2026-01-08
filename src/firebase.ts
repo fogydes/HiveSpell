@@ -1,0 +1,20 @@
+import * as firebaseApp from "firebase/app";
+import { getAuth } from "firebase/auth";
+import { getDatabase } from "firebase/database";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDH5327QBuQ99G2-mqp-GKNy2CVbIFVuk8",
+  authDomain: "hivespell-db.firebaseapp.com",
+  projectId: "hivespell-db",
+  storageBucket: "hivespell-db.firebasestorage.app",
+  messagingSenderId: "684937158022",
+  appId: "1:684937158022:web:dce1947f4f708b1d536007",
+  measurementId: "G-1RZBL1BSV8",
+  // Update region to asia-southeast1 as requested
+  databaseURL: "https://hivespell-db-default-rtdb.asia-southeast1.firebasedatabase.app"
+};
+
+// Access initializeApp via namespace and cast to any to resolve TS error about missing export
+const app = (firebaseApp as any).initializeApp(firebaseConfig);
+export const auth = getAuth(app);
+export const db = getDatabase(app);
