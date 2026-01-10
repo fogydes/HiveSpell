@@ -1,4 +1,3 @@
-
 import * as firebaseApp from "firebase/app";
 // Fix: Use namespace import for Auth to resolve TS error about missing export
 import * as firebaseAuth from "firebase/auth";

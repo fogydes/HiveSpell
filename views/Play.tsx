@@ -195,15 +195,15 @@ const Play: React.FC = () => {
 
   const getModeConfig = (mode: string) => {
     switch (mode) {
-      case 'baby': return { time: 10, stars: 6 };
-      case 'cakewalk': return { time: 12, stars: 8 };
-      case 'learner': return { time: 14, stars: 10 };
-      case 'intermediate': return { time: 18, stars: 12 };
-      case 'heated': return { time: 20, stars: 14 };
-      case 'genius': return { time: 25, stars: 16 };
-      case 'polymath': return { time: 30, stars: 18 };
-      case 'omniscient': return { time: 20, stars: 20 };
-      default: return { time: 15, stars: 5 };
+      case 'baby': return { stars: 6 };
+      case 'cakewalk': return { stars: 8 };
+      case 'learner': return { stars: 10 };
+      case 'intermediate': return { stars: 12 };
+      case 'heated': return { stars: 14 };
+      case 'genius': return { stars: 16 };
+      case 'polymath': return { stars: 18 };
+      case 'omniscient': return { stars: 20 };
+      default: return { stars: 5 };
     }
   };
 
@@ -214,6 +214,7 @@ const Play: React.FC = () => {
     
     try {
       let activeMode = currentMode;
+      // Rampage Logic: switch mode if streak is high
       if (streak > 25) {
         const currentIndex = MODE_ORDER.indexOf(currentMode);
         if (currentIndex !== -1 && currentIndex < MODE_ORDER.length - 1) {
@@ -222,11 +223,29 @@ const Play: React.FC = () => {
       }
 
       const words = wordBank[activeMode];
+      
+      // PROGRESSIVE DIFFICULTY LOGIC
+      // words array is now sorted by length in gameService
+      let selectionPool = [];
+      
+      if (streak < 5) {
+        // Start with the shortest 30% of words for warm-up
+        const limit = Math.max(5, Math.floor(words.length * 0.3));
+        selectionPool = words.slice(0, limit);
+      } else if (streak < 15) {
+        // Mid-game: use first 70% of words (short + medium)
+        const limit = Math.max(10, Math.floor(words.length * 0.7));
+        selectionPool = words.slice(0, limit);
+      } else {
+        // Late game: Any word goes, including the longest
+        selectionPool = words;
+      }
+
       let word = '';
       let attempts = 0;
       do {
-        const randomIndex = Math.floor(Math.random() * words.length);
-        word = words[randomIndex];
+        const randomIndex = Math.floor(Math.random() * selectionPool.length);
+        word = selectionPool[randomIndex];
         attempts++;
       } while (word === previousWordRef.current && attempts < 5);
       
@@ -237,13 +256,28 @@ const Play: React.FC = () => {
       setDefinition('Loading definition...');
       fetchDefinition(word).then(setDefinition);
       
-      const { time: baseTime } = getModeConfig(activeMode);
+      // DYNAMIC TIMER LOGIC (Burst WPM based)
+      // Logic: Start generous, tighten as streak increases
+      const wordLen = word.length;
       
-      const lengthComponent = word.length * 1.0;
-      const baseBuffer = 4.0;
-      const totalBase = lengthComponent + baseBuffer;
-      const decay = streak * 0.2;
-      const calculatedTime = Math.max(3, totalBase - decay); 
+      // Base seconds per character based on user observation of "Max Seen"
+      // Baby: ~1s/char (4 chars -> 4.5s)
+      // Polymath: ~0.8s/char (20 chars -> 18s)
+      // We start slightly looser and decay
+      let secPerChar = 1.0; 
+      if (activeMode === 'intermediate' || activeMode === 'heated') secPerChar = 0.9;
+      if (activeMode === 'genius' || activeMode === 'polymath') secPerChar = 0.8;
+
+      // Base Calculation
+      // Always have a minimum buffer of 2.0s for reaction time
+      let calculatedTime = 2.0 + (wordLen * secPerChar);
+
+      // Streak Decay: Reduce time by 1% per streak point, capped at 40% reduction
+      const decayFactor = Math.max(0.6, 1 - (streak * 0.01)); 
+      calculatedTime = calculatedTime * decayFactor;
+
+      // Hard limits to prevent impossible times
+      calculatedTime = Math.max(2.5, calculatedTime); 
       
       setTotalTime(calculatedTime);
       setTimeLeft(calculatedTime);
@@ -508,15 +542,16 @@ const Play: React.FC = () => {
          </div>
       </div>
 
-      <div className={`w-full max-w-xl flex flex-col items-center z-10 transition-all duration-500 p-4 sm:p-8 rounded-3xl border border-transparent ${getFireIntensity()}`}>
+      <div className={`w-full max-w-xl flex flex-col items-center z-10 transition-all duration-500 p-4 sm:p-8 rounded-3xl border border-transparent relative ${getFireIntensity()}`}>
+        {/* Fix: Moved exit button to top-left to avoid right sidebar overlap */}
         <button 
            onClick={exitArena}
-           className="hidden lg:block absolute -top-12 right-0 p-2 text-red-400 hover:text-red-300 font-bold text-sm uppercase tracking-widest transition-colors"
+           className="hidden lg:block absolute top-4 left-4 p-2 text-red-400 hover:text-red-300 font-bold text-xs uppercase tracking-widest transition-colors border border-transparent hover:border-red-500/30 rounded"
          >
            Exit Arena
          </button>
 
-        <div className="w-full max-w-lg mb-4 sm:mb-8 text-center min-h-[50px]">
+        <div className="w-full max-w-lg mb-4 sm:mb-8 text-center min-h-[50px] mt-8">
            {status === 'playing' ? (
              <p className="text-slate-400 text-xs sm:text-sm italic font-serif leading-relaxed px-4 py-2 bg-slate-900/50 rounded-lg border border-slate-800">
                "{definition}"

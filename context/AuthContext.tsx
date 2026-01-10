@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 // Fix: Use namespace import for Auth and define User type as any to bypass export errors
 import * as firebaseAuth from 'firebase/auth';

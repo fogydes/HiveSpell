@@ -30,7 +30,7 @@ const Home: React.FC = () => {
 
         <button 
           onClick={() => handleNav(user ? "/lobby" : "/auth")} 
-          className="px-10 py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-900 rounded-full font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-emerald-500/20 tracking-wide cursor-pointer"
+          className="px-10 py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-900 rounded-full font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-emerald-500/20 tracking-wide cursor-wide cursor-pointer"
         >
           {user ? "CONTINUE TO LOBBY" : "GET STARTED"}
         </button>

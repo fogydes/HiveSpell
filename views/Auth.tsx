@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 // Fix: Use namespace imports for Auth and Database to resolve export errors in certain environments
 import * as firebaseAuth from 'firebase/auth';
