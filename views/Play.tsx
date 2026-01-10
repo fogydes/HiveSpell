@@ -40,6 +40,11 @@ interface PlayerPresence {
   wins: number;
 }
 
+interface WordStat {
+  word: string;
+  wpm: number;
+}
+
 const Play: React.FC = () => {
   const { mode: paramMode } = useParams<{ mode: string }>();
   const location = useLocation();
@@ -49,17 +54,25 @@ const Play: React.FC = () => {
   const gameState = (location.state as GameState) || { type: 'public', role: 'player' };
 
   const [currentMode, setCurrentMode] = useState(paramMode || 'baby');
+  
+  // Game Logic State
   const [timeLeft, setTimeLeft] = useState(10);
   const [totalTime, setTotalTime] = useState(10);
   const [streak, setStreak] = useState(0);
-  const [wpm, setWpm] = useState(0);
+  
+  // WPM & Stats State
+  const [correctWords, setCorrectWords] = useState<WordStat[]>([]);
+  const [startTime, setStartTime] = useState<number | undefined>(undefined);
+  const [avgWpm, setAvgWpm] = useState(0);
+  const [lastBurstWpm, setLastBurstWpm] = useState(0);
+  const [isInputEnabled, setIsInputEnabled] = useState(false);
+
   const [currentWord, setCurrentWord] = useState('');
   const [definition, setDefinition] = useState('');
   const [inputValue, setInputValue] = useState('');
   const [status, setStatus] = useState<'playing' | 'intermission' | 'speaking'>('playing');
   const [intermissionTime, setIntermissionTime] = useState(10);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error', msg: string } | null>(null);
-  const [isInputDisabled, setIsInputDisabled] = useState(false);
   
   // UI States
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -67,22 +80,38 @@ const Play: React.FC = () => {
   const [players, setPlayers] = useState<PlayerPresence[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
   
-  // Track join time to filter old chat history
   const joinTimeRef = useRef<number>(Date.now());
-
-  // Sidebar Toggles (Mobile Only)
   const [activeTab, setActiveTab] = useState<'none' | 'chat' | 'players'>('none');
 
-  // High Precision Refs for WPM
-  const wordStartTimeRef = useRef<number>(0);
-  const timerEndRef = useRef<number>(0);
-  const totalCorrectCharsRef = useRef<number>(0);
-  const totalTypingTimeSecRef = useRef<number>(0);
   const previousWordRef = useRef<string>('');
   const inputRef = useRef<HTMLInputElement>(null);
   const processingRef = useRef(false);
-
+  const timerEndRef = useRef<number>(0);
   const animationFrameRef = useRef<number>(0);
+
+  // SESSION STORAGE SYNC
+  useEffect(() => {
+    if (correctWords.length > 0) {
+      sessionStorage.setItem("gameData", JSON.stringify({ difficulty: currentMode, correctWords: correctWords }));
+      
+      // Calculate Average WPM
+      const total = correctWords.reduce((sum, item) => sum + item.wpm, 0);
+      setAvgWpm(Math.round(total / correctWords.length));
+    }
+  }, [correctWords, currentMode]);
+
+  // AUTO-FOCUS FIX: This effect runs after render, ensuring the input is enabled in the DOM before we focus it
+  useEffect(() => {
+    if (isInputEnabled && status === 'playing' && inputRef.current) {
+      // Immediate attempt
+      inputRef.current.focus();
+      // Backup attempt to handle any slight render delays
+      const timer = setTimeout(() => {
+        if(inputRef.current) inputRef.current.focus();
+      }, 10);
+      return () => clearTimeout(timer);
+    }
+  }, [isInputEnabled, status]);
 
   // PRESENCE SYSTEM
   useEffect(() => {
@@ -192,7 +221,6 @@ const Play: React.FC = () => {
     }
   };
 
-
   const getModeConfig = (mode: string) => {
     switch (mode) {
       case 'baby': return { stars: 6 };
@@ -224,20 +252,15 @@ const Play: React.FC = () => {
 
       const words = wordBank[activeMode];
       
-      // PROGRESSIVE DIFFICULTY LOGIC
-      // words array is now sorted by length in gameService
+      // PROGRESSIVE DIFFICULTY SELECTION
       let selectionPool = [];
-      
       if (streak < 5) {
-        // Start with the shortest 30% of words for warm-up
         const limit = Math.max(5, Math.floor(words.length * 0.3));
         selectionPool = words.slice(0, limit);
       } else if (streak < 15) {
-        // Mid-game: use first 70% of words (short + medium)
         const limit = Math.max(10, Math.floor(words.length * 0.7));
         selectionPool = words.slice(0, limit);
       } else {
-        // Late game: Any word goes, including the longest
         selectionPool = words;
       }
 
@@ -256,53 +279,48 @@ const Play: React.FC = () => {
       setDefinition('Loading definition...');
       fetchDefinition(word).then(setDefinition);
       
-      // DYNAMIC TIMER LOGIC (Burst WPM based)
-      // Logic: Start generous, tighten as streak increases
-      const wordLen = word.length;
-      
-      // Base seconds per character based on user observation of "Max Seen"
-      // Baby: ~1s/char (4 chars -> 4.5s)
-      // Polymath: ~0.8s/char (20 chars -> 18s)
-      // We start slightly looser and decay
-      let secPerChar = 1.0; 
-      if (activeMode === 'intermediate' || activeMode === 'heated') secPerChar = 0.9;
-      if (activeMode === 'genius' || activeMode === 'polymath') secPerChar = 0.8;
-
-      // Base Calculation
-      // Always have a minimum buffer of 2.0s for reaction time
-      let calculatedTime = 2.0 + (wordLen * secPerChar);
-
-      // Streak Decay: Reduce time by 1% per streak point, capped at 40% reduction
-      const decayFactor = Math.max(0.6, 1 - (streak * 0.01)); 
-      calculatedTime = calculatedTime * decayFactor;
-
-      // Hard limits to prevent impossible times
-      calculatedTime = Math.max(2.5, calculatedTime); 
-      
-      setTotalTime(calculatedTime);
-      setTimeLeft(calculatedTime);
+      // CLEAN TIMER LOGIC STEP 1: Disable Input, Clear Start Time
+      setIsInputEnabled(false);
+      setStartTime(undefined);
+      setStatus('speaking');
       setIntermissionTime(5); 
       setFeedback(null);
-      
-      setIsInputDisabled(true);
-      setStatus('speaking');
 
+      // Play Audio (Non-blocking usually, but we want it to start before timer)
       await speak(word, ttsVolume);
 
-      setIsInputDisabled(false);
-      setStatus('playing');
-
-      const now = Date.now();
-      wordStartTimeRef.current = now;
-      timerEndRef.current = now + (calculatedTime * 1000);
-      
+      // CLEAN TIMER LOGIC STEP 2: Wait 800ms
       setTimeout(() => {
-          if(inputRef.current) inputRef.current.focus();
-      }, 10);
+         // Enable Input
+         setIsInputEnabled(true);
+         // Set START TIME
+         setStartTime(Date.now());
+         setStatus('playing');
+         
+         // COUNTDOWN TIMER LOGIC (Game Over Timer)
+         // Calculate duration based on word length + streak decay
+         const wordLen = word.length;
+         let secPerChar = 1.0; 
+         if (activeMode === 'intermediate' || activeMode === 'heated') secPerChar = 0.9;
+         if (activeMode === 'genius' || activeMode === 'polymath') secPerChar = 0.8;
+
+         let calculatedTime = 2.0 + (wordLen * secPerChar);
+         const decayFactor = Math.max(0.6, 1 - (streak * 0.01)); 
+         calculatedTime = Math.max(2.5, calculatedTime * decayFactor); 
+
+         setTotalTime(calculatedTime);
+         setTimeLeft(calculatedTime);
+         
+         // Start Countdown
+         timerEndRef.current = Date.now() + (calculatedTime * 1000);
+
+      }, 800);
+
     } catch (e) {
       console.error("Error in loop:", e);
       setStatus('playing');
-      setIsInputDisabled(false);
+      setIsInputEnabled(true);
+      setStartTime(Date.now());
     } finally {
       processingRef.current = false;
     }
@@ -313,20 +331,22 @@ const Play: React.FC = () => {
     stopAudio();
     setCurrentMode(newMode);
     setStreak(0);
+    setCorrectWords([]);
+    setAvgWpm(0);
+    setLastBurstWpm(0);
     joinTimeRef.current = Date.now();
     setTimeout(() => nextWord(), 100);
   };
 
   useEffect(() => {
     nextWord();
-    totalCorrectCharsRef.current = 0;
-    totalTypingTimeSecRef.current = 0;
     
     return () => {
       stopAudio();
     }
   }, []);
 
+  // GAME OVER TIMER LOOP
   useEffect(() => {
     const updateTimer = () => {
       if (status === 'playing') {
@@ -351,6 +371,7 @@ const Play: React.FC = () => {
     return () => cancelAnimationFrame(animationFrameRef.current);
   }, [status, currentWord]);
 
+  // INTERMISSION TIMER LOOP
   useEffect(() => {
     let interval: any;
     if (status === 'intermission') {
@@ -370,22 +391,9 @@ const Play: React.FC = () => {
 
   const handleFail = (msg: string) => {
     setStreak(0);
+    // On fail, we do not reset WPM history, only current streak
     setStatus('intermission');
     setFeedback({ type: 'error', msg: `${msg} The word was: ${currentWord}` });
-  };
-
-  const updateWPM = (wordLen: number) => {
-    const now = Date.now();
-    const durationSec = (now - wordStartTimeRef.current) / 1000;
-    totalTypingTimeSecRef.current += durationSec;
-    totalCorrectCharsRef.current += wordLen;
-
-    const totalMinutes = totalTypingTimeSecRef.current / 60;
-    
-    if (totalMinutes > 0) {
-      const grossWPM = (totalCorrectCharsRef.current / 5) / totalMinutes;
-      setWpm(Math.round(grossWPM));
-    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -399,9 +407,26 @@ const Play: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (status !== 'playing') return;
+    
+    // BURST WPM LOGIC STEP 1: Capture End Time Immediately
+    const endTime = Date.now();
 
     if (checkAnswer(currentWord, inputValue.trim())) {
-      updateWPM(currentWord.length);
+      
+      // BURST WPM LOGIC STEP 2: Calculate
+      if (startTime) {
+        const durationMs = endTime - startTime;
+        // Avoid division by zero if they type instantly (e.g. 1ms)
+        const minutesElapsed = Math.max(durationMs, 1) / 60000;
+        
+        // Formula: (Characters / 4) / Minutes
+        const burstWpm = Math.round((currentWord.length / 4) / minutesElapsed);
+        
+        // Update Stats
+        setLastBurstWpm(burstWpm);
+        setCorrectWords(prev => [...prev, { word: currentWord, wpm: burstWpm }]);
+      }
+
       const newStreak = streak + 1;
       setStreak(newStreak);
       
@@ -543,7 +568,7 @@ const Play: React.FC = () => {
       </div>
 
       <div className={`w-full max-w-xl flex flex-col items-center z-10 transition-all duration-500 p-4 sm:p-8 rounded-3xl border border-transparent relative ${getFireIntensity()}`}>
-        {/* Fix: Moved exit button to top-left to avoid right sidebar overlap */}
+        
         <button 
            onClick={exitArena}
            className="hidden lg:block absolute top-4 left-4 p-2 text-red-400 hover:text-red-300 font-bold text-xs uppercase tracking-widest transition-colors border border-transparent hover:border-red-500/30 rounded"
@@ -576,9 +601,15 @@ const Play: React.FC = () => {
              </div>
              <div>STREAK</div>
            </div>
+           
            <div className="text-center">
-             <div className="text-emerald-400 text-xl sm:text-2xl mb-1">{wpm}</div>
-             <div>WPM</div>
+             <div className="text-emerald-400 text-xl sm:text-2xl mb-1 flex flex-col items-center leading-none">
+                 <span>{avgWpm}</span>
+                 {lastBurstWpm > 0 && (
+                     <span className="text-[10px] text-emerald-600 animate-fade-in-up">+{lastBurstWpm}</span>
+                 )}
+             </div>
+             <div>AVG WPM</div>
            </div>
         </div>
 
@@ -635,7 +666,7 @@ const Play: React.FC = () => {
                 autoFocus
                 value={inputValue}
                 onChange={handleInputChange}
-                disabled={isInputDisabled || status !== 'playing'}
+                disabled={!isInputEnabled || status !== 'playing'}
                 placeholder="Type word..."
                 className="w-full bg-transparent border-b-2 border-slate-700 focus:border-emerald-500 text-center text-3xl sm:text-5xl font-bold text-white outline-none py-2 sm:py-4 placeholder:text-slate-800 transition-colors disabled:opacity-50 disabled:cursor-wait"
               />

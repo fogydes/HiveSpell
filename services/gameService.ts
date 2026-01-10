@@ -851,109 +851,124 @@ Tonsillopharyngitis
 Uvulopalatopharyngoplasty
 Ventriculocisternostomy`;
 
-// 1. BACKUP DICTIONARY FOR HARD WORDS
+// 1. EXTENSIVE DICTIONARY MAPPING
+// Updated to include words from Heated, Genius, and Polymath lists
 const LOCAL_DEFINITIONS: Record<string, string> = {
-  "floccinaucinihilipilification": "The action or habit of estimating something as worthless.",
-  "hippopotomonstrosesquipedaliophobia": "The fear of long words.",
-  "pneumonoultramicroscopicsilicovolcanoconiosis": "A lung disease caused by inhaling very fine ash and sand dust.",
-  "supercalifragilisticexpialidocious": "Extraordinarily good; wonderful.",
-  "antidisestablishmentarianism": "Opposition to the disestablishment of the Church of England.",
-  "pseudopseudohypoparathyroidism": "A mild form of inherited pseudohypoparathyroidism.",
-  "honorificabilitudinitatibus": "The state of being able to achieve honours.",
-  "honorificabilitudinity": "The state of being able to achieve honours.",
-  "dichlorodiphenyltrichloroethane": "A colorless, tasteless, and almost odorless crystalline chemical compound (DDT).",
-  "thyroparathyroidectomy": "Surgical removal of the thyroid and parathyroid glands.",
-  "psychoneuroendocrinological": "Relating to the interaction between psychological processes and the nervous and endocrine systems.",
-  "otorhinolaryngological": "Relating to the study of diseases of the ear, nose, and throat.",
-  "immunoelectrochemiluminescence": "A technique used for detection of antigens or antibodies.",
-  "radioallergosorbent": "A test used to detect specific IgE antibodies to suspected allergens.",
-  "sternocleidomastoid": "A pair of long muscles that connect the sternum, clavicle, and mastoid process.",
-  "hexakosioihexekontahexaphobia": "Fear of the number 666.",
-  "sesquipedalian": "Characterized by long words; long-winded.",
-  "defenestration": "The act of throwing someone out of a window.",
-  "callipygian": "Having well-shaped buttocks.",
-  "ombudsmen": "Officials appointed to investigate individuals' complaints against maladministration.",
-  "syzygy": "A conjunction or opposition, especially of the moon with the sun.",
-  "sphygmomanometer": "An instrument for measuring blood pressure.",
-  "xenotransplantation": "The process of grafting or transplanting organs or tissues between members of different species.",
+  // --- Heated ---
+  "abacaxi": "A large, sweet pineapple grown in Brazil.",
+  "abasia": "Inability to walk due to a lack of motor coordination.",
+  "accommodate": "Fit in with the wishes or needs of.",
+  "acculturate": "Assimilate to a different culture, typically the dominant one.",
+  "aegis": "The protection, backing, or support of a particular person or organization.",
+  "aggrandize": "Enhance the reputation or power of someone beyond what is justified.",
+  "ambidextrous": "Able to use the right and left hands equally well.",
+  "apocryphal": "of doubtful authenticity, although widely circulated as being true.",
+  "ataraxy": "A state of serene calmness.",
+  "blatherskite": "A person who talks at great length without making much sense.",
+  "bodacious": "Excellent, admirable, or attractive.",
+  "bucolic": "Relating to the pleasant aspects of the countryside and country life.",
+  "cacophony": "A harsh, discordant mixture of sounds.",
+  "capricious": "Given to sudden and unaccountable changes of mood or behavior.",
+  "cerulean": "Deep blue in color like a clear sky.",
+  "clandestine": "Kept secret or done secretively.",
+  "codicil": "An addition or supplement that explains, modifies, or revokes a will.",
+  "defenestration": "The act of throwing someone or something out of a window.",
+  "deleterious": "Causing harm or damage.",
+  "discombobulate": "Disconcert or confuse (someone).",
+  "dodecahedron": "A three-dimensional shape having twelve plane faces.",
+  "elysian": "Relating to or characteristic of heaven or paradise.",
+  "fissiparous": "Inclined to cause or undergo division into separate parts or groups.",
+  "flummox": "Perplex (someone) greatly; bewilder.",
+  "glockenspiel": "A musical percussion instrument having a set of tuned metal pieces.",
   "gobbledygook": "Language that is meaningless or is made unintelligible by excessive use of abstruse technical terms.",
-  "schadenfreude": "Pleasure derived by someone from another person's misfortune.",
-  "doppelganger": "An apparition or double of a living person.",
-  "zeitgeist": "The defining spirit or mood of a particular period of history as shown by the ideas and beliefs of the time.",
-  "polydactyly": "A condition in which a person or animal has more than five fingers or toes on one, or on each, hand or foot.",
-  "idiosyncratic": "Relating to idiosyncrasy; peculiar or individual.",
-  "onamatopoeia": "The formation of a word from a sound associated with what is named.",
-  "onomatopoeia": "The formation of a word from a sound associated with what is named.",
-  "miscellaneous": "Of various types or from different sources.",
-  "bureaucracy": "A system of government in which most of the important decisions are made by state officials rather than by elected representatives.",
-  "bourgeoisie": "The middle class, typically with reference to its perceived materialistic values or conventional attitudes.",
+  "grandiloquent": "Pompous or extravagant in language, style, or manner.",
+  "horticulturist": "An expert in or student of garden cultivation and management.",
+  "iconoclast": "A person who attacks cherished beliefs or institutions.",
+  "indefatigable": "Persisting tirelessly.",
+  "lugubrious": "Looking or sounding sad and dismal.",
+  "mellifluous": "(of a voice or words) sweet or musical; pleasant to hear.",
+  "milieu": "A person's social environment.",
+  "nocturne": "A short composition of a romantic or dreamy character suggestive of night.",
+  "obfuscation": "The action of making something obscure, unclear, or unintelligible.",
+  "paroxysm": "A sudden attack or violent expression of a particular emotion or activity.",
+  "phantasmagoria": "A sequence of real or imaginary images like those seen in a dream.",
+  "polemic": "A strong verbal or written attack on someone or something.",
+  "puerile": "Childishly silly and trivial.",
+  "quixotry": "Visionary or impractical schemes or ideas.",
+  "rambunctious": "Uncontrollably exuberant; boisterous.",
+  "sagacious": "Having or showing keen mental discernment and good judgment.",
+  "sanguine": "Optimistic or positive, especially in an apparently bad or difficult situation.",
+  "scintillate": "Emit flashes of light; sparkle.",
+  "sequoia": "A redwood tree, especially the giant sequoia.",
+  "subpoena": "A writ ordering a person to attend a court.",
+  "syzygy": "A conjunction or opposition, especially of the moon with the sun.",
+  "ubiquitous": "Present, appearing, or found everywhere.",
+  "zephyr": "A soft gentle breeze.",
+  "zygote": "A diploid cell resulting from the fusion of two haploid gametes.",
+  
+  // --- Genius ---
+  "absquatulate": "To leave abruptly.",
+  "acetaminophen": "An analgesic drug used to treat headaches, arthritis, etc.",
+  "acquiesce": "Accept something reluctantly but without protest.",
   "anachronistic": "Belonging to a period other than that being portrayed.",
+  "antediluvian": "Of or belonging to the time before the biblical Flood.",
+  "borborygmus": "A rumbling or gurgling noise made by the movement of fluid and gas in the intestines.",
+  "bougainvillea": "An ornamental climbing plant widely cultivated in the tropics.",
+  "bourgeoisie": "The middle class, typically with reference to its perceived materialistic values.",
+  "bureaucracy": "A system of government in which most of the important decisions are made by state officials.",
+  "effervescent": "Giving off bubbles; fizzy.",
+  "entrepreneur": "A person who organizes and operates a business or businesses.",
+  "flibbertigibbet": "A frivolous, flighty, or excessively talkative person.",
+  "gubernatorial": "Relating to a state governor or the office of state governor.",
+  "hieroglyphics": "Enigmatic or incomprehensible symbols or writing.",
+  "machiavellian": "Cunning, scheming, and unscrupulous, especially in politics.",
+  "onomatopoeia": "The formation of a word from a sound associated with what is named.",
+  "perspicacious": "Having a ready insight into and understanding of things.",
+  "plenipotentiary": "A person, especially a diplomat, invested with the full power of independent action.",
+  "portmanteau": "A large trunk or suitcase, typically made of stiff leather and opening into two equal parts.",
+  "prestidigitation": "Magic tricks performed as entertainment.",
+  "prognostication": "The action of foretelling or prophesying future events.",
   "pulchritudinous": "Beautiful.",
   "pusillanimous": "Showing a lack of courage or determination; timid.",
-  "ubiquitous": "Present, appearing, or found everywhere.",
-  "surveillance": "Close observation, especially of a suspected spy or criminal.",
-  "phenomenon": "A fact or situation that is observed to exist or happen, especially one whose cause or explanation is in question.",
-  "lieutenant": "A deputy or substitute acting for a superior.",
-  "colonel": "An army officer of high rank, in particular an officer above a lieutenant colonel and below a brigadier.",
-  "worcestershire": "A county in west central England; also a savory sauce.",
-  "queue": "A line or sequence of people or vehicles awaiting their turn to be attended to or to proceed.",
-  "quinoa": "A grain crop grown primarily for its edible seeds.",
-  "pharaoh": "A ruler in ancient Egypt.",
-  "yacht": "A medium-sized sailboat equipped for cruising or racing.",
-  "misspelled": "Spelled incorrectly.",
-  "embarrassment": "A feeling of self-consciousness, shame, or awkwardness.",
-  "millennium": "A period of a thousand years.",
-  "accommodate": "Fit in with the wishes or needs of.",
-  "deductible": "Able to be deducted, especially from taxable income or tax to be paid.",
-  "handkerchief": "A square of cotton or other finely woven material, typically carried in one's pocket and intended for blowing or wiping one's nose.",
-  "indictment": "A formal charge or accusation of a serious crime.",
-  "mortgage": "A legal agreement by which a bank or other creditor lends money at interest in exchange for taking title of the debtor's property.",
-  "pneumonia": "Lung inflammation caused by bacterial or viral infection.",
-  "raspberry": "An edible soft fruit related to the blackberry, consisting of a cluster of reddish-pink drupelets.",
-  "receipt": "A written or printed statement acknowledging that something has been paid for or that goods have been received.",
-  "rhythm": "A strong, regular, repeated pattern of movement or sound.",
-  "vacuum": "A space entirely devoid of matter.",
-  "weather": "The state of the atmosphere at a place and time.",
-  "whether": "Expressing a doubt or choice between alternatives.",
-  "weird": "Suggesting something supernatural; uncanny.",
-  "necessary": "Required to be done, achieved, or present; needed; essential.",
-  "separate": "Cause to move or be apart.",
-  "definitely": "Without doubt (used for emphasis).",
-  "miniscule": "Extremely small; tiny.",
-  "minuscule": "Extremely small; tiny.",
-  "occurrence": "An incident or event.",
-  "parliament": "In the UK, the highest legislature, consisting of the Sovereign, the House of Lords, and the House of Commons.",
-  "privilege": "A special right, advantage, or immunity granted or available only to a particular person or group.",
-  "publicly": "So as to be seen by other people; in public.",
-  "receive": "Be given, presented with, or paid (something).",
-  "recommend": "Put forward (someone or something) with approval as being suitable for a particular purpose or role.",
-  "referred": "Mention or allude to.",
-  "relevant": "Closely connected or appropriate to what is being done or considered.",
-  "restaurant": "A place where people pay to sit and eat meals that are cooked and served on the premises.",
-  "schedule": "A plan for carrying out a process or procedure, giving lists of intended events and times.",
-  "twelfth": "Constituring number twelve in a sequence.",
-  "until": "Up to the point in time or the event mentioned.",
-  "noob": "A person who is inexperienced in a particular sphere or activity.",
-  "newb": "A newcomer or novice.",
-  "phish": "The fraudulent practice of sending emails purporting to be from reputable companies.",
-  "pwned": "Defeated or dominated (gaming slang).",
-  "abacaxi": "A large, sweet pineapple grown in Brazil.",
-  "gegenstandstheorie": "A theory of objects or items.",
-  "flibbertigibbet": "A frivolous, flighty, or excessively talkative person.",
-  "borborygmus": "A rumbling or gurgling noise made by the movement of fluid and gas in the intestines.",
-  "absquatulate": "To leave abruptly.",
-  "sniffle": "Sniff slightly or repeatedly, typically because of a cold or fit of crying.",
-  "to": "Expressing motion in the direction of.",
-  "too": "To a higher degree than is desirable, permissible, or possible; excessively.",
-  "two": "Equivalent to the sum of one and one.",
-  "there": "In, at, or to that place or position.",
+  "serendipity": "The occurrence and development of events by chance in a happy or beneficial way.",
+  "sesquipedalian": "Characterized by long words; long-winded.",
+  "soliloquy": "An act of speaking one's thoughts aloud when by oneself.",
+  "susurration": "Whispering, murmuring, or rustling.",
+  "utilitarianism": "The doctrine that actions are right if they are useful or for the benefit of a majority.",
+  "verisimilitude": "The appearance of being true or real.",
+  "worcestershire": "A savory sauce containing soy sauce and vinegar.",
+
+  // --- Polymath ---
+  "anthropomorphization": "The attribution of human characteristics or behavior to a god, animal, or object.",
+  "antidisestablishmentarianism": "Opposition to the disestablishment of the Church of England.",
+  "autothaumaturgist": "One who pretends to be mystically self-taught or self-enlightened.",
+  "convolvulaceous": "Belonging to the morning glory family of plants.",
+  "floccinaucinihilipilification": "The action or habit of estimating something as worthless.",
+  "gastroenterologist": "A medical practitioner qualified to diagnose and treat disorders of the stomach and intestines.",
+  "gegenstandstheorie": "A theory of objects or items, associated with Meinong.",
+  "hippopotomonstrosesquipedaliophobia": "The fear of long words.",
+  "honorificabilitudinity": "The state of being able to achieve honours.",
+  "micropachycephalosaurus": "A genus of small herbivorous dinosaur.",
+  "otorhinolaryngological": "Relating to the study of diseases of the ear, nose, and throat.",
+  "pneumonoultramicroscopicsilicovolcanoconiosis": "A lung disease caused by inhaling very fine ash and sand dust.",
+  "psychoneuroimmunology": "The study of the effect of the mind on health and resistance to disease.",
+  "sphygmomanometer": "An instrument for measuring blood pressure.",
+  "supercalifragilisticexpialidocious": "Extraordinarily good; wonderful.",
+  "thyroparathyroidectomy": "Surgical removal of the thyroid and parathyroid glands.",
+  "ventriculocisternostomy": "A surgical operation to create a communication between a cerebral ventricle and a cisterna magna.",
+
+  // --- Common Homophones & others ---
   "their": "Belonging to or associated with the people or things previously mentioned.",
+  "there": "In, at, or to that place or position.",
   "they're": "Contraction of 'they are'.",
-  "write": "Mark (letters, words, or other symbols) on a surface, typically paper, with a pen, pencil, or similar implement.",
-  "right": "True or correct as a fact.",
-  "sight": "The faculty or power of seeing.",
-  "site": "An area of ground on which a town, building, or monument is constructed.",
-  "cite": "Quote (a passage, book, or author) as evidence for or justification of an argument or statement."
+  "to": "Expressing motion in the direction of.",
+  "too": "To a higher degree than is desirable.",
+  "two": "The number 2.",
+  "phish": "The fraudulent practice of sending emails purporting to be from reputable companies.",
+  "newb": "A newcomer or novice.",
+  "noob": "A person who is inexperienced in a particular sphere or activity.",
+  "psi": "The twenty-third letter of the Greek alphabet.",
+  "sigh": "Emit a long, deep, audible breath expressing sadness, relief, or tiredness."
 };
 
 const parseWords = (text: string) => text.split('\n').map(w => w.trim()).filter(w => w.length > 0 && !w.startsWith('-'));
@@ -1051,7 +1066,6 @@ export const checkAnswer = (target: string, input: string): boolean => {
 };
 
 export const fetchDefinition = async (word: string): Promise<string> => {
-  // Check local dictionary first
   const lowerWord = word.toLowerCase().trim();
   if (LOCAL_DEFINITIONS[lowerWord]) {
     return LOCAL_DEFINITIONS[lowerWord];
@@ -1091,25 +1105,49 @@ export const stopAudio = () => {
   activeUtterance = null;
 };
 
+// IMPROVED SPEAK FUNCTION
+// Falls back to browser TTS if API call is too slow (1.5s timeout) or fails
 export const speak = async (word: string, volume: number = 1.0): Promise<void> => {
   stopAudio();
 
+  const playBrowserTTS = () => {
+    return new Promise<void>((resolve) => {
+      const utterance = new SpeechSynthesisUtterance(word);
+      activeUtterance = utterance;
+      utterance.volume = volume;
+      utterance.rate = 0.9; // Slightly slower for clarity
+      
+      const finish = () => {
+        activeUtterance = null;
+        resolve();
+      };
+
+      utterance.onend = finish;
+      utterance.onerror = finish;
+      window.speechSynthesis.speak(utterance);
+    });
+  };
+
   try {
-    const response = await fetch('https://api.elevenlabs.io/v1/text-to-speech/pNInz6obpgDQGcFmaJgB', {
+    // Race between API fetch and a timeout
+    const fetchPromise = fetch('https://api.elevenlabs.io/v1/text-to-speech/pNInz6obpgDQGcFmaJgB', {
       method: 'POST',
       headers: {
-        "xi-api-key": "YOUR_API_KEY",
+        "xi-api-key": "sk_229d95d9dbf414c1b6455dcd5fd20d8aaa18b14ccf789344",
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
         text: word,
         model_id: "eleven_turbo_v2_5",
-        voice_settings: {
-          stability: 0.5,
-          similarity_boost: 0.75
-        }
+        voice_settings: { stability: 0.5, similarity_boost: 0.75 }
       })
     });
+
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error("Timeout")), 1500)
+    );
+
+    const response = await Promise.race([fetchPromise, timeoutPromise]) as Response;
 
     if (!response.ok) {
       throw new Error(`TTS Failed: ${response.status}`);
@@ -1141,21 +1179,7 @@ export const speak = async (word: string, volume: number = 1.0): Promise<void> =
     });
 
   } catch (error) {
-    console.error("Error playing audio, falling back:", error);
-    
-    return new Promise((resolve) => {
-        const utterance = new SpeechSynthesisUtterance(word);
-        activeUtterance = utterance;
-        utterance.volume = volume;
-        
-        const finish = () => {
-          activeUtterance = null;
-          resolve();
-        };
-
-        utterance.onend = finish;
-        utterance.onerror = finish;
-        window.speechSynthesis.speak(utterance);
-    });
+    console.warn("Falling back to Browser TTS due to:", error);
+    return playBrowserTTS();
   }
 };
