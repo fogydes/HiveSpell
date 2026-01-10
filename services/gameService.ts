@@ -1098,7 +1098,7 @@ export const speak = async (word: string, volume: number = 1.0): Promise<void> =
     const response = await fetch('https://api.elevenlabs.io/v1/text-to-speech/pNInz6obpgDQGcFmaJgB', {
       method: 'POST',
       headers: {
-        "xi-api-key": "sk_229d95d9dbf414c1b6455dcd5fd20d8aaa18b14ccf789344",
+        "xi-api-key": "YOUR_API_KEY",
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
