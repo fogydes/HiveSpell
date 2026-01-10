@@ -604,12 +604,9 @@ const Play: React.FC = () => {
            
            <div className="text-center">
              <div className="text-emerald-400 text-xl sm:text-2xl mb-1 flex flex-col items-center leading-none">
-                 <span>{avgWpm}</span>
-                 {lastBurstWpm > 0 && (
-                     <span className="text-[10px] text-emerald-600 animate-fade-in-up">+{lastBurstWpm}</span>
-                 )}
+                 <span>{lastBurstWpm}</span>
              </div>
-             <div>AVG WPM</div>
+             <div>WPM</div>
            </div>
         </div>
 
