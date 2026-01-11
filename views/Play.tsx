@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
@@ -68,7 +68,7 @@ const Play: React.FC = () => {
   const [isInputEnabled, setIsInputEnabled] = useState(false);
 
   const [currentWord, setCurrentWord] = useState('');
-  const [definition, setDefinition] = useState('Waiting for round to start...');
+  const [definition, setDefinition] = useState('Loading...');
   const [inputValue, setInputValue] = useState('');
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error', msg: string } | null>(null);
   const [activePlayerUid, setActivePlayerUid] = useState<string | null>(null);
@@ -78,16 +78,16 @@ const Play: React.FC = () => {
   const [chatInput, setChatInput] = useState('');
   const [players, setPlayers] = useState<PlayerPresence[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const [activeTab, setActiveTab] = useState<'none' | 'chat' | 'players'>('none');
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const animationFrameRef = useRef<number>(0);
-  const joinTimeRef = useRef<number>(Date.now());
   const timerEndRef = useRef<number>(0);
 
   // TURN LOGIC - Derived State
   const isMyTurn = user && activePlayerUid === user.uid;
   const activePlayerName = players.find(p => p.uid === activePlayerUid)?.title || "Unknown";
+  const isSolo = players.length === 1;
 
   // AUTO-FOCUS / AUDIO TRIGGER
   // When turn changes to me, play audio and focus
@@ -111,13 +111,10 @@ const Play: React.FC = () => {
 
 
   // HOST LOGIC: Heartbeat & Game Coordinator
-  // If I am the first player in the list, I am the "Host" responsible for advancing state
   useEffect(() => {
     if (!user || players.length === 0) return;
     
-    // Sort players by join time to determine stable host
-    // (Existing presence fetch in separate effect sorts by corrects, we might want to respect that or strictly join time)
-    // For turn-based, stable order is best. Let's assume `players[0]` is host.
+    // Logic: The "Host" is the player who has been in the room longest (sorted index 0).
     const isHost = players[0].uid === user.uid;
 
     if (isHost) {
@@ -128,7 +125,7 @@ const Play: React.FC = () => {
          const state = snap.val() as SharedMatchState;
          const now = Date.now();
 
-         // 1. Initialize if empty
+         // 1. Initialize if empty (Solo play starts immediately)
          if (!state) {
             startNewTurn();
             return;
@@ -137,15 +134,14 @@ const Play: React.FC = () => {
          // 2. Check if current player is invalid (left game)
          const currentPlayerStillHere = players.some(p => p.uid === state.activePlayerUid);
          if (!currentPlayerStillHere) {
-            // Force next turn
+            // Force next turn to whoever is next in line
             advanceTurn(state.activePlayerUid);
             return;
          }
 
          // 3. Check for Timeout
          if (state.deadline > 0 && now > state.deadline) {
-             // Time expired for current player
-             // We can trigger a "Fail" message in chat or just skip
+             // Time expired. Advance turn.
              advanceTurn(state.activePlayerUid);
          }
       };
@@ -159,7 +155,8 @@ const Play: React.FC = () => {
   // HOST HELPER: Start New Turn
   const startNewTurn = async () => {
      if (!players.length) return;
-     const nextPlayer = players[0].uid; // Default start
+     // Start with the longest standing player (Host)
+     const nextPlayer = players[0].uid; 
      await setNewWord(nextPlayer);
   };
 
@@ -167,10 +164,18 @@ const Play: React.FC = () => {
   const advanceTurn = async (currentUid: string) => {
      if (!players.length) return;
      
+     // Stable turn order based on sorted list
      const currentIndex = players.findIndex(p => p.uid === currentUid);
-     const nextIndex = (currentIndex + 1) % players.length;
-     const nextPlayerUid = players[nextIndex].uid;
+     
+     // Calculate next index. If at end, loop back to 0.
+     // This inherently handles late joiners: they are at the end of the array,
+     // so they won't play until the index reaches them.
+     let nextIndex = 0;
+     if (currentIndex !== -1) {
+        nextIndex = (currentIndex + 1) % players.length;
+     }
 
+     const nextPlayerUid = players[nextIndex].uid;
      await setNewWord(nextPlayerUid);
   };
 
@@ -239,7 +244,7 @@ const Play: React.FC = () => {
     if (checkAnswer(currentWord, inputValue.trim())) {
        // 1. Reward
        setFeedback({ type: 'success', msg: 'Correct!' });
-       playTypingSound(); // Reuse specific sound or add success sound
+       playTypingSound(); 
        
        // Update Stats
        const userRef = dbRef(db, `users/${user.uid}`);
@@ -248,20 +253,16 @@ const Play: React.FC = () => {
            const uData = snapshot.val() || {};
            await dbUpdate(userRef, {
              corrects: (uData.corrects || 0) + 1,
-             // Simple streak logic for now (could be elaborated)
            });
        } catch (e) {}
 
-       // 2. Advance Turn (If Host, loop handles it. If Client, we can trigger it or wait for host)
-       // To ensure responsiveness, the Active Player (who just won) acts as temporary authority to trigger next
-       // Or we just update a "result" node that the host watches. 
-       // SIMPLEST: Active Player calculates next and updates state directly.
+       // 2. Advance Turn immediately
        await advanceTurn(user.uid);
 
     } else {
        // Wrong
        setFeedback({ type: 'error', msg: 'Incorrect!' });
-       // Simple: Pass turn on fail
+       // Pass turn on fail
        await advanceTurn(user.uid);
     }
   };
@@ -273,6 +274,8 @@ const Play: React.FC = () => {
     
     // Join Lobby
     const presenceRef = dbRef(db, `matches/${matchId}/presence/${user.uid}`);
+    // IMPORTANT: Join time determines turn order.
+    // If user disconnects and reconnects, timestamp updates, putting them at end of queue.
     dbSet(presenceRef, {
        uid: user.uid,
        joinedAt: dbServerTimestamp()
@@ -308,7 +311,7 @@ const Play: React.FC = () => {
            pList.push({ uid, title: 'Unknown', photoSeed: uid, corrects: 0, wins: 0, joinedAt: 0 });
          }
       }
-      // Sort by join time for stable turn order
+      // Sort by join time: Oldest (Host) First, Newest Last
       pList.sort((a, b) => a.joinedAt - b.joinedAt);
       setPlayers(pList);
     });
@@ -342,7 +345,7 @@ const Play: React.FC = () => {
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, activeTab]);
+  }, [messages, isChatOpen]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -358,23 +361,6 @@ const Play: React.FC = () => {
   };
 
   const exitArena = () => navigate('/lobby');
-  const toggleTab = (tab: 'chat' | 'players') => setActiveTab(activeTab === tab ? 'none' : tab);
-
-  const getChatClasses = () => {
-    const base = "fixed z-40 bg-slate-900/95 backdrop-blur-xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden transition-all duration-300";
-    const mobilePos = "right-4 top-1/2 -translate-y-1/2 w-[85vw] h-[50vh] rounded-2xl origin-right";
-    const mobileState = activeTab === 'chat' ? 'scale-100 opacity-100 pointer-events-auto' : 'scale-0 opacity-0 pointer-events-none';
-    const desktop = "lg:right-auto lg:left-4 lg:top-1/2 lg:-translate-y-1/2 lg:w-72 lg:h-[60vh] lg:rounded-xl lg:origin-center lg:scale-100 lg:opacity-100 lg:pointer-events-auto";
-    return `${base} ${mobilePos} ${mobileState} ${desktop}`;
-  };
-
-  const getPlayerListClasses = () => {
-    const base = "fixed z-40 bg-slate-900/95 backdrop-blur-xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden transition-all duration-300";
-    const mobilePos = "right-4 top-1/2 -translate-y-1/2 w-[85vw] h-[50vh] rounded-2xl origin-right";
-    const mobileState = activeTab === 'players' ? 'scale-100 opacity-100 pointer-events-auto' : 'scale-0 opacity-0 pointer-events-none';
-    const desktop = "lg:right-4 lg:top-1/2 lg:-translate-y-1/2 lg:w-64 lg:h-[60vh] lg:rounded-xl lg:origin-center lg:scale-100 lg:opacity-100 lg:pointer-events-auto";
-    return `${base} ${mobilePos} ${mobileState} ${desktop}`;
-  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -387,23 +373,23 @@ const Play: React.FC = () => {
       {/* Background Ambience */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full blur-[100px] pointer-events-none bg-emerald-500/5 transition-colors duration-1000"></div>
       
-      {/* Mobile Controls */}
-      <div className="lg:hidden fixed right-4 top-1/2 -translate-y-1/2 flex flex-col gap-3 z-50 pointer-events-auto">
-         <button onClick={exitArena} className="p-3 bg-red-600/20 text-red-400 rounded-full border border-red-500/50 backdrop-blur-sm shadow-lg mb-4">
-           <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+      {/* Mobile Header Controls */}
+      <div className="lg:hidden fixed right-4 top-4 flex gap-3 z-50 pointer-events-auto">
+         <button onClick={() => setIsChatOpen(!isChatOpen)} className={`p-3 rounded-full border shadow-lg backdrop-blur-sm ${isChatOpen ? 'bg-emerald-600 border-emerald-500' : 'bg-slate-800/80 border-slate-600'}`}>
+           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
          </button>
-         <button onClick={() => toggleTab('chat')} className={`p-3 rounded-full border shadow-lg backdrop-blur-sm ${activeTab === 'chat' ? 'bg-emerald-600 border-emerald-500' : 'bg-slate-800/80 border-slate-600'}`}>
-           <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
-         </button>
-         <button onClick={() => toggleTab('players')} className={`p-3 rounded-full border shadow-lg backdrop-blur-sm ${activeTab === 'players' ? 'bg-emerald-600 border-emerald-500' : 'bg-slate-800/80 border-slate-600'}`}>
-           <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+         <button onClick={exitArena} className="p-3 bg-red-600/20 text-red-400 rounded-full border border-red-500/50 backdrop-blur-sm shadow-lg">
+           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
          </button>
       </div>
 
-      {/* Chat Module */}
-      <div className={getChatClasses()}>
-         <div className="p-3 border-b border-slate-700 bg-black/20 font-bold text-sm">Hive Chat ({players.length})</div>
-         <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-thin scrollbar-thumb-slate-700">
+      {/* Chat Module (Slide-out on mobile, Fixed bottom-left desktop) */}
+      <div className={`fixed z-40 bg-slate-900/95 backdrop-blur-xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden transition-all duration-300
+        ${isChatOpen ? 'right-4 top-20 w-[85vw] h-[40vh] scale-100 opacity-100 pointer-events-auto rounded-2xl' : 'right-4 top-20 w-[85vw] h-[40vh] scale-0 opacity-0 pointer-events-none rounded-2xl'}
+        lg:left-4 lg:bottom-4 lg:top-auto lg:right-auto lg:w-80 lg:h-64 lg:rounded-xl lg:scale-100 lg:opacity-100 lg:pointer-events-auto lg:transform-none
+      `}>
+         <div className="p-2 border-b border-slate-700 bg-black/20 font-bold text-xs">Chat</div>
+         <div className="flex-1 overflow-y-auto p-2 space-y-2 scrollbar-thin scrollbar-thumb-slate-700">
              {messages.map((msg) => (
                <div key={msg.id} className="text-xs break-words">
                   <span className="text-yellow-400 font-bold">[{msg.sender}]:</span> <span className="text-white drop-shadow-md">{msg.text}</span>
@@ -411,36 +397,28 @@ const Play: React.FC = () => {
              ))}
              <div ref={chatEndRef} />
          </div>
-         <form onSubmit={handleSendMessage} className="p-3 bg-black/30 border-t border-slate-700">
+         <form onSubmit={handleSendMessage} className="p-2 bg-black/30 border-t border-slate-700">
             <input 
-              type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Message..."
-              className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-400 outline-none focus:border-emerald-500"
+              type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Type..."
+              className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-xs text-white placeholder-slate-400 outline-none focus:border-emerald-500"
             />
          </form>
       </div>
 
-      {/* Player List Module (Turn Order) */}
-      <div className={getPlayerListClasses()}>
-         <div className="p-3 border-b border-slate-700 bg-black/20 font-bold text-sm flex justify-between">
-            <span>Turn Order</span>
-         </div>
-         <div className="flex-1 overflow-y-auto">
-            {players.map((p, idx) => {
-               const isActive = p.uid === activePlayerUid;
-               return (
-                  <div key={p.uid} className={`flex items-center gap-3 px-4 py-3 border-b border-slate-800/50 transition-all ${isActive ? 'bg-emerald-600/20 border-l-4 border-l-emerald-500' : ''}`}>
-                      <div className="text-xs font-mono text-slate-500 w-4">{idx + 1}</div>
-                      <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${p.photoSeed}`} className="w-8 h-8 rounded bg-slate-700" alt="p" />
-                      <div className="flex-1 min-w-0">
-                          <div className={`truncate font-bold text-xs ${isActive ? 'text-emerald-400' : 'text-slate-300'}`}>
-                             {p.title} {p.uid === user?.uid && '(You)'}
-                          </div>
-                          {isActive && <div className="text-[10px] text-emerald-500 animate-pulse">SPELLING...</div>}
-                      </div>
-                  </div>
-               );
-            })}
-         </div>
+      {/* Simplified Player List (Right Side) */}
+      <div className="absolute top-4 right-4 hidden lg:flex flex-col gap-2 pointer-events-none">
+          {players.map((p, idx) => {
+             const isActive = p.uid === activePlayerUid;
+             return (
+               <div key={p.uid} className={`flex items-center gap-2 p-2 rounded-lg backdrop-blur-sm transition-all duration-300 ${isActive ? 'bg-emerald-600/30 border border-emerald-500/50 translate-x-0' : 'bg-slate-900/40 border border-white/5 translate-x-2 opacity-80'}`}>
+                  {isActive && <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>}
+                  <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${p.photoSeed}`} className="w-6 h-6 rounded bg-slate-700" alt="p" />
+                  <span className={`text-xs font-bold ${isActive ? 'text-white' : 'text-slate-400'}`}>
+                    {p.title} {p.uid === user?.uid && '(You)'}
+                  </span>
+               </div>
+             );
+          })}
       </div>
 
       {/* Main Game Arena */}
@@ -453,7 +431,7 @@ const Play: React.FC = () => {
          {/* Info Badge */}
          <div className="mb-6">
             <span className="bg-slate-800 border border-slate-700 px-3 py-1 rounded text-[10px] font-bold tracking-widest uppercase text-slate-400">
-               {gameState.type === 'private' ? `PRIVATE: ${gameState.code}` : `PUBLIC: ${currentMode}`}
+               {gameState.type === 'private' ? `CODE: ${gameState.code}` : `${currentMode.toUpperCase()}`}
             </span>
          </div>
 
@@ -462,13 +440,15 @@ const Play: React.FC = () => {
             {isMyTurn ? (
                 <div className="animate-bounce">
                     <span className="text-4xl">🫵</span>
-                    <h2 className="text-2xl font-black text-emerald-400 uppercase tracking-wider mt-2">Your Turn</h2>
+                    <h2 className="text-2xl font-black text-emerald-400 uppercase tracking-wider mt-2">
+                       {isSolo ? "Solo Practice" : "Your Turn"}
+                    </h2>
                 </div>
             ) : (
                 <div className="opacity-80">
                     <span className="text-4xl grayscale">👀</span>
                     <h2 className="text-xl font-bold text-slate-400 mt-2">
-                       It is <span className="text-white">{activePlayerName}'s</span> turn
+                       Spectating <span className="text-white">{activePlayerName}</span>
                     </h2>
                 </div>
             )}
@@ -478,7 +458,7 @@ const Play: React.FC = () => {
          <div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden mb-8 relative border border-slate-700">
              <div 
                className={`h-full shadow-[0_0_15px_rgba(16,185,129,0.6)] ${timeLeft < 5 ? 'bg-red-500' : 'bg-emerald-500'} transition-all duration-100 ease-linear`}
-               style={{ width: `${Math.min(100, (timeLeft / 20) * 100)}%` }} // Assuming avg 20s max for bar visual
+               style={{ width: `${Math.min(100, (timeLeft / 20) * 100)}%` }} 
              ></div>
          </div>
 
@@ -497,8 +477,9 @@ const Play: React.FC = () => {
                   <p className="text-xs text-slate-400 font-medium bg-slate-900/80 px-3 py-1 rounded-full">{definition.slice(0, 60)}...</p>
                </div>
             ) : (
-               <div className="text-slate-500 text-sm font-mono flex items-center gap-2">
-                  <span className="animate-spin">⏳</span> Waiting for player...
+               <div className="text-slate-500 text-sm font-mono flex flex-col items-center gap-2">
+                  <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${activePlayerUid || 'unknown'}`} className="w-16 h-16 rounded-full bg-slate-800 border border-slate-600 grayscale opacity-50" alt="Active" />
+                  <span>Waiting for player...</span>
                </div>
             )}
             
@@ -526,6 +507,16 @@ const Play: React.FC = () => {
                  className="w-full bg-transparent border-b-2 border-slate-700 focus:border-emerald-500 text-center text-4xl sm:text-5xl font-bold text-white outline-none py-4 placeholder:text-slate-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                />
             </form>
+         </div>
+
+         {/* Mobile Player List (Bottom) */}
+         <div className="lg:hidden w-full flex gap-2 overflow-x-auto pb-2">
+            {players.map((p) => (
+                <div key={p.uid} className={`flex-shrink-0 flex flex-col items-center w-12 ${p.uid === activePlayerUid ? 'opacity-100' : 'opacity-40'}`}>
+                   <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${p.photoSeed}`} className={`w-8 h-8 rounded-full border-2 ${p.uid === activePlayerUid ? 'border-emerald-500' : 'border-slate-600'}`} alt="p" />
+                   <span className="text-[10px] truncate w-full text-center mt-1">{p.title}</span>
+                </div>
+            ))}
          </div>
 
       </div>
