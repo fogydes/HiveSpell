@@ -56,7 +56,7 @@ const Play: React.FC = () => {
   const { ttsVolume, playTypingSound } = useSettings();
   const gameState = (location.state as GameState) || { type: 'public', role: 'player' };
 
-  // Match ID logic: Public = "mode_public", Private = "mode_code"
+  // Match ID logic
   const matchId = gameState.type === 'private' && gameState.code 
     ? `${paramMode}_${gameState.code}` 
     : `${paramMode}_public`;
@@ -90,14 +90,11 @@ const Play: React.FC = () => {
   const isSolo = players.length === 1;
 
   // AUTO-FOCUS / AUDIO TRIGGER
-  // When turn changes to me, play audio and focus
   useEffect(() => {
     if (isMyTurn && currentWord) {
        setFeedback(null);
        setInputValue('');
-       // 1. Play Audio
        speak(currentWord, ttsVolume);
-       // 2. Wait 500ms then Focus
        const timer = setTimeout(() => {
           setIsInputEnabled(true);
           if (inputRef.current) inputRef.current.focus();
@@ -110,11 +107,65 @@ const Play: React.FC = () => {
   }, [isMyTurn, currentWord, ttsVolume]);
 
 
-  // HOST LOGIC: Heartbeat & Game Coordinator
+  // HOST HELPER: Start New Turn
+  const startNewTurn = async () => {
+     if (!players.length) return;
+     // Start with the longest standing player (Host)
+     const nextPlayer = players[0].uid; 
+     await setNewWord(nextPlayer);
+  };
+
+  // HOST HELPER: Advance Turn
+  const advanceTurn = async (currentUid: string) => {
+     if (!players.length) return;
+     
+     const currentIndex = players.findIndex(p => p.uid === currentUid);
+     
+     // Loop to next player. Late joiners are at end of array, so they wait their turn naturally.
+     let nextIndex = 0;
+     if (currentIndex !== -1) {
+        nextIndex = (currentIndex + 1) % players.length;
+     }
+
+     const nextPlayerUid = players[nextIndex].uid;
+     await setNewWord(nextPlayerUid);
+  };
+
+  // HOST HELPER: Pick Word & Update DB
+  const setNewWord = async (playerUid: string) => {
+     const words = wordBank[currentMode] || wordBank['baby'];
+     const randomWord = words[Math.floor(Math.random() * words.length)];
+     
+     const duration = 5 + Math.ceil(randomWord.length * 1.5); 
+     const deadline = Date.now() + (duration * 1000);
+
+     await dbUpdate(dbRef(db, `matches/${matchId}/state`), {
+       currentWord: randomWord,
+       activePlayerUid: playerUid,
+       deadline: deadline,
+       lastUpdate: Date.now()
+     });
+  };
+
+  // RECOVERY LOGIC: If I am host, and active player is gone, force advance immediately.
   useEffect(() => {
     if (!user || players.length === 0) return;
     
-    // Logic: The "Host" is the player who has been in the room longest (sorted index 0).
+    // I am Host?
+    if (players[0].uid === user.uid) {
+        // Is the active player invalid? (e.g. left the game)
+        // We check if activePlayerUid is set BUT not in the players list.
+        if (activePlayerUid && !players.find(p => p.uid === activePlayerUid)) {
+            console.log("Host Recovery: Active player not found. Advancing...");
+            advanceTurn(activePlayerUid);
+        }
+    }
+  }, [players, activePlayerUid, user]);
+
+  // HOST LOGIC: Heartbeat & Game Coordinator (Timeouts)
+  useEffect(() => {
+    if (!user || players.length === 0) return;
+    
     const isHost = players[0].uid === user.uid;
 
     if (isHost) {
@@ -131,17 +182,8 @@ const Play: React.FC = () => {
             return;
          }
 
-         // 2. Check if current player is invalid (left game)
-         const currentPlayerStillHere = players.some(p => p.uid === state.activePlayerUid);
-         if (!currentPlayerStillHere) {
-            // Force next turn to whoever is next in line
-            advanceTurn(state.activePlayerUid);
-            return;
-         }
-
-         // 3. Check for Timeout
+         // 2. Check for Timeout
          if (state.deadline > 0 && now > state.deadline) {
-             // Time expired. Advance turn.
              advanceTurn(state.activePlayerUid);
          }
       };
@@ -152,69 +194,24 @@ const Play: React.FC = () => {
   }, [players, user, matchId]);
 
 
-  // HOST HELPER: Start New Turn
-  const startNewTurn = async () => {
-     if (!players.length) return;
-     // Start with the longest standing player (Host)
-     const nextPlayer = players[0].uid; 
-     await setNewWord(nextPlayer);
-  };
-
-  // HOST HELPER: Advance Turn
-  const advanceTurn = async (currentUid: string) => {
-     if (!players.length) return;
-     
-     // Stable turn order based on sorted list
-     const currentIndex = players.findIndex(p => p.uid === currentUid);
-     
-     // Calculate next index. If at end, loop back to 0.
-     // This inherently handles late joiners: they are at the end of the array,
-     // so they won't play until the index reaches them.
-     let nextIndex = 0;
-     if (currentIndex !== -1) {
-        nextIndex = (currentIndex + 1) % players.length;
-     }
-
-     const nextPlayerUid = players[nextIndex].uid;
-     await setNewWord(nextPlayerUid);
-  };
-
-  // HOST HELPER: Pick Word & Update DB
-  const setNewWord = async (playerUid: string) => {
-     const words = wordBank[currentMode] || wordBank['baby'];
-     const randomWord = words[Math.floor(Math.random() * words.length)];
-     
-     // Calculate deadline: 10s base + length adjustment
-     const duration = 5 + Math.ceil(randomWord.length * 1.5); 
-     const deadline = Date.now() + (duration * 1000);
-
-     await dbUpdate(dbRef(db, `matches/${matchId}/state`), {
-       currentWord: randomWord,
-       activePlayerUid: playerUid,
-       deadline: deadline,
-       lastUpdate: Date.now()
-     });
-  };
-
   // LISTENER: Game State (Word, Active Player)
   useEffect(() => {
      const matchStateRef = dbRef(db, `matches/${matchId}/state`);
      const unsub = dbOnValue(matchStateRef, (snap: any) => {
         const state = snap.val() as SharedMatchState;
         if (state) {
-           // Only update word if it changed (avoids audio replay loops if logic wasn't guarded)
            if (state.currentWord !== currentWord) {
               setCurrentWord(state.currentWord);
               fetchDefinition(state.currentWord).then(setDefinition);
            }
-           
            setActivePlayerUid(state.activePlayerUid);
            
-           // Sync Timer
            const remaining = Math.max(0, (state.deadline - Date.now()) / 1000);
            setTimeLeft(remaining);
-           // Store deadline locally for animation frame
            timerEndRef.current = state.deadline;
+        } else {
+            // If state is null, we are waiting for Host to init
+            setActivePlayerUid(null);
         }
      });
      return () => unsub();
@@ -232,21 +229,17 @@ const Play: React.FC = () => {
     };
     animationFrameRef.current = requestAnimationFrame(updateTimer);
     return () => cancelAnimationFrame(animationFrameRef.current);
-  }, [activePlayerUid]); // Restart loop on turn change
-
+  }, [activePlayerUid]);
 
   // PLAYER SUBMISSION LOGIC
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isMyTurn || !user) return;
     
-    // Check Answer
     if (checkAnswer(currentWord, inputValue.trim())) {
-       // 1. Reward
        setFeedback({ type: 'success', msg: 'Correct!' });
        playTypingSound(); 
        
-       // Update Stats
        const userRef = dbRef(db, `users/${user.uid}`);
        try {
            const snapshot = await dbGet(userRef);
@@ -256,33 +249,25 @@ const Play: React.FC = () => {
            });
        } catch (e) {}
 
-       // 2. Advance Turn immediately
        await advanceTurn(user.uid);
 
     } else {
-       // Wrong
        setFeedback({ type: 'error', msg: 'Incorrect!' });
-       // Pass turn on fail
        await advanceTurn(user.uid);
     }
   };
-
 
   // PRESENCE SYSTEM
   useEffect(() => {
     if (!user || !matchId) return;
     
-    // Join Lobby
     const presenceRef = dbRef(db, `matches/${matchId}/presence/${user.uid}`);
-    // IMPORTANT: Join time determines turn order.
-    // If user disconnects and reconnects, timestamp updates, putting them at end of queue.
     dbSet(presenceRef, {
        uid: user.uid,
        joinedAt: dbServerTimestamp()
     }).catch((err: any) => {}); 
     dbOnDisconnect(presenceRef).remove().catch((err: any) => {});
 
-    // Listen to Lobby
     const lobbyRef = dbRef(db, `matches/${matchId}/presence`);
     const unsub = dbOnValue(lobbyRef, async (snapshot: any) => {
       const data = snapshot.val();
@@ -311,7 +296,6 @@ const Play: React.FC = () => {
            pList.push({ uid, title: 'Unknown', photoSeed: uid, corrects: 0, wins: 0, joinedAt: 0 });
          }
       }
-      // Sort by join time: Oldest (Host) First, Newest Last
       pList.sort((a, b) => a.joinedAt - b.joinedAt);
       setPlayers(pList);
     });
@@ -383,7 +367,7 @@ const Play: React.FC = () => {
          </button>
       </div>
 
-      {/* Chat Module (Slide-out on mobile, Fixed bottom-left desktop) */}
+      {/* Chat Module (Slide-out) */}
       <div className={`fixed z-40 bg-slate-900/95 backdrop-blur-xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden transition-all duration-300
         ${isChatOpen ? 'right-4 top-20 w-[85vw] h-[40vh] scale-100 opacity-100 pointer-events-auto rounded-2xl' : 'right-4 top-20 w-[85vw] h-[40vh] scale-0 opacity-0 pointer-events-none rounded-2xl'}
         lg:left-4 lg:bottom-4 lg:top-auto lg:right-auto lg:w-80 lg:h-64 lg:rounded-xl lg:scale-100 lg:opacity-100 lg:pointer-events-auto lg:transform-none
@@ -405,9 +389,9 @@ const Play: React.FC = () => {
          </form>
       </div>
 
-      {/* Simplified Player List (Right Side) */}
-      <div className="absolute top-4 right-4 hidden lg:flex flex-col gap-2 pointer-events-none">
-          {players.map((p, idx) => {
+      {/* Player List (Right Side Desktop / Top Mobile) */}
+      <div className="absolute top-4 right-4 z-10 hidden lg:flex flex-col gap-2 pointer-events-none">
+          {players.map((p) => {
              const isActive = p.uid === activePlayerUid;
              return (
                <div key={p.uid} className={`flex items-center gap-2 p-2 rounded-lg backdrop-blur-sm transition-all duration-300 ${isActive ? 'bg-emerald-600/30 border border-emerald-500/50 translate-x-0' : 'bg-slate-900/40 border border-white/5 translate-x-2 opacity-80'}`}>
@@ -427,6 +411,18 @@ const Play: React.FC = () => {
         <button onClick={exitArena} className="hidden lg:block absolute top-4 left-4 p-2 text-red-400 hover:text-red-300 font-bold text-xs uppercase tracking-widest border border-transparent hover:border-red-500/30 rounded">
            Exit
          </button>
+
+         {/* Mobile Player List (Visible at Top of Card) */}
+         <div className="lg:hidden w-full flex gap-3 overflow-x-auto pb-4 mb-4 border-b border-slate-800/50">
+            {players.map((p) => (
+                <div key={p.uid} className={`flex-shrink-0 flex flex-col items-center w-14 ${p.uid === activePlayerUid ? 'opacity-100' : 'opacity-40 grayscale'}`}>
+                   <div className={`relative p-0.5 rounded-full ${p.uid === activePlayerUid ? 'bg-emerald-500' : 'bg-transparent'}`}>
+                     <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${p.photoSeed}`} className="w-10 h-10 rounded-full bg-slate-800" alt="p" />
+                   </div>
+                   <span className="text-[10px] truncate w-full text-center mt-1 font-bold">{p.title.slice(0, 8)}</span>
+                </div>
+            ))}
+         </div>
 
          {/* Info Badge */}
          <div className="mb-6">
@@ -448,7 +444,7 @@ const Play: React.FC = () => {
                 <div className="opacity-80">
                     <span className="text-4xl grayscale">👀</span>
                     <h2 className="text-xl font-bold text-slate-400 mt-2">
-                       Spectating <span className="text-white">{activePlayerName}</span>
+                       {activePlayerName === "Unknown" ? "Synchronizing..." : `Spectating ${activePlayerName}`}
                     </h2>
                 </div>
             )}
@@ -479,7 +475,7 @@ const Play: React.FC = () => {
             ) : (
                <div className="text-slate-500 text-sm font-mono flex flex-col items-center gap-2">
                   <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${activePlayerUid || 'unknown'}`} className="w-16 h-16 rounded-full bg-slate-800 border border-slate-600 grayscale opacity-50" alt="Active" />
-                  <span>Waiting for player...</span>
+                  <span>{activePlayerName === "Unknown" ? "Starting game..." : "Waiting for player..."}</span>
                </div>
             )}
             
@@ -507,16 +503,6 @@ const Play: React.FC = () => {
                  className="w-full bg-transparent border-b-2 border-slate-700 focus:border-emerald-500 text-center text-4xl sm:text-5xl font-bold text-white outline-none py-4 placeholder:text-slate-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                />
             </form>
-         </div>
-
-         {/* Mobile Player List (Bottom) */}
-         <div className="lg:hidden w-full flex gap-2 overflow-x-auto pb-2">
-            {players.map((p) => (
-                <div key={p.uid} className={`flex-shrink-0 flex flex-col items-center w-12 ${p.uid === activePlayerUid ? 'opacity-100' : 'opacity-40'}`}>
-                   <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${p.photoSeed}`} className={`w-8 h-8 rounded-full border-2 ${p.uid === activePlayerUid ? 'border-emerald-500' : 'border-slate-600'}`} alt="p" />
-                   <span className="text-[10px] truncate w-full text-center mt-1">{p.title}</span>
-                </div>
-            ))}
          </div>
 
       </div>
