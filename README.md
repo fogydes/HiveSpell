@@ -1,16 +1,16 @@
 # 🐝 HiveSpell
 
-**HiveSpell** is a high-octane, web-based spelling game where speed meets precision. Inspired by competitive spelling formats like the Roblox *Spelling Bee*, HiveSpell challenges players to spell increasingly difficult words under intense time pressure.
+**HiveSpell** is a high-octane, web-based spelling game where speed meets precision. Designed for competitive practice, HiveSpell challenges players to spell increasingly difficult words under intense time pressure with ultra-accurate performance tracking.
 
 ---
 
 ## 🚀 Key Features
 
-* **Burst WPM Logic**: Unlike traditional typing tests that measure speed over a full minute, HiveSpell calculates your **Burst Rate**—the speed of your typing for a single word.
-* **ElevenLabs AI Voices**: Experience high-quality, ultra-realistic text-to-speech (TTS) for every word, ensuring clarity and immersion.
-* **Real-time Star System**: Earn "Stars" for every correct word to level up your profile and climb the ranks.
-* **Multiple Difficulties**: From **Baby** and **Cakewalk** to **Omniscient** and **Polymath**, there is a level for every spelling master.
-* **Dynamic Streaks**: Build up your streak to ignite the "Fire" effect and prove your consistency.
+* **Burst WPM Engine**: Experience a professional-grade typing metric that calculates your speed per individual word, providing instant feedback on your "burst" velocity.
+* **ElevenLabs AI Integration**: Powered by high-fidelity text-to-speech (TTS) for crystal-clear word pronunciation and an immersive auditory experience.
+* **Competitive Progression**: Earn Stars for every correct word to increase your rank and unlock new titles.
+* **Adaptive Difficulty**: Progress through eight tiers of challenge: **Baby**, **Cakewalk**, **Learner**, **Intermediate**, **Heated**, **Genius**, **Omniscient**, and **Polymath**.
+* **Fire Streaks**: Maintain your accuracy to ignite visual streak effects and maximize your star earnings.
 
 ---
 
@@ -33,10 +33,10 @@ $$WPM = \text{round} \left( \frac{\text{Word Length} / 4}{\text{Time Taken in Se
 ## 🛠️ Tech Stack
 
 * **Frontend**: React + TypeScript
-* **Styling**: Tailwind CSS (Glassmorphism & High-Contrast Themes)
+* **Styling**: Tailwind CSS (Glassmorphism & High-Contrast UI)
 * **Backend**: Firebase (Authentication & Real-time Database)
-* **Audio**: ElevenLabs API (Text-to-Speech)
-* **Deployment**: Firebase Hosting + GitHub Actions
+* **Audio**: ElevenLabs API (Neural Text-to-Speech)
+* **Deployment**: Firebase Hosting + GitHub Actions CI/CD
 
 ---
 
@@ -44,37 +44,49 @@ $$WPM = \text{round} \left( \frac{\text{Word Length} / 4}{\text{Time Taken in Se
 
 ### Prerequisites
 * Node.js (v18+)
-* Firebase Account
+* Firebase CLI
 * ElevenLabs API Key
 
 ### Installation
 
-1. **Clone the repository**:
-   ```bash
-   git clone [https://github.com/fogydes/HiveSpell.git](https://github.com/fogydes/HiveSpell.git)
-   cd HiveSpell
-   ```
-2. **Install dependencies**:
-   ```bash
-   npm install
-   ```
-3. **Set up environment variables**: Create a ```.env``` file or update ```services/gameService.ts``` with your TTS API key(ElevenLabs AI is used in the project).
-4. **Build and Deploy**:
-   ```bash
-   npm run build
-   firebase deploy
-   ```
+1.  **Clone the repository**:
+    ```bash
+    git clone [https://github.com/fogydes/HiveSpell.git](https://github.com/fogydes/HiveSpell.git)
+    cd HiveSpell
+    ```
+
+2.  **Install dependencies**:
+    ```bash
+    npm install
+    ```
+
+3.  **Environment Setup**:
+    Update `src/services/gameService.ts` with your ElevenLabs API key and configure `src/firebase.ts` with your project credentials.
+
+4.  **Local Development**:
+    ```bash
+    npm run dev
+    ```
+
+5.  **Build and Deploy**:
+    ```bash
+    npm run build
+    firebase deploy
+    ```
 
 ---
 
 ## 🎮 How to Play
 
-1. **Login**: Use your account to keep track of your Stars.
-2. **Select Mode**: Pick a difficulty that matches your skill level.
-3. **Listen & Type**: A word will be spoken. Type it as fast as possible and hit ```Enter```.
-4. **Beat the Cloak**: You have  the limited time per word. If the timer hits zero, you die and your streak resets!
+1.  **Login**: Create an account to sync your stars and titles across devices.
+2.  **Choose Difficulty**: Select a mode from the Lobby. Lower modes use simpler words; higher modes test the limits of your vocabulary.
+3.  **Listen & Type**: Wait for the 800ms "Fair-Start" delay, listen to the word, and type it immediately.
+4.  **Beat the Clock**: You have 15 seconds per word. If the timer hits zero, the round ends and your streak resets.
+5.  **Analyze**: Review your session WPM and accuracy to improve your spelling speed.
 
 ---
 
-## Licence
-This project is for educational and competitive practice purposes.
+## 📄 License
+This project is developed for educational and competitive practice purposes.
+
+---
