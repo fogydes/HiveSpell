@@ -1106,12 +1106,24 @@ export const stopAudio = () => {
   activeUtterance = null;
 };
 
+// Helper: Get alternate spelling for audio file mapping
+const getAlternateAudioName = (word: string): string | null => {
+  const lower = word.toLowerCase();
+  if (lower.endsWith('or')) {
+    return lower.replace(/or$/, 'our');
+  }
+  if (lower.endsWith('our')) {
+    return lower.replace(/our$/, 'or');
+  }
+  return null;
+};
+
 // IMPROVED SPEAK FUNCTION
-// Uses local MP3 files, falls back to Browser TTS
+// Logic: Try MP3 -> Try Alternate Spelling MP3 -> Fallback to Browser TTS
 export const speak = async (word: string, volume: number = 1.0): Promise<void> => {
   stopAudio();
 
-  const playBrowserTTS = () => {
+  const playBrowserTTS = (): Promise<void> => {
     return new Promise<void>((resolve) => {
       const utterance = new SpeechSynthesisUtterance(word);
       activeUtterance = utterance;
@@ -1138,39 +1150,62 @@ export const speak = async (word: string, volume: number = 1.0): Promise<void> =
     });
   };
 
-  return new Promise<void>((resolve) => {
-    // 1. Construct path
-    const audioPath = `/audio/${word.toLowerCase()}.mp3`;
-    
-    // 2. Create Audio object
-    const audio = new Audio(audioPath);
-    currentAudio = audio;
-    audio.volume = volume;
+  const attemptPlayAudioFile = (fileName: string): Promise<boolean> => {
+    return new Promise((resolve) => {
+       const audioPath = `/audio/${fileName}.mp3`;
+       const audio = new Audio(audioPath);
+       currentAudio = audio;
+       audio.volume = volume;
 
-    const finish = () => {
-      if (currentAudio === audio) currentAudio = null;
-    };
+       // If metadata fails or 404, we reject this attempt immediately
+       audio.onerror = () => {
+          resolve(false);
+       };
 
-    audio.onended = finish;
+       // Cleanup when done
+       audio.onended = () => {
+         if (currentAudio === audio) currentAudio = null;
+       };
 
-    // 5. Fallback on error (e.g. 404 Not Found, Decode Error)
-    audio.onerror = () => {
-      console.warn(`Local audio file missing or error for "${word}", falling back to Browser TTS.`);
-      playBrowserTTS().then(resolve);
-    };
-    
-    // 4. Play
-    const playPromise = audio.play();
-    if (playPromise !== undefined) {
-      playPromise.then(() => {
-          resolve(); // Resolve immediately on successful start
-      }).catch(error => {
-        console.warn("Local audio playback failed (interaction/permissions), falling back to TTS:", error);
+       const playPromise = audio.play();
+       if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+               // Success!
+               resolve(true); 
+            })
+            .catch((e) => {
+               // Autoplay blocked or other playback error
+               console.warn("Playback error:", e);
+               resolve(false);
+            });
+       } else {
+         // Older browsers
+         resolve(true); 
+       }
+    });
+  };
+
+  return new Promise<void>(async (resolve) => {
+     // 1. Try exact word match
+     const lowerWord = word.toLowerCase();
+     let success = await attemptPlayAudioFile(lowerWord);
+
+     // 2. If failed, try alternate spelling (e.g. flavor -> flavour)
+     if (!success) {
+        const alt = getAlternateAudioName(word);
+        if (alt) {
+           success = await attemptPlayAudioFile(alt);
+        }
+     }
+
+     // 3. If still failed, fallback to TTS
+     if (!success) {
+        console.warn(`All local audio failed for "${word}". Falling back to Browser TTS.`);
         playBrowserTTS().then(resolve);
-      });
-    } else {
-       // Older browsers
-       resolve();
-    }
+     } else {
+        // Audio started successfully
+        resolve();
+     }
   });
 };
