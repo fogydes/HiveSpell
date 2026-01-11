@@ -130,26 +130,38 @@ const Play: React.FC = () => {
   };
 
   // HOST HELPER: Advance Turn
-  const advanceTurn = async (currentUid: string) => {
+  const advanceTurn = async (currentUid: string | null | undefined) => {
      if (!players.length) return;
      
+     // Default to 0 (Host) if currentUid is not found
      const currentIndex = players.findIndex(p => p.uid === currentUid);
      let nextIndex = 0;
      if (currentIndex !== -1) {
         nextIndex = (currentIndex + 1) % players.length;
      }
-     // If the calculated next player is the same as current (e.g. solo play), 
-     // setNewWord still triggers a new word/deadline, effectively restarting the loop.
      
      const nextPlayerUid = players[nextIndex].uid;
      await setNewWord(nextPlayerUid);
   };
 
+  // SOLO RECOVERY: If I'm alone and stuck waiting, force turn to me
+  useEffect(() => {
+    let recoveryTimer: NodeJS.Timeout;
+    if (user && isSolo && !isMyTurn) {
+       // Wait 2 seconds. If still not my turn, force it.
+       recoveryTimer = setTimeout(() => {
+           console.log("Solo Recovery: Forcing turn...");
+           advanceTurn(user.uid); 
+       }, 2000);
+    }
+    return () => clearTimeout(recoveryTimer);
+  }, [isSolo, isMyTurn, user]);
+
   // CONSOLIDATED HOST LOGIC
   useEffect(() => {
     if (!user || players.length === 0) return;
     
-    // Only the 'oldest' player acts as Host to prevent write conflicts
+    // Only the 'oldest' player acts as Host
     const isHost = players[0].uid === user.uid;
 
     if (isHost) {
@@ -170,7 +182,7 @@ const Play: React.FC = () => {
 
          if (!isActivePlayerPresent) {
             console.log("Host Recovery: Active player not present. Advancing turn.");
-            // If the active player is gone, just move to the next valid player (which might be the host themselves)
+            // Pass activeUid (even if invalid/ghost) to advanceTurn, it will default to next valid player
             await advanceTurn(activeUid);
             return;
          }
@@ -344,24 +356,25 @@ const Play: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans text-white bg-[#050914]">
+    // Added pt-28 to push content below the fixed header
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 pt-28 relative overflow-hidden font-sans text-white bg-[#050914]">
       {/* Background Ambience */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full blur-[100px] pointer-events-none bg-emerald-500/5 transition-colors duration-1000"></div>
       
-      {/* Mobile Header Controls - Moved down to top-24 to avoid header overlap */}
-      <div className="lg:hidden fixed right-4 top-24 flex gap-3 z-40 pointer-events-auto">
+      {/* Mobile Header Controls - Moved to Bottom Right to avoid Header overlap */}
+      <div className="lg:hidden fixed bottom-6 right-6 flex flex-col gap-3 z-50 pointer-events-auto">
          <button onClick={() => setIsChatOpen(!isChatOpen)} className={`p-3 rounded-full border shadow-lg backdrop-blur-sm ${isChatOpen ? 'bg-emerald-600 border-emerald-500' : 'bg-slate-800/80 border-slate-600'}`}>
-           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+           <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
          </button>
          <button onClick={exitArena} className="p-3 bg-red-600/20 text-red-400 rounded-full border border-red-500/50 backdrop-blur-sm shadow-lg">
-           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+           <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
          </button>
       </div>
 
       {/* Chat Module (Slide-out) */}
       <div className={`fixed z-50 bg-slate-900/95 backdrop-blur-xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden transition-all duration-300
-        ${isChatOpen ? 'right-4 top-40 w-[85vw] h-[40vh] scale-100 opacity-100 pointer-events-auto rounded-2xl' : 'right-4 top-40 w-[85vw] h-[40vh] scale-0 opacity-0 pointer-events-none rounded-2xl'}
-        lg:left-4 lg:bottom-4 lg:top-auto lg:right-auto lg:w-80 lg:h-64 lg:rounded-xl lg:scale-100 lg:opacity-100 lg:pointer-events-auto lg:transform-none
+        ${isChatOpen ? 'right-20 bottom-24 w-[85vw] h-[40vh] scale-100 opacity-100 pointer-events-auto rounded-2xl origin-bottom-right' : 'right-20 bottom-24 w-[85vw] h-[40vh] scale-0 opacity-0 pointer-events-none rounded-2xl origin-bottom-right'}
+        lg:left-4 lg:bottom-4 lg:top-auto lg:right-auto lg:w-80 lg:h-64 lg:rounded-xl lg:scale-100 lg:opacity-100 lg:pointer-events-auto lg:transform-none lg:origin-center
       `}>
          <div className="p-2 border-b border-slate-700 bg-black/20 font-bold text-xs">Chat</div>
          <div className="flex-1 overflow-y-auto p-2 space-y-2 scrollbar-thin scrollbar-thumb-slate-700">
@@ -381,7 +394,7 @@ const Play: React.FC = () => {
       </div>
 
       {/* Player List (Right Side Desktop) */}
-      <div className="absolute top-24 right-4 z-10 hidden lg:flex flex-col gap-2 pointer-events-none">
+      <div className="absolute top-28 right-4 z-10 hidden lg:flex flex-col gap-2 pointer-events-none">
           {players.map((p) => {
              const isActive = p.uid === activePlayerUid;
              return (
@@ -397,7 +410,7 @@ const Play: React.FC = () => {
       </div>
 
       {/* Main Game Arena */}
-      <div className={`w-full max-w-xl flex flex-col items-center z-10 transition-all duration-500 p-8 rounded-3xl relative border border-slate-800 bg-slate-900/50 mt-12 lg:mt-0`}>
+      <div className={`w-full max-w-xl flex flex-col items-center z-10 transition-all duration-500 p-8 rounded-3xl relative border border-slate-800 bg-slate-900/50`}>
         
         <button onClick={exitArena} className="hidden lg:block absolute top-4 left-4 p-2 text-red-400 hover:text-red-300 font-bold text-xs uppercase tracking-widest border border-transparent hover:border-red-500/30 rounded">
            Exit
