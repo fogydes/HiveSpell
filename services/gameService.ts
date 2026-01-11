@@ -1036,6 +1036,7 @@ const HOMOPHONES: Record<string, string[]> = {
   "harbor": ["harbour"], "harbour": ["harbor"],
   "neighbor": ["neighbour"], "neighbour": ["neighbor"],
   "honor": ["honour"], "honour": ["honor"],
+  "vain": ["vein"], "vein": ["vain"],
 };
 
 const normalizeSuffix = (word: string) => {
@@ -1106,7 +1107,7 @@ export const stopAudio = () => {
 };
 
 // IMPROVED SPEAK FUNCTION
-// Falls back to browser TTS if API call is too slow (1.5s timeout) or fails
+// Uses local MP3 files, falls back to Browser TTS
 export const speak = async (word: string, volume: number = 1.0): Promise<void> => {
   stopAudio();
 
@@ -1119,67 +1120,57 @@ export const speak = async (word: string, volume: number = 1.0): Promise<void> =
       
       const finish = () => {
         activeUtterance = null;
-        resolve();
       };
 
       utterance.onend = finish;
-      utterance.onerror = finish;
+      utterance.onerror = () => {
+        finish();
+        resolve(); // Safety resolve on error
+      };
+      
+      // Resolve immediately when speech starts to allow game interaction
+      utterance.onstart = () => resolve();
+
       window.speechSynthesis.speak(utterance);
+      
+      // Safety resolve in case onstart is delayed or missing in some browsers
+      setTimeout(() => resolve(), 500);
     });
   };
 
-  try {
-    // Race between API fetch and a timeout
-    const fetchPromise = fetch('https://api.elevenlabs.io/v1/text-to-speech/pNInz6obpgDQGcFmaJgB', {
-      method: 'POST',
-      headers: {
-        "xi-api-key": "sk_229d95d9dbf414c1b6455dcd5fd20d8aaa18b14ccf789344",
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        text: word,
-        model_id: "eleven_turbo_v2_5",
-        voice_settings: { stability: 0.5, similarity_boost: 0.75 }
-      })
-    });
-
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error("Timeout")), 1500)
-    );
-
-    const response = await Promise.race([fetchPromise, timeoutPromise]) as Response;
-
-    if (!response.ok) {
-      throw new Error(`TTS Failed: ${response.status}`);
-    }
-
-    const blob = await response.blob();
-    const audioUrl = URL.createObjectURL(blob);
+  return new Promise<void>((resolve) => {
+    // 1. Construct path
+    const audioPath = `/audio/${word.toLowerCase()}.mp3`;
     
-    return new Promise((resolve) => {
-      const audio = new Audio(audioUrl);
-      currentAudio = audio;
-      audio.volume = volume;
+    // 2. Create Audio object
+    const audio = new Audio(audioPath);
+    currentAudio = audio;
+    audio.volume = volume;
 
-      const finish = () => {
-        if (currentAudio === audio) currentAudio = null;
-        resolve();
-      };
+    const finish = () => {
+      if (currentAudio === audio) currentAudio = null;
+    };
 
-      audio.onended = finish;
-      audio.onerror = finish;
-      
-      const playPromise = audio.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(error => {
-          console.warn("Autoplay prevented:", error);
-          finish();
-        });
-      }
-    });
+    audio.onended = finish;
 
-  } catch (error) {
-    console.warn("Falling back to Browser TTS due to:", error);
-    return playBrowserTTS();
-  }
+    // 5. Fallback on error (e.g. 404 Not Found, Decode Error)
+    audio.onerror = () => {
+      console.warn(`Local audio file missing or error for "${word}", falling back to Browser TTS.`);
+      playBrowserTTS().then(resolve);
+    };
+    
+    // 4. Play
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise.then(() => {
+          resolve(); // Resolve immediately on successful start
+      }).catch(error => {
+        console.warn("Local audio playback failed (interaction/permissions), falling back to TTS:", error);
+        playBrowserTTS().then(resolve);
+      });
+    } else {
+       // Older browsers
+       resolve();
+    }
+  });
 };

@@ -289,7 +289,7 @@ const Play: React.FC = () => {
       // Play Audio (Non-blocking usually, but we want it to start before timer)
       await speak(word, ttsVolume);
 
-      // CLEAN TIMER LOGIC STEP 2: Wait 800ms
+      // CLEAN TIMER LOGIC STEP 2: Wait 500ms (approx halfway through word, since speak resolves on start)
       setTimeout(() => {
          // Enable Input
          setIsInputEnabled(true);
@@ -314,7 +314,7 @@ const Play: React.FC = () => {
          // Start Countdown
          timerEndRef.current = Date.now() + (calculatedTime * 1000);
 
-      }, 800);
+      }, 500);
 
     } catch (e) {
       console.error("Error in loop:", e);
