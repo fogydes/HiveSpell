@@ -124,16 +124,28 @@ const Play: React.FC = () => {
 
   // HOST HELPER: Start New Turn
   const startNewTurn = async () => {
-     if (!players.length) return;
-     const nextPlayer = players[0].uid; 
-     await setNewWord(nextPlayer);
+     // Explicitly use user.uid if players list isn't ready but we are triggering this
+     const firstPlayerUid = players.length > 0 ? players[0].uid : user?.uid;
+     if (firstPlayerUid) {
+        await setNewWord(firstPlayerUid);
+     }
   };
 
   // HOST HELPER: Advance Turn
   const advanceTurn = async (currentUid: string | null | undefined) => {
-     if (!players.length) return;
+     // Safety: If no players array yet, but user exists, default to self
+     if (!players.length) {
+        if (user) await setNewWord(user.uid);
+        return;
+     }
+
+     // Explicit Solo Logic: If only 1 player, loop to self
+     if (players.length === 1) {
+        await setNewWord(players[0].uid);
+        return;
+     }
      
-     // Default to 0 (Host) if currentUid is not found
+     // Multiplayer Logic
      const currentIndex = players.findIndex(p => p.uid === currentUid);
      let nextIndex = 0;
      if (currentIndex !== -1) {
@@ -144,18 +156,18 @@ const Play: React.FC = () => {
      await setNewWord(nextPlayerUid);
   };
 
-  // SOLO RECOVERY: If I'm alone and stuck waiting, force turn to me
+  // SOLO RECOVERY: If I'm alone and stuck waiting (activePlayerUid is null or not me), force start
   useEffect(() => {
     let recoveryTimer: NodeJS.Timeout;
-    if (user && isSolo && !isMyTurn) {
-       // Wait 2 seconds. If still not my turn, force it.
+    if (user && isSolo && activePlayerUid !== user.uid) {
+       // Wait 1 second. If still not my turn, force init.
        recoveryTimer = setTimeout(() => {
-           console.log("Solo Recovery: Forcing turn...");
-           advanceTurn(user.uid); 
-       }, 2000);
+           console.log("Solo Recovery: Auto-starting...");
+           startNewTurn(); 
+       }, 1000);
     }
     return () => clearTimeout(recoveryTimer);
-  }, [isSolo, isMyTurn, user]);
+  }, [isSolo, activePlayerUid, user]);
 
   // CONSOLIDATED HOST LOGIC
   useEffect(() => {
@@ -170,26 +182,27 @@ const Play: React.FC = () => {
          const state = snap.val() as SharedMatchState;
          const now = Date.now();
 
-         // 1. Initialize if empty
-         if (!state) {
+         // 1. Initialize if state is completely missing OR activePlayerUid is missing
+         // This fixes the "Synchronizing" stuck state where state object might exist but be incomplete
+         if (!state || !state.activePlayerUid) {
+            console.log("Host: Initializing game...");
             await startNewTurn();
             return;
          }
 
-         // 2. Validate Active Player (Fix "Spectating Unknown" or Ghost Users)
-         const activeUid = state.activePlayerUid;
-         const isActivePlayerPresent = players.some(p => p.uid === activeUid);
-
+         // 2. Validate Active Player (Ghost Check)
+         // If the active player is not in the room, skip them.
+         const isActivePlayerPresent = players.some(p => p.uid === state.activePlayerUid);
          if (!isActivePlayerPresent) {
-            console.log("Host Recovery: Active player not present. Advancing turn.");
-            // Pass activeUid (even if invalid/ghost) to advanceTurn, it will default to next valid player
-            await advanceTurn(activeUid);
+            console.log("Host Recovery: Active player left. Advancing...");
+            await advanceTurn(state.activePlayerUid);
             return;
          }
 
          // 3. Check for Timeout
          if (state.deadline > 0 && now > state.deadline) {
-             await advanceTurn(activeUid);
+             console.log("Host: Time expired. Advancing...");
+             await advanceTurn(state.activePlayerUid);
          }
       }, 1000); // Check every second
 
