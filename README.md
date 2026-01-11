@@ -14,19 +14,19 @@
 
 ---
 
-## 🧪 The "Spelling Bee" WPM Logic
+## 🧪 Advanced Performance Metrics
 
-HiveSpell uses a **Burst WPM** formula to determine how fast you type each individual word. This is modeled after the unofficial Roblox Spelling Bee practice sites to give an instant "snap" reaction to your speed.
+HiveSpell utilizes a precision-timed **Burst WPM** formula. This ensures that your speed is calculated only during the time you are actually typing, excluding system delays or voice-over time.
+
+### The "Fair-Start" Timer
+To ensure competitive fairness, the game implements an **800ms animation buffer**. The WPM clock only starts the moment the input field is focused and the word is ready to be typed, ignoring the time taken for the AI to speak or UI transitions.
 
 ### The Formula
-For any given word, the WPM is calculated as follows:
+The game uses a **4-character standard** for word normalization (optimized for high-speed spelling):
 
-$$WPM = \frac{(\text{Length of Word} / 5)}{(\text{Time Taken in Seconds} / 60)}$$
+$$WPM = \text{round} \left( \frac{\text{Word Length} / 4}{\text{Time Taken in Seconds} / 60} \right)$$
 
-### How it Works:
-1.  **Normalization**: A "standard word" is considered to be 5 characters long.
-2.  **Fractional Time**: We divide the seconds you took by 60 to find what fraction of a minute elapsed.
-3.  **The Result**: If you type a 5-letter word in exactly 1 second, your Burst WPM is **60**. If you type it in 0.5 seconds, your WPM is **120**.
+*Example: Typing a 6-letter word in 0.9 seconds results in a burst speed of **100 WPM**.*
 
 ---
 
