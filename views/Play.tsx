@@ -122,26 +122,11 @@ const Play: React.FC = () => {
      });
   };
 
-  // HOST HELPER: Start New Turn
-  const startNewTurn = async () => {
-     // Explicitly use user.uid if players list isn't ready but we are triggering this
-     const firstPlayerUid = players.length > 0 ? players[0].uid : user?.uid;
-     if (firstPlayerUid) {
-        await setNewWord(firstPlayerUid);
-     }
-  };
-
   // HOST HELPER: Advance Turn
   const advanceTurn = async (currentUid: string | null | undefined) => {
-     // Safety: If no players array yet, but user exists, default to self
-     if (!players.length) {
+     // Explicit Solo Logic: If only 1 player (or 0 safety), loop to self
+     if (players.length <= 1) {
         if (user) await setNewWord(user.uid);
-        return;
-     }
-
-     // Explicit Solo Logic: If only 1 player, loop to self
-     if (players.length === 1) {
-        await setNewWord(players[0].uid);
         return;
      }
      
@@ -158,12 +143,13 @@ const Play: React.FC = () => {
 
   // SOLO RECOVERY: If I'm alone and stuck waiting (activePlayerUid is null or not me), force start
   useEffect(() => {
-    let recoveryTimer: NodeJS.Timeout;
+    // Fix: Use 'any' to avoid namespace issues with NodeJS.Timeout in some environments
+    let recoveryTimer: any;
     if (user && isSolo && activePlayerUid !== user.uid) {
        // Wait 1 second. If still not my turn, force init.
        recoveryTimer = setTimeout(() => {
            console.log("Solo Recovery: Auto-starting...");
-           startNewTurn(); 
+           setNewWord(user.uid);
        }, 1000);
     }
     return () => clearTimeout(recoveryTimer);
@@ -182,21 +168,29 @@ const Play: React.FC = () => {
          const state = snap.val() as SharedMatchState;
          const now = Date.now();
 
-         // 1. Initialize if state is completely missing OR activePlayerUid is missing
-         // This fixes the "Synchronizing" stuck state where state object might exist but be incomplete
+         // 1. FORCE INITIALIZATION
+         // If state is completely missing OR activePlayerUid is missing, force start immediately.
          if (!state || !state.activePlayerUid) {
-            console.log("Host: Initializing game...");
-            await startNewTurn();
+            console.log("Host: Initializing game (Force)...");
+            await setNewWord(user.uid); // Immediately set to self
             return;
          }
 
-         // 2. Validate Active Player (Ghost Check)
-         // If the active player is not in the room, skip them.
-         const isActivePlayerPresent = players.some(p => p.uid === state.activePlayerUid);
-         if (!isActivePlayerPresent) {
-            console.log("Host Recovery: Active player left. Advancing...");
-            await advanceTurn(state.activePlayerUid);
-            return;
+         // 2. GHOST PROTECTION
+         if (players.length > 1) {
+             // Multiplayer: Check if active player is still in the room
+             const isActivePlayerPresent = players.some(p => p.uid === state.activePlayerUid);
+             if (!isActivePlayerPresent) {
+                console.log("Host Recovery: Active player left. Advancing...");
+                await advanceTurn(state.activePlayerUid);
+                return;
+             }
+         } else {
+             // Solo: Skip "isActivePlayerPresent" check. Just ensure I am the active player.
+             if (state.activePlayerUid !== user.uid) {
+                 await setNewWord(user.uid);
+                 return;
+             }
          }
 
          // 3. Check for Timeout
@@ -461,7 +455,11 @@ const Play: React.FC = () => {
                 <div className="opacity-80">
                     <span className="text-4xl grayscale">👀</span>
                     <h2 className="text-xl font-bold text-slate-400 mt-2">
-                       {activePlayerName === "Unknown" ? "Synchronizing..." : `Spectating ${activePlayerName}`}
+                       {(activePlayerName === "Unknown" && players.length === 1) 
+                          ? "Loading your arena..." 
+                          : activePlayerName === "Unknown" 
+                             ? "Synchronizing..." 
+                             : `Spectating ${activePlayerName}`}
                     </h2>
                 </div>
             )}
