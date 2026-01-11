@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
-import { wordBank, speak, checkAnswer, fetchDefinition, getTitle, stopAudio } from '../services/gameService';
+import { wordBank, speak, checkAnswer, fetchDefinition } from '../services/gameService';
 import { db } from '../firebase';
 import * as firebaseDatabase from 'firebase/database';
 
@@ -106,31 +106,6 @@ const Play: React.FC = () => {
     }
   }, [isMyTurn, currentWord, ttsVolume]);
 
-
-  // HOST HELPER: Start New Turn
-  const startNewTurn = async () => {
-     if (!players.length) return;
-     // Start with the longest standing player (Host)
-     const nextPlayer = players[0].uid; 
-     await setNewWord(nextPlayer);
-  };
-
-  // HOST HELPER: Advance Turn
-  const advanceTurn = async (currentUid: string) => {
-     if (!players.length) return;
-     
-     const currentIndex = players.findIndex(p => p.uid === currentUid);
-     
-     // Loop to next player. Late joiners are at end of array, so they wait their turn naturally.
-     let nextIndex = 0;
-     if (currentIndex !== -1) {
-        nextIndex = (currentIndex + 1) % players.length;
-     }
-
-     const nextPlayerUid = players[nextIndex].uid;
-     await setNewWord(nextPlayerUid);
-  };
-
   // HOST HELPER: Pick Word & Update DB
   const setNewWord = async (playerUid: string) => {
      const words = wordBank[currentMode] || wordBank['baby'];
@@ -147,48 +122,65 @@ const Play: React.FC = () => {
      });
   };
 
-  // RECOVERY LOGIC: If I am host, and active player is gone, force advance immediately.
-  useEffect(() => {
-    if (!user || players.length === 0) return;
-    
-    // I am Host?
-    if (players[0].uid === user.uid) {
-        // Is the active player invalid? (e.g. left the game)
-        // We check if activePlayerUid is set BUT not in the players list.
-        if (activePlayerUid && !players.find(p => p.uid === activePlayerUid)) {
-            console.log("Host Recovery: Active player not found. Advancing...");
-            advanceTurn(activePlayerUid);
-        }
-    }
-  }, [players, activePlayerUid, user]);
+  // HOST HELPER: Start New Turn
+  const startNewTurn = async () => {
+     if (!players.length) return;
+     const nextPlayer = players[0].uid; 
+     await setNewWord(nextPlayer);
+  };
 
-  // HOST LOGIC: Heartbeat & Game Coordinator (Timeouts)
+  // HOST HELPER: Advance Turn
+  const advanceTurn = async (currentUid: string) => {
+     if (!players.length) return;
+     
+     const currentIndex = players.findIndex(p => p.uid === currentUid);
+     let nextIndex = 0;
+     if (currentIndex !== -1) {
+        nextIndex = (currentIndex + 1) % players.length;
+     }
+     // If the calculated next player is the same as current (e.g. solo play), 
+     // setNewWord still triggers a new word/deadline, effectively restarting the loop.
+     
+     const nextPlayerUid = players[nextIndex].uid;
+     await setNewWord(nextPlayerUid);
+  };
+
+  // CONSOLIDATED HOST LOGIC
   useEffect(() => {
     if (!user || players.length === 0) return;
     
+    // Only the 'oldest' player acts as Host to prevent write conflicts
     const isHost = players[0].uid === user.uid;
 
     if (isHost) {
-      const matchStateRef = dbRef(db, `matches/${matchId}/state`);
-      
-      const checkState = async () => {
-         const snap = await dbGet(matchStateRef);
+      const interval = setInterval(async () => {
+         const snap = await dbGet(dbRef(db, `matches/${matchId}/state`));
          const state = snap.val() as SharedMatchState;
          const now = Date.now();
 
-         // 1. Initialize if empty (Solo play starts immediately)
+         // 1. Initialize if empty
          if (!state) {
-            startNewTurn();
+            await startNewTurn();
             return;
          }
 
-         // 2. Check for Timeout
-         if (state.deadline > 0 && now > state.deadline) {
-             advanceTurn(state.activePlayerUid);
-         }
-      };
+         // 2. Validate Active Player (Fix "Spectating Unknown" or Ghost Users)
+         const activeUid = state.activePlayerUid;
+         const isActivePlayerPresent = players.some(p => p.uid === activeUid);
 
-      const interval = setInterval(checkState, 1000);
+         if (!isActivePlayerPresent) {
+            console.log("Host Recovery: Active player not present. Advancing turn.");
+            // If the active player is gone, just move to the next valid player (which might be the host themselves)
+            await advanceTurn(activeUid);
+            return;
+         }
+
+         // 3. Check for Timeout
+         if (state.deadline > 0 && now > state.deadline) {
+             await advanceTurn(activeUid);
+         }
+      }, 1000); // Check every second
+
       return () => clearInterval(interval);
     }
   }, [players, user, matchId]);
@@ -210,7 +202,6 @@ const Play: React.FC = () => {
            setTimeLeft(remaining);
            timerEndRef.current = state.deadline;
         } else {
-            // If state is null, we are waiting for Host to init
             setActivePlayerUid(null);
         }
      });
@@ -357,8 +348,8 @@ const Play: React.FC = () => {
       {/* Background Ambience */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full blur-[100px] pointer-events-none bg-emerald-500/5 transition-colors duration-1000"></div>
       
-      {/* Mobile Header Controls */}
-      <div className="lg:hidden fixed right-4 top-4 flex gap-3 z-50 pointer-events-auto">
+      {/* Mobile Header Controls - Moved down to top-24 to avoid header overlap */}
+      <div className="lg:hidden fixed right-4 top-24 flex gap-3 z-40 pointer-events-auto">
          <button onClick={() => setIsChatOpen(!isChatOpen)} className={`p-3 rounded-full border shadow-lg backdrop-blur-sm ${isChatOpen ? 'bg-emerald-600 border-emerald-500' : 'bg-slate-800/80 border-slate-600'}`}>
            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
          </button>
@@ -368,8 +359,8 @@ const Play: React.FC = () => {
       </div>
 
       {/* Chat Module (Slide-out) */}
-      <div className={`fixed z-40 bg-slate-900/95 backdrop-blur-xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden transition-all duration-300
-        ${isChatOpen ? 'right-4 top-20 w-[85vw] h-[40vh] scale-100 opacity-100 pointer-events-auto rounded-2xl' : 'right-4 top-20 w-[85vw] h-[40vh] scale-0 opacity-0 pointer-events-none rounded-2xl'}
+      <div className={`fixed z-50 bg-slate-900/95 backdrop-blur-xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden transition-all duration-300
+        ${isChatOpen ? 'right-4 top-40 w-[85vw] h-[40vh] scale-100 opacity-100 pointer-events-auto rounded-2xl' : 'right-4 top-40 w-[85vw] h-[40vh] scale-0 opacity-0 pointer-events-none rounded-2xl'}
         lg:left-4 lg:bottom-4 lg:top-auto lg:right-auto lg:w-80 lg:h-64 lg:rounded-xl lg:scale-100 lg:opacity-100 lg:pointer-events-auto lg:transform-none
       `}>
          <div className="p-2 border-b border-slate-700 bg-black/20 font-bold text-xs">Chat</div>
@@ -389,8 +380,8 @@ const Play: React.FC = () => {
          </form>
       </div>
 
-      {/* Player List (Right Side Desktop / Top Mobile) */}
-      <div className="absolute top-4 right-4 z-10 hidden lg:flex flex-col gap-2 pointer-events-none">
+      {/* Player List (Right Side Desktop) */}
+      <div className="absolute top-24 right-4 z-10 hidden lg:flex flex-col gap-2 pointer-events-none">
           {players.map((p) => {
              const isActive = p.uid === activePlayerUid;
              return (
@@ -406,7 +397,7 @@ const Play: React.FC = () => {
       </div>
 
       {/* Main Game Arena */}
-      <div className={`w-full max-w-xl flex flex-col items-center z-10 transition-all duration-500 p-8 rounded-3xl relative border border-slate-800 bg-slate-900/50`}>
+      <div className={`w-full max-w-xl flex flex-col items-center z-10 transition-all duration-500 p-8 rounded-3xl relative border border-slate-800 bg-slate-900/50 mt-12 lg:mt-0`}>
         
         <button onClick={exitArena} className="hidden lg:block absolute top-4 left-4 p-2 text-red-400 hover:text-red-300 font-bold text-xs uppercase tracking-widest border border-transparent hover:border-red-500/30 rounded">
            Exit
