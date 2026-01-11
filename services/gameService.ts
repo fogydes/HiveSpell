@@ -1037,6 +1037,10 @@ const HOMOPHONES: Record<string, string[]> = {
   "neighbor": ["neighbour"], "neighbour": ["neighbor"],
   "honor": ["honour"], "honour": ["honor"],
   "vain": ["vein"], "vein": ["vain"],
+  // New Additions
+  "adrenocorticotropin": ["adrenocorticotrophin"], "adrenocorticotrophin": ["adrenocorticotropin"],
+  "honorificabilitudinity": ["honourificabilitudinity"], "honourificabilitudinity": ["honorificabilitudinity"],
+  "supersede": ["supercede"], "supercede": ["supersede"] 
 };
 
 const normalizeSuffix = (word: string) => {
@@ -1115,6 +1119,10 @@ const getAlternateAudioName = (word: string): string | null => {
   if (lower.endsWith('our')) {
     return lower.replace(/our$/, 'or');
   }
+  // Specific mappings for files that might only exist in one form
+  if (lower === 'adrenocorticotrophin') return 'adrenocorticotropin';
+  if (lower === 'honourificabilitudinity') return 'honorificabilitudinity';
+  
   return null;
 };
 

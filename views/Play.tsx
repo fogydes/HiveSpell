@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
-import { wordBank, speak, checkAnswer, fetchDefinition, getTitle, MODE_ORDER, stopAudio } from '../services/gameService';
+import { wordBank, speak, checkAnswer, fetchDefinition, getTitle, stopAudio } from '../services/gameService';
 import { db } from '../firebase';
 import * as firebaseDatabase from 'firebase/database';
 
@@ -38,11 +38,14 @@ interface PlayerPresence {
   photoSeed: string;
   corrects: number;
   wins: number;
+  joinedAt: number;
 }
 
-interface WordStat {
-  word: string;
-  wpm: number;
+interface SharedMatchState {
+  currentWord: string;
+  activePlayerUid: string;
+  deadline: number;
+  lastUpdate: number;
 }
 
 const Play: React.FC = () => {
@@ -53,151 +56,289 @@ const Play: React.FC = () => {
   const { ttsVolume, playTypingSound } = useSettings();
   const gameState = (location.state as GameState) || { type: 'public', role: 'player' };
 
-  const [currentMode, setCurrentMode] = useState(paramMode || 'baby');
+  // Match ID logic: Public = "mode_public", Private = "mode_code"
+  const matchId = gameState.type === 'private' && gameState.code 
+    ? `${paramMode}_${gameState.code}` 
+    : `${paramMode}_public`;
+
+  const [currentMode] = useState(paramMode || 'baby');
   
   // Game Logic State
-  const [timeLeft, setTimeLeft] = useState(10);
-  const [totalTime, setTotalTime] = useState(10);
-  const [streak, setStreak] = useState(0);
-  
-  // WPM & Stats State
-  const [correctWords, setCorrectWords] = useState<WordStat[]>([]);
-  const [startTime, setStartTime] = useState<number | undefined>(undefined);
-  const [avgWpm, setAvgWpm] = useState(0);
-  const [lastBurstWpm, setLastBurstWpm] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(0);
   const [isInputEnabled, setIsInputEnabled] = useState(false);
 
   const [currentWord, setCurrentWord] = useState('');
-  const [definition, setDefinition] = useState('');
+  const [definition, setDefinition] = useState('Waiting for round to start...');
   const [inputValue, setInputValue] = useState('');
-  const [status, setStatus] = useState<'playing' | 'intermission' | 'speaking'>('playing');
-  const [intermissionTime, setIntermissionTime] = useState(10);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error', msg: string } | null>(null);
+  const [activePlayerUid, setActivePlayerUid] = useState<string | null>(null);
   
   // UI States
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [players, setPlayers] = useState<PlayerPresence[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
-  
-  const joinTimeRef = useRef<number>(Date.now());
   const [activeTab, setActiveTab] = useState<'none' | 'chat' | 'players'>('none');
 
-  const previousWordRef = useRef<string>('');
   const inputRef = useRef<HTMLInputElement>(null);
-  const processingRef = useRef(false);
-  const timerEndRef = useRef<number>(0);
   const animationFrameRef = useRef<number>(0);
+  const joinTimeRef = useRef<number>(Date.now());
+  const timerEndRef = useRef<number>(0);
 
-  // SESSION STORAGE SYNC
+  // TURN LOGIC - Derived State
+  const isMyTurn = user && activePlayerUid === user.uid;
+  const activePlayerName = players.find(p => p.uid === activePlayerUid)?.title || "Unknown";
+
+  // AUTO-FOCUS / AUDIO TRIGGER
+  // When turn changes to me, play audio and focus
   useEffect(() => {
-    if (correctWords.length > 0) {
-      sessionStorage.setItem("gameData", JSON.stringify({ difficulty: currentMode, correctWords: correctWords }));
+    if (isMyTurn && currentWord) {
+       setFeedback(null);
+       setInputValue('');
+       // 1. Play Audio
+       speak(currentWord, ttsVolume);
+       // 2. Wait 500ms then Focus
+       const timer = setTimeout(() => {
+          setIsInputEnabled(true);
+          if (inputRef.current) inputRef.current.focus();
+       }, 500);
+       return () => clearTimeout(timer);
+    } else {
+       setIsInputEnabled(false);
+       if(inputRef.current) inputRef.current.blur();
+    }
+  }, [isMyTurn, currentWord, ttsVolume]);
+
+
+  // HOST LOGIC: Heartbeat & Game Coordinator
+  // If I am the first player in the list, I am the "Host" responsible for advancing state
+  useEffect(() => {
+    if (!user || players.length === 0) return;
+    
+    // Sort players by join time to determine stable host
+    // (Existing presence fetch in separate effect sorts by corrects, we might want to respect that or strictly join time)
+    // For turn-based, stable order is best. Let's assume `players[0]` is host.
+    const isHost = players[0].uid === user.uid;
+
+    if (isHost) {
+      const matchStateRef = dbRef(db, `matches/${matchId}/state`);
       
-      // Calculate Average WPM
-      const total = correctWords.reduce((sum, item) => sum + item.wpm, 0);
-      setAvgWpm(Math.round(total / correctWords.length));
-    }
-  }, [correctWords, currentMode]);
+      const checkState = async () => {
+         const snap = await dbGet(matchStateRef);
+         const state = snap.val() as SharedMatchState;
+         const now = Date.now();
 
-  // AUTO-FOCUS FIX: This effect runs after render, ensuring the input is enabled in the DOM before we focus it
-  useEffect(() => {
-    if (isInputEnabled && status === 'playing' && inputRef.current) {
-      // Immediate attempt
-      inputRef.current.focus();
-      // Backup attempt to handle any slight render delays
-      const timer = setTimeout(() => {
-        if(inputRef.current) inputRef.current.focus();
-      }, 10);
-      return () => clearTimeout(timer);
+         // 1. Initialize if empty
+         if (!state) {
+            startNewTurn();
+            return;
+         }
+
+         // 2. Check if current player is invalid (left game)
+         const currentPlayerStillHere = players.some(p => p.uid === state.activePlayerUid);
+         if (!currentPlayerStillHere) {
+            // Force next turn
+            advanceTurn(state.activePlayerUid);
+            return;
+         }
+
+         // 3. Check for Timeout
+         if (state.deadline > 0 && now > state.deadline) {
+             // Time expired for current player
+             // We can trigger a "Fail" message in chat or just skip
+             advanceTurn(state.activePlayerUid);
+         }
+      };
+
+      const interval = setInterval(checkState, 1000);
+      return () => clearInterval(interval);
     }
-  }, [isInputEnabled, status]);
+  }, [players, user, matchId]);
+
+
+  // HOST HELPER: Start New Turn
+  const startNewTurn = async () => {
+     if (!players.length) return;
+     const nextPlayer = players[0].uid; // Default start
+     await setNewWord(nextPlayer);
+  };
+
+  // HOST HELPER: Advance Turn
+  const advanceTurn = async (currentUid: string) => {
+     if (!players.length) return;
+     
+     const currentIndex = players.findIndex(p => p.uid === currentUid);
+     const nextIndex = (currentIndex + 1) % players.length;
+     const nextPlayerUid = players[nextIndex].uid;
+
+     await setNewWord(nextPlayerUid);
+  };
+
+  // HOST HELPER: Pick Word & Update DB
+  const setNewWord = async (playerUid: string) => {
+     const words = wordBank[currentMode] || wordBank['baby'];
+     const randomWord = words[Math.floor(Math.random() * words.length)];
+     
+     // Calculate deadline: 10s base + length adjustment
+     const duration = 5 + Math.ceil(randomWord.length * 1.5); 
+     const deadline = Date.now() + (duration * 1000);
+
+     await dbUpdate(dbRef(db, `matches/${matchId}/state`), {
+       currentWord: randomWord,
+       activePlayerUid: playerUid,
+       deadline: deadline,
+       lastUpdate: Date.now()
+     });
+  };
+
+  // LISTENER: Game State (Word, Active Player)
+  useEffect(() => {
+     const matchStateRef = dbRef(db, `matches/${matchId}/state`);
+     const unsub = dbOnValue(matchStateRef, (snap: any) => {
+        const state = snap.val() as SharedMatchState;
+        if (state) {
+           // Only update word if it changed (avoids audio replay loops if logic wasn't guarded)
+           if (state.currentWord !== currentWord) {
+              setCurrentWord(state.currentWord);
+              fetchDefinition(state.currentWord).then(setDefinition);
+           }
+           
+           setActivePlayerUid(state.activePlayerUid);
+           
+           // Sync Timer
+           const remaining = Math.max(0, (state.deadline - Date.now()) / 1000);
+           setTimeLeft(remaining);
+           // Store deadline locally for animation frame
+           timerEndRef.current = state.deadline;
+        }
+     });
+     return () => unsub();
+  }, [matchId]);
+
+  // ANIMATION: Smooth Timer
+  useEffect(() => {
+    const updateTimer = () => {
+        if (timerEndRef.current > 0) {
+            const now = Date.now();
+            const delta = Math.max(0, (timerEndRef.current - now) / 1000);
+            setTimeLeft(delta);
+            animationFrameRef.current = requestAnimationFrame(updateTimer);
+        }
+    };
+    animationFrameRef.current = requestAnimationFrame(updateTimer);
+    return () => cancelAnimationFrame(animationFrameRef.current);
+  }, [activePlayerUid]); // Restart loop on turn change
+
+
+  // PLAYER SUBMISSION LOGIC
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isMyTurn || !user) return;
+    
+    // Check Answer
+    if (checkAnswer(currentWord, inputValue.trim())) {
+       // 1. Reward
+       setFeedback({ type: 'success', msg: 'Correct!' });
+       playTypingSound(); // Reuse specific sound or add success sound
+       
+       // Update Stats
+       const userRef = dbRef(db, `users/${user.uid}`);
+       try {
+           const snapshot = await dbGet(userRef);
+           const uData = snapshot.val() || {};
+           await dbUpdate(userRef, {
+             corrects: (uData.corrects || 0) + 1,
+             // Simple streak logic for now (could be elaborated)
+           });
+       } catch (e) {}
+
+       // 2. Advance Turn (If Host, loop handles it. If Client, we can trigger it or wait for host)
+       // To ensure responsiveness, the Active Player (who just won) acts as temporary authority to trigger next
+       // Or we just update a "result" node that the host watches. 
+       // SIMPLEST: Active Player calculates next and updates state directly.
+       await advanceTurn(user.uid);
+
+    } else {
+       // Wrong
+       setFeedback({ type: 'error', msg: 'Incorrect!' });
+       // Simple: Pass turn on fail
+       await advanceTurn(user.uid);
+    }
+  };
+
 
   // PRESENCE SYSTEM
   useEffect(() => {
-    if (!user || !currentMode) return;
+    if (!user || !matchId) return;
     
-    const presenceRef = dbRef(db, `presence/${currentMode}/${user.uid}`);
-    dbSet(presenceRef, true).catch((err: any) => {}); 
+    // Join Lobby
+    const presenceRef = dbRef(db, `matches/${matchId}/presence/${user.uid}`);
+    dbSet(presenceRef, {
+       uid: user.uid,
+       joinedAt: dbServerTimestamp()
+    }).catch((err: any) => {}); 
     dbOnDisconnect(presenceRef).remove().catch((err: any) => {});
 
-    const modePresenceRef = dbRef(db, `presence/${currentMode}`);
-    const unsubscribePresence = dbOnValue(modePresenceRef, async (snapshot: any) => {
-      const uids = snapshot.val() ? Object.keys(snapshot.val()) : [];
+    // Listen to Lobby
+    const lobbyRef = dbRef(db, `matches/${matchId}/presence`);
+    const unsub = dbOnValue(lobbyRef, async (snapshot: any) => {
+      const data = snapshot.val();
+      if (!data) {
+        setPlayers([]);
+        return;
+      }
       
-      const newPlayers: PlayerPresence[] = [];
+      const pList: PlayerPresence[] = [];
+      const uids = Object.keys(data);
+
       for (const uid of uids) {
          try {
            const userRef = dbRef(db, `users/${uid}`);
            const userSnap = await dbGet(userRef);
            const uData = userSnap.val() || {};
-           newPlayers.push({
+           pList.push({
              uid,
-             title: uData.username || (uData.email ? uData.email.split('@')[0] : 'Player'),
+             title: uData.username || 'Player',
              photoSeed: uid,
              corrects: uData.corrects || 0,
-             wins: uData.wins || 0
+             wins: uData.wins || 0,
+             joinedAt: data[uid].joinedAt || 0
            });
          } catch (e) {
-           newPlayers.push({
-             uid,
-             title: 'Unknown',
-             photoSeed: uid,
-             corrects: 0,
-             wins: 0
-           });
+           pList.push({ uid, title: 'Unknown', photoSeed: uid, corrects: 0, wins: 0, joinedAt: 0 });
          }
       }
-      newPlayers.sort((a, b) => b.corrects - a.corrects);
-      setPlayers(newPlayers);
-    }, (error: any) => {
-      console.warn("Presence listener failed:", error);
-      if (user) {
-        setPlayers([{
-           uid: user.uid,
-           title: userData?.username || (user.email ? user.email.split('@')[0] : 'Player'),
-           photoSeed: user.uid,
-           corrects: userData?.corrects || 0,
-           wins: userData?.wins || 0
-        }]);
-      }
+      // Sort by join time for stable turn order
+      pList.sort((a, b) => a.joinedAt - b.joinedAt);
+      setPlayers(pList);
     });
 
     return () => {
-      unsubscribePresence();
+      unsub();
       dbSet(presenceRef, null).catch(() => {});
     };
-  }, [user, currentMode, userData]);
+  }, [user, matchId]);
 
   // CHAT SYSTEM
   useEffect(() => {
-    if (!currentMode) return;
-    
-    const chatRef = dbQuery(dbRef(db, `chat/${currentMode}`), dbLimitToLast(50));
-    const unsubscribeChat = dbOnValue(chatRef, (snapshot: any) => {
+    if (!matchId) return;
+    const chatRef = dbQuery(dbRef(db, `matches/${matchId}/chat`), dbLimitToLast(50));
+    const unsub = dbOnValue(chatRef, (snapshot: any) => {
       const data = snapshot.val();
       if (data) {
         const msgList = Object.entries(data)
           .map(([key, val]: [string, any]) => ({
             id: key,
-            sender: val.sender,
-            text: val.text,
-            timestamp: val.timestamp,
-            type: val.type || 'user'
+            ...val
           }))
-          .filter(msg => msg.timestamp && msg.timestamp >= joinTimeRef.current);
-          
+          .sort((a,b) => a.timestamp - b.timestamp);
         setMessages(msgList);
       } else {
         setMessages([]);
       }
-    }, (error: any) => {
-      console.warn("Chat listener failed:", error);
-      setMessages([{ id: 'sys', sender: 'System', text: 'Chat disconnected', timestamp: Date.now(), type: 'server'}]);
     });
-
-    return () => unsubscribeChat();
-  }, [currentMode]);
+    return () => unsub();
+  }, [matchId]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -206,277 +347,18 @@ const Play: React.FC = () => {
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatInput.trim() || !user) return;
-
-    const chatRef = dbRef(db, `chat/${currentMode}`);
-    try {
-      await dbPush(chatRef, {
-        sender: userData?.username || (user.email ? user.email.split('@')[0] : 'Player'),
-        text: chatInput,
-        timestamp: dbServerTimestamp(),
-        type: 'user'
-      });
-      setChatInput('');
-    } catch (e) {
-      console.error("Failed to send message:", e);
-    }
+    const chatRef = dbRef(db, `matches/${matchId}/chat`);
+    await dbPush(chatRef, {
+      sender: userData?.username || 'Player',
+      text: chatInput,
+      timestamp: dbServerTimestamp(),
+      type: 'user'
+    });
+    setChatInput('');
   };
 
-  const getModeConfig = (mode: string) => {
-    switch (mode) {
-      case 'baby': return { stars: 6 };
-      case 'cakewalk': return { stars: 8 };
-      case 'learner': return { stars: 10 };
-      case 'intermediate': return { stars: 12 };
-      case 'heated': return { stars: 14 };
-      case 'genius': return { stars: 16 };
-      case 'polymath': return { stars: 18 };
-      case 'omniscient': return { stars: 20 };
-      default: return { stars: 5 };
-    }
-  };
-
-  const nextWord = useCallback(async () => {
-    if (!currentMode || !wordBank[currentMode]) return;
-    if (processingRef.current) return;
-    processingRef.current = true;
-    
-    try {
-      let activeMode = currentMode;
-      // Rampage Logic: switch mode if streak is high
-      if (streak > 25) {
-        const currentIndex = MODE_ORDER.indexOf(currentMode);
-        if (currentIndex !== -1 && currentIndex < MODE_ORDER.length - 1) {
-          activeMode = MODE_ORDER[currentIndex + 1];
-        }
-      }
-
-      const words = wordBank[activeMode];
-      
-      // PROGRESSIVE DIFFICULTY SELECTION
-      let selectionPool = [];
-      if (streak < 5) {
-        const limit = Math.max(5, Math.floor(words.length * 0.3));
-        selectionPool = words.slice(0, limit);
-      } else if (streak < 15) {
-        const limit = Math.max(10, Math.floor(words.length * 0.7));
-        selectionPool = words.slice(0, limit);
-      } else {
-        selectionPool = words;
-      }
-
-      let word = '';
-      let attempts = 0;
-      do {
-        const randomIndex = Math.floor(Math.random() * selectionPool.length);
-        word = selectionPool[randomIndex];
-        attempts++;
-      } while (word === previousWordRef.current && attempts < 5);
-      
-      previousWordRef.current = word;
-
-      setCurrentWord(word);
-      setInputValue('');
-      setDefinition('Loading definition...');
-      fetchDefinition(word).then(setDefinition);
-      
-      // CLEAN TIMER LOGIC STEP 1: Disable Input, Clear Start Time
-      setIsInputEnabled(false);
-      setStartTime(undefined);
-      setStatus('speaking');
-      setIntermissionTime(5); 
-      setFeedback(null);
-
-      // Play Audio (Non-blocking usually, but we want it to start before timer)
-      await speak(word, ttsVolume);
-
-      // CLEAN TIMER LOGIC STEP 2: Wait 500ms (approx halfway through word, since speak resolves on start)
-      setTimeout(() => {
-         // Enable Input
-         setIsInputEnabled(true);
-         // Set START TIME
-         setStartTime(Date.now());
-         setStatus('playing');
-         
-         // COUNTDOWN TIMER LOGIC (Game Over Timer)
-         // Calculate duration based on word length + streak decay
-         const wordLen = word.length;
-         let secPerChar = 1.0; 
-         if (activeMode === 'intermediate' || activeMode === 'heated') secPerChar = 0.9;
-         if (activeMode === 'genius' || activeMode === 'polymath') secPerChar = 0.8;
-
-         let calculatedTime = 2.0 + (wordLen * secPerChar);
-         const decayFactor = Math.max(0.6, 1 - (streak * 0.01)); 
-         calculatedTime = Math.max(2.5, calculatedTime * decayFactor); 
-
-         setTotalTime(calculatedTime);
-         setTimeLeft(calculatedTime);
-         
-         // Start Countdown
-         timerEndRef.current = Date.now() + (calculatedTime * 1000);
-
-      }, 500);
-
-    } catch (e) {
-      console.error("Error in loop:", e);
-      setStatus('playing');
-      setIsInputEnabled(true);
-      setStartTime(Date.now());
-    } finally {
-      processingRef.current = false;
-    }
-
-  }, [currentMode, streak, ttsVolume]);
-
-  const handleModeChange = (newMode: string) => {
-    stopAudio();
-    setCurrentMode(newMode);
-    setStreak(0);
-    setCorrectWords([]);
-    setAvgWpm(0);
-    setLastBurstWpm(0);
-    joinTimeRef.current = Date.now();
-    setTimeout(() => nextWord(), 100);
-  };
-
-  useEffect(() => {
-    nextWord();
-    
-    return () => {
-      stopAudio();
-    }
-  }, []);
-
-  // GAME OVER TIMER LOOP
-  useEffect(() => {
-    const updateTimer = () => {
-      if (status === 'playing') {
-        const now = Date.now();
-        const delta = timerEndRef.current - now;
-        
-        if (delta <= 0) {
-          setTimeLeft(0);
-          handleFail("Time's up!");
-        } else {
-          setTimeLeft(delta / 1000); 
-          animationFrameRef.current = requestAnimationFrame(updateTimer);
-        }
-      }
-    };
-
-    if (status === 'playing') {
-      animationFrameRef.current = requestAnimationFrame(updateTimer);
-    } else {
-      cancelAnimationFrame(animationFrameRef.current);
-    }
-    return () => cancelAnimationFrame(animationFrameRef.current);
-  }, [status, currentWord]);
-
-  // INTERMISSION TIMER LOOP
-  useEffect(() => {
-    let interval: any;
-    if (status === 'intermission') {
-      interval = setInterval(() => {
-        setIntermissionTime((prev) => {
-          if (prev <= 1) {
-             nextWord();
-             return 5;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [status, nextWord]);
-
-
-  const handleFail = (msg: string) => {
-    setStreak(0);
-    // On fail, we do not reset WPM history, only current streak
-    setStatus('intermission');
-    setFeedback({ type: 'error', msg: `${msg} The word was: ${currentWord}` });
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    if (val.length > inputValue.length) {
-        playTypingSound();
-    }
-    setInputValue(val);
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (status !== 'playing') return;
-    
-    // BURST WPM LOGIC STEP 1: Capture End Time Immediately
-    const endTime = Date.now();
-
-    if (checkAnswer(currentWord, inputValue.trim())) {
-      
-      // BURST WPM LOGIC STEP 2: Calculate
-      if (startTime) {
-        const durationMs = endTime - startTime;
-        // Avoid division by zero if they type instantly (e.g. 1ms)
-        const minutesElapsed = Math.max(durationMs, 1) / 60000;
-        
-        // Formula: (Characters / 4) / Minutes
-        const burstWpm = Math.round((currentWord.length / 4) / minutesElapsed);
-        
-        // Update Stats
-        setLastBurstWpm(burstWpm);
-        setCorrectWords(prev => [...prev, { word: currentWord, wpm: burstWpm }]);
-      }
-
-      const newStreak = streak + 1;
-      setStreak(newStreak);
-      
-      const { stars: starReward } = getModeConfig(currentMode);
-
-      if (user) {
-        const userRef = dbRef(db, `users/${user.uid}`);
-        try {
-           const snapshot = await dbGet(userRef);
-           const currentData = snapshot.val() || {};
-           const currentStars = currentData.stars || 0;
-           const currentCorrects = currentData.corrects || 0;
-           const currentWins = currentData.wins || 0;
-
-           const newWins = newStreak % 10 === 0 ? currentWins + 1 : currentWins;
-           const newCorrects = currentCorrects + 1;
-           const newTitle = getTitle(newCorrects, newWins);
-
-           await dbUpdate(userRef, {
-             stars: currentStars + starReward,
-             corrects: newCorrects,
-             wins: newWins,
-             title: newTitle
-           });
-        } catch (err) {
-            console.error("Error updating stats", err);
-        }
-      }
-
-      setFeedback({ type: 'success', msg: `Correct! +${starReward}` });
-      setTimeout(() => nextWord(), 200);
-
-    } else {
-      handleFail("Incorrect.");
-    }
-  };
-
-  const skipIntermission = () => nextWord();
   const exitArena = () => navigate('/lobby');
-
-  const getFireIntensity = () => {
-    if (streak > 25) return 'bg-red-900/40 border-red-500 shadow-[0_0_50px_rgba(220,38,38,0.5)]';
-    if (streak > 10) return 'bg-orange-900/30 border-orange-500';
-    if (streak > 5) return 'bg-yellow-900/20';
-    return '';
-  };
-
-  const toggleTab = (tab: 'chat' | 'players') => {
-    setActiveTab(activeTab === tab ? 'none' : tab);
-  };
+  const toggleTab = (tab: 'chat' | 'players') => setActiveTab(activeTab === tab ? 'none' : tab);
 
   const getChatClasses = () => {
     const base = "fixed z-40 bg-slate-900/95 backdrop-blur-xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden transition-all duration-300";
@@ -494,194 +376,157 @@ const Play: React.FC = () => {
     return `${base} ${mobilePos} ${mobileState} ${desktop}`;
   };
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (val.length > inputValue.length) playTypingSound();
+    setInputValue(val);
+  };
+
   return (
-    <div className={`min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans text-white transition-colors duration-1000 ${streak > 25 ? 'bg-[#1a0505]' : 'bg-[#050914]'}`}>
-      <div className={`absolute top-1/4 left-1/4 w-96 h-96 rounded-full blur-[100px] pointer-events-none transition-all duration-1000 ${streak > 25 ? 'bg-red-600/20' : 'bg-emerald-500/5'}`}></div>
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans text-white bg-[#050914]">
+      {/* Background Ambience */}
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full blur-[100px] pointer-events-none bg-emerald-500/5 transition-colors duration-1000"></div>
       
+      {/* Mobile Controls */}
       <div className="lg:hidden fixed right-4 top-1/2 -translate-y-1/2 flex flex-col gap-3 z-50 pointer-events-auto">
-         <button onClick={exitArena} className="p-3 bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded-full border border-red-500/50 backdrop-blur-sm transition-all shadow-lg mb-4">
-           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-           </svg>
+         <button onClick={exitArena} className="p-3 bg-red-600/20 text-red-400 rounded-full border border-red-500/50 backdrop-blur-sm shadow-lg mb-4">
+           <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
          </button>
-         <button onClick={() => toggleTab('chat')} className={`p-3 rounded-full border shadow-lg backdrop-blur-sm transition-all ${activeTab === 'chat' ? 'bg-emerald-600 border-emerald-500' : 'bg-slate-800/80 border-slate-600'}`}>
-           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+         <button onClick={() => toggleTab('chat')} className={`p-3 rounded-full border shadow-lg backdrop-blur-sm ${activeTab === 'chat' ? 'bg-emerald-600 border-emerald-500' : 'bg-slate-800/80 border-slate-600'}`}>
+           <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
          </button>
-         <button onClick={() => toggleTab('players')} className={`p-3 rounded-full border shadow-lg backdrop-blur-sm transition-all ${activeTab === 'players' ? 'bg-emerald-600 border-emerald-500' : 'bg-slate-800/80 border-slate-600'}`}>
-           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+         <button onClick={() => toggleTab('players')} className={`p-3 rounded-full border shadow-lg backdrop-blur-sm ${activeTab === 'players' ? 'bg-emerald-600 border-emerald-500' : 'bg-slate-800/80 border-slate-600'}`}>
+           <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
          </button>
       </div>
 
+      {/* Chat Module */}
       <div className={getChatClasses()}>
-         <div className="p-3 border-b border-slate-700 bg-black/20 font-bold text-sm">Hive Chat</div>
+         <div className="p-3 border-b border-slate-700 bg-black/20 font-bold text-sm">Hive Chat ({players.length})</div>
          <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-thin scrollbar-thumb-slate-700">
-             {messages.length === 0 && (
-                <div className="text-xs text-slate-500 text-center mt-4">Welcome to the chat!</div>
-             )}
              {messages.map((msg) => (
                <div key={msg.id} className="text-xs break-words">
-                 {msg.type === 'server' ? (
-                   <span className="text-red-400 font-bold">[Server] {msg.text}</span>
-                 ) : (
-                   <>
-                     <span className="text-yellow-400 font-bold">[{msg.sender}]:</span> <span className="text-white drop-shadow-md">{msg.text}</span>
-                   </>
-                 )}
+                  <span className="text-yellow-400 font-bold">[{msg.sender}]:</span> <span className="text-white drop-shadow-md">{msg.text}</span>
                </div>
              ))}
              <div ref={chatEndRef} />
          </div>
          <form onSubmit={handleSendMessage} className="p-3 bg-black/30 border-t border-slate-700">
             <input 
-              type="text" 
-              value={chatInput} 
-              onChange={(e) => setChatInput(e.target.value)} 
-              placeholder="Message..."
+              type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Message..."
               className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-400 outline-none focus:border-emerald-500"
             />
          </form>
       </div>
 
+      {/* Player List Module (Turn Order) */}
       <div className={getPlayerListClasses()}>
          <div className="p-3 border-b border-slate-700 bg-black/20 font-bold text-sm flex justify-between">
-            <span>People ({players.length})</span>
-         </div>
-         <div className="grid grid-cols-[1fr_50px_40px] px-3 py-2 text-[10px] text-slate-400 font-bold uppercase border-b border-slate-700/50">
-            <span>Name</span>
-            <span className="text-right">Correct</span>
-            <span className="text-right">Wins</span>
+            <span>Turn Order</span>
          </div>
          <div className="flex-1 overflow-y-auto">
-            {players.map((p) => (
-              <div key={p.uid} className={`grid grid-cols-[1fr_50px_40px] px-3 py-3 text-xs items-center transition-colors border-b border-slate-800/50 ${p.uid === user?.uid ? 'bg-emerald-900/20' : 'hover:bg-white/5'}`}>
-                  <div className="flex items-center gap-2 overflow-hidden">
-                     <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${p.photoSeed}`} className="w-6 h-6 rounded bg-slate-700" alt="p" />
-                     <span className={`truncate font-medium ${p.uid === user?.uid ? 'text-emerald-400' : 'text-white'}`}>
-                       {p.title} {p.uid === user?.uid && '(You)'}
-                     </span>
+            {players.map((p, idx) => {
+               const isActive = p.uid === activePlayerUid;
+               return (
+                  <div key={p.uid} className={`flex items-center gap-3 px-4 py-3 border-b border-slate-800/50 transition-all ${isActive ? 'bg-emerald-600/20 border-l-4 border-l-emerald-500' : ''}`}>
+                      <div className="text-xs font-mono text-slate-500 w-4">{idx + 1}</div>
+                      <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${p.photoSeed}`} className="w-8 h-8 rounded bg-slate-700" alt="p" />
+                      <div className="flex-1 min-w-0">
+                          <div className={`truncate font-bold text-xs ${isActive ? 'text-emerald-400' : 'text-slate-300'}`}>
+                             {p.title} {p.uid === user?.uid && '(You)'}
+                          </div>
+                          {isActive && <div className="text-[10px] text-emerald-500 animate-pulse">SPELLING...</div>}
+                      </div>
                   </div>
-                  <div className="text-right text-emerald-400 font-mono">{p.corrects}</div>
-                  <div className="text-right text-slate-300 font-mono">{p.wins}</div>
-              </div>
-            ))}
+               );
+            })}
          </div>
       </div>
 
-      <div className={`w-full max-w-xl flex flex-col items-center z-10 transition-all duration-500 p-4 sm:p-8 rounded-3xl border border-transparent relative ${getFireIntensity()}`}>
+      {/* Main Game Arena */}
+      <div className={`w-full max-w-xl flex flex-col items-center z-10 transition-all duration-500 p-8 rounded-3xl relative border border-slate-800 bg-slate-900/50`}>
         
-        <button 
-           onClick={exitArena}
-           className="hidden lg:block absolute top-4 left-4 p-2 text-red-400 hover:text-red-300 font-bold text-xs uppercase tracking-widest transition-colors border border-transparent hover:border-red-500/30 rounded"
-         >
-           Exit Arena
+        <button onClick={exitArena} className="hidden lg:block absolute top-4 left-4 p-2 text-red-400 hover:text-red-300 font-bold text-xs uppercase tracking-widest border border-transparent hover:border-red-500/30 rounded">
+           Exit
          </button>
 
-        <div className="w-full max-w-lg mb-4 sm:mb-8 text-center min-h-[50px] mt-8">
-           {status === 'playing' ? (
-             <p className="text-slate-400 text-xs sm:text-sm italic font-serif leading-relaxed px-4 py-2 bg-slate-900/50 rounded-lg border border-slate-800">
-               "{definition}"
-             </p>
-           ) : (
-             <div className="h-[50px]">
-                {status === 'speaking' && <div className="text-emerald-400 animate-pulse text-sm font-bold tracking-widest">LISTENING TO HIVE...</div>}
-             </div>
-           )}
-        </div>
+         {/* Info Badge */}
+         <div className="mb-6">
+            <span className="bg-slate-800 border border-slate-700 px-3 py-1 rounded text-[10px] font-bold tracking-widest uppercase text-slate-400">
+               {gameState.type === 'private' ? `PRIVATE: ${gameState.code}` : `PUBLIC: ${currentMode}`}
+            </span>
+         </div>
 
-        <div className="flex items-center gap-4 mb-4 sm:mb-6">
-          <div className="bg-slate-800/80 px-4 py-1 rounded text-xs font-bold tracking-widest uppercase text-emerald-400 border border-slate-700">
-             {streak > 25 ? 'RAMPAGE MODE' : currentMode}
-          </div>
-        </div>
-
-        <div className="w-full flex justify-between items-end mb-2 px-2 text-slate-400 text-[10px] sm:text-xs font-bold tracking-widest">
-           <div className="text-center">
-             <div className={`text-xl sm:text-2xl mb-1 ${streak > 5 ? 'text-orange-500 animate-pulse' : 'text-white'}`}>
-               {streak} {streak > 5 && '🔥'}
-             </div>
-             <div>STREAK</div>
-           </div>
-           
-           <div className="text-center">
-             <div className="text-emerald-400 text-xl sm:text-2xl mb-1 flex flex-col items-center leading-none">
-                 <span>{lastBurstWpm}</span>
-             </div>
-             <div>WPM</div>
-           </div>
-        </div>
-
-        <div className="w-full text-center text-emerald-400 font-mono text-sm font-bold mb-1">
-           {timeLeft.toFixed(1)}s
-        </div>
-
-        <div className="w-full h-2 sm:h-3 bg-slate-800 rounded-full overflow-hidden mb-8 relative border border-slate-700">
-           <div 
-             className={`h-full shadow-[0_0_15px_rgba(16,185,129,0.6)] ${timeLeft < 3 ? 'bg-red-500' : 'bg-emerald-500'}`}
-             style={{ width: `${Math.min(100, (timeLeft / totalTime) * 100)}%` }}
-           ></div>
-        </div>
-
-        <div className="mb-8 relative min-h-[100px] flex items-center justify-center w-full">
-           {status === 'playing' ? (
-             <button 
-               onClick={() => speak(currentWord, ttsVolume)}
-               className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center transition-all group cursor-pointer active:scale-95 animate-pulse-slow"
-             >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 sm:h-10 sm:w-10 text-emerald-400 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                </svg>
-             </button>
-           ) : status === 'speaking' ? (
-                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-emerald-500/20 border-2 border-emerald-400 flex items-center justify-center animate-spin-slow">
-                     <span className="text-2xl">🔊</span>
+         {/* Turn Status Indicator */}
+         <div className="mb-8 text-center min-h-[60px]">
+            {isMyTurn ? (
+                <div className="animate-bounce">
+                    <span className="text-4xl">🫵</span>
+                    <h2 className="text-2xl font-black text-emerald-400 uppercase tracking-wider mt-2">Your Turn</h2>
                 </div>
-           ) : (
-             <div className="flex flex-col items-center bg-slate-900/90 p-4 rounded-xl border border-slate-700 shadow-xl z-20 w-full max-w-sm">
-               <div className="text-red-400 font-bold mb-2 text-center text-lg">{feedback?.msg}</div>
-               <div className="text-slate-400 text-sm mb-4">Next word in <span className="text-white font-bold">{intermissionTime}</span>...</div>
-               
-               {gameState.type === 'private' && gameState.role === 'host' && (
-                  <button onClick={skipIntermission} className="text-xs bg-slate-800 px-3 py-1 rounded border border-slate-700 hover:border-emerald-500 transition-colors text-white">
-                    SKIP
+            ) : (
+                <div className="opacity-80">
+                    <span className="text-4xl grayscale">👀</span>
+                    <h2 className="text-xl font-bold text-slate-400 mt-2">
+                       It is <span className="text-white">{activePlayerName}'s</span> turn
+                    </h2>
+                </div>
+            )}
+         </div>
+
+         {/* Timer Bar */}
+         <div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden mb-8 relative border border-slate-700">
+             <div 
+               className={`h-full shadow-[0_0_15px_rgba(16,185,129,0.6)] ${timeLeft < 5 ? 'bg-red-500' : 'bg-emerald-500'} transition-all duration-100 ease-linear`}
+               style={{ width: `${Math.min(100, (timeLeft / 20) * 100)}%` }} // Assuming avg 20s max for bar visual
+             ></div>
+         </div>
+
+         {/* Action / Feedback Area */}
+         <div className="mb-8 relative min-h-[100px] flex items-center justify-center w-full">
+            {isMyTurn ? (
+               <div className="flex flex-col items-center gap-4">
+                  <button 
+                    onClick={() => speak(currentWord, ttsVolume)}
+                    className="w-24 h-24 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500 flex items-center justify-center transition-all group cursor-pointer animate-pulse-slow shadow-[0_0_30px_rgba(16,185,129,0.2)]"
+                  >
+                      <svg className="h-10 w-10 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                      </svg>
                   </button>
-               )}
-               {!feedback?.msg && <div className="text-3xl animate-bounce">⏳</div>}
-             </div>
-           )}
-        </div>
+                  <p className="text-xs text-slate-400 font-medium bg-slate-900/80 px-3 py-1 rounded-full">{definition.slice(0, 60)}...</p>
+               </div>
+            ) : (
+               <div className="text-slate-500 text-sm font-mono flex items-center gap-2">
+                  <span className="animate-spin">⏳</span> Waiting for player...
+               </div>
+            )}
+            
+            {/* Overlay Feedback */}
+            {feedback && (
+                <div className={`absolute inset-0 flex items-center justify-center bg-slate-900/90 rounded-2xl z-20 backdrop-blur-sm animate-fade-in-up border ${feedback.type === 'success' ? 'border-emerald-500' : 'border-red-500'}`}>
+                    <div className={`text-2xl font-black uppercase ${feedback.type === 'success' ? 'text-emerald-400' : 'text-red-400'}`}>
+                       {feedback.msg}
+                    </div>
+                </div>
+            )}
+         </div>
 
-        <div className="w-full max-w-lg mb-8 sm:mb-12">
-           <div className="text-center text-slate-500 text-[10px] font-bold tracking-[0.2em] mb-2 sm:mb-4">
-             TYPE THE WORD YOU HEAR
-           </div>
-           <form onSubmit={handleSubmit}>
-              <input
-                ref={inputRef}
-                id="spelling-input"
-                type="text"
-                autoComplete="off"
-                autoFocus
-                value={inputValue}
-                onChange={handleInputChange}
-                disabled={!isInputEnabled || status !== 'playing'}
-                placeholder="Type word..."
-                className="w-full bg-transparent border-b-2 border-slate-700 focus:border-emerald-500 text-center text-3xl sm:text-5xl font-bold text-white outline-none py-2 sm:py-4 placeholder:text-slate-800 transition-colors disabled:opacity-50 disabled:cursor-wait"
-              />
-           </form>
-        </div>
-
-        {gameState.type === 'private' && gameState.role === 'host' && (
-          <div className="absolute top-20 right-6 flex flex-col items-end gap-2">
-             <select 
-               value={currentMode}
-               onChange={(e) => handleModeChange(e.target.value)}
-               className="bg-slate-800 text-xs text-slate-300 border border-slate-700 rounded p-1 outline-none"
-             >
-                {Object.keys(wordBank).map(m => <option key={m} value={m}>{m.toUpperCase()}</option>)}
-             </select>
-             <span className="text-[10px] text-slate-600">CODE: {gameState.code}</span>
-          </div>
-        )}
+         {/* Input Area */}
+         <div className="w-full max-w-lg mb-8">
+            <form onSubmit={handleSubmit}>
+               <input
+                 ref={inputRef}
+                 type="text"
+                 autoComplete="off"
+                 value={inputValue}
+                 onChange={handleInputChange}
+                 disabled={!isMyTurn}
+                 placeholder={isMyTurn ? "Type here..." : "Spectating..."}
+                 className="w-full bg-transparent border-b-2 border-slate-700 focus:border-emerald-500 text-center text-4xl sm:text-5xl font-bold text-white outline-none py-4 placeholder:text-slate-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+               />
+            </form>
+         </div>
 
       </div>
     </div>
