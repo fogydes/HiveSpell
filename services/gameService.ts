@@ -1037,6 +1037,9 @@ const HOMOPHONES: Record<string, string[]> = {
   "neighbor": ["neighbour"], "neighbour": ["neighbor"],
   "honor": ["honour"], "honour": ["honor"],
   "vain": ["vein"], "vein": ["vain"],
+  "adrenocorticotropin": ["adrenocorticotrophin"], "adrenocorticotrophin": ["adrenocorticotropin"],
+  "honorificabilitudinity": ["honourificabilitudinity"], "honourificabilitudinity": ["honorificabilitudinity"],
+  "hematospectrophotometrically": ["haematospectrophotometrically"], "haematospectrophotometrically": ["hematospectrophotometrically"],
 };
 
 const normalizeSuffix = (word: string) => {
@@ -1109,6 +1112,14 @@ export const stopAudio = () => {
 // Helper: Get alternate spelling for audio file mapping
 const getAlternateAudioName = (word: string): string | null => {
   const lower = word.toLowerCase();
+
+  if (lower === 'adrenocorticotropin') return 'adrenocorticotrophin';
+  if (lower === 'adrenocorticotrophin') return 'adrenocorticotropin';
+  if (lower === 'honorificabilitudinity') return 'honourificabilitudinity';
+  if (lower === 'honourificabilitudinity') return 'honorificabilitudinity';
+  if (lower === 'hematospectrophotometrically') return 'haematospectrophotometrically';
+  if (lower === 'haematospectrophotometrically') return 'hematospectrophotometrically';
+
   if (lower.endsWith('or')) {
     return lower.replace(/or$/, 'our');
   }
