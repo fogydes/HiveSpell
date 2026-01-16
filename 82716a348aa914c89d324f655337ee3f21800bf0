@@ -1,0 +1,3 @@
+Task: Adjust Fair-Start buffer
+Summary: Reduced delay from 800ms to 500ms in Play.tsx.
+Why: Enhanced snappiness per user request.
