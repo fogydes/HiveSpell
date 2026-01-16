@@ -196,7 +196,7 @@ const Play: React.FC = () => {
             setIsInputEnabled(true);
             setStartTime(Date.now()); // Clock starts NOW
             if (inputRef.current) inputRef.current.focus();
-        }, 800);
+        }, 500);
       });
     }
   }, [currentRoom?.gameState?.currentWord, ttsVolume]);
