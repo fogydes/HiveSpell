@@ -1,0 +1,3 @@
+Task: Handle navigation to Game View upon room creation/join
+Summary: Updated Lobby to navigate to Play view. Updated Play view to use context.
+Why: Enable drop-in gameplay.
