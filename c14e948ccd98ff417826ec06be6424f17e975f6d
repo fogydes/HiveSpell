@@ -1,0 +1,3 @@
+Task: Create Multiplayer Context
+Summary: Implemented MultiplayerContext and wrapped App.tsx. Added unit tests.
+Why: Global state management for rooms.
