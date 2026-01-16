@@ -1,0 +1,39 @@
+{
+  "rules": {
+    ".read": "auth != null",
+    ".write": "auth != null",
+    "matches": {
+      ".indexOn": ["type", "code", "status"]
+    },
+    "users": {
+      ".read": true,
+      ".indexOn": ["corrects", "wins"],
+      "$uid": {
+        ".write": "$uid === auth.uid"
+      }
+    },
+    "presence": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    "usernames": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    "chat": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "rooms": {
+      ".read": "auth != null",
+      "$roomId": {
+        ".write": "(auth != null && !data.exists() && newData.child('hostId').val() === auth.uid) || (data.exists() && data.child('hostId').val() === auth.uid)",
+        "players": {
+          "$playerId": {
+            ".write": "auth != null && $playerId === auth.uid"
+          }
+        }
+      }
+    }
+  }
+}
