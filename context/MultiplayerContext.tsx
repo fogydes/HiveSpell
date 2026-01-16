@@ -8,7 +8,7 @@ interface MultiplayerContextType {
   players: Player[];
   loading: boolean;
   error: string | null;
-  createGameRoom: (settings: GameSettings) => Promise<string>;
+  createGameRoom: (settings: GameSettings, type: 'public' | 'private') => Promise<string>;
   joinGameRoom: (roomId: string) => Promise<void>;
   leaveGameRoom: () => Promise<void>;
 }
@@ -47,7 +47,7 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     return () => unsubscribe();
   }, [currentRoom?.id]);
 
-  const createGameRoom = async (settings: GameSettings): Promise<string> => {
+  const createGameRoom = async (settings: GameSettings, type: 'public' | 'private'): Promise<string> => {
     if (!user) {
         setError("Must be logged in to create a room");
         return '';
@@ -55,20 +55,24 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setLoading(true);
     setError(null);
     try {
-      const roomId = await createRoom(user.uid, settings);
-      // Optimistic update or wait for subscription? 
-      // subscribeToRoom will handle the update, but we need to set the ID to trigger the effect
-      // However, createRoom returns the ID, but doesn't return the full room object immediately
-      // We can fetch it, or just set the ID and let the effect handle it?
-      // But the effect depends on currentRoom.id.
-      // So we need to set a partial room or fetch it.
-      // Actually, subscribeToRoom takes an ID. 
-      // Let's set a temporary object with just the ID to trigger the effect?
-      // Or better, let's just manually subscribe in the component? 
-      // No, the context should handle it.
+      const roomId = await createRoom(user.uid, settings, type);
       
-      // We can set a minimal state to trigger the effect
-       setCurrentRoom({ id: roomId } as Room); 
+      setCurrentRoom({ 
+        id: roomId, 
+        settings, 
+        type,
+        hostId: user.uid,
+        // code is undefined for public, or we can fetch/predict it for private but better to wait for subscription
+        players: {
+            [user.uid]: {
+                id: user.uid,
+                name: userData?.username || 'Player',
+                isHost: true,
+                score: 0,
+                status: 'connected'
+            }
+        }
+      } as Room); 
        return roomId;
     } catch (err: any) {
       setError(err.message);

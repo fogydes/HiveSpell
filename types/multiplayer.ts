@@ -20,9 +20,10 @@ export interface GameState {
 export interface Room {
   id: string;
   hostId: string;
+  type: 'public' | 'private';
   status: 'waiting' | 'playing' | 'finished';
   createdAt: number;
-  code: string;
+  code?: string; // Optional for public rooms
   settings: GameSettings;
   players: Record<string, Player>;
   gameState?: GameState;

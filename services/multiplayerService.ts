@@ -2,15 +2,18 @@ import { db } from '../firebase';
 import { ref, set, push, get, update, query, orderByChild, equalTo, limitToFirst, onValue, off, remove } from 'firebase/database';
 import { Room, Player, GameSettings } from '../types/multiplayer';
 
-export const createRoom = async (hostId: string, settings: GameSettings): Promise<string> => {
+export const createRoom = async (hostId: string, settings: GameSettings, type: 'public' | 'private'): Promise<string> => {
   const roomsRef = ref(db, 'rooms');
   const newRoomRef = push(roomsRef);
   const roomId = newRoomRef.key as string;
-  const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+  
+  // Only generate code for private rooms
+  const code = type === 'private' ? Math.random().toString(36).substring(2, 8).toUpperCase() : undefined;
 
   const newRoom: Room = {
     id: roomId,
     hostId,
+    type,
     status: 'waiting',
     createdAt: Date.now(),
     code,
