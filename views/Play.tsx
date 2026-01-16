@@ -187,8 +187,16 @@ const Play: React.FC = () => {
 
       setStatus('speaking');
       speak(syncedWord, ttsVolume).then(() => {
-        setStatus('playing');
-        setIsInputEnabled(true);
+        // "Fair-Start" Timer Logic:
+        // 1. Speak finishes.
+        // 2. 800ms Buffer (Animation/Fade-in).
+        // 3. Input Enable + Clock Start.
+        setTimeout(() => {
+            setStatus('playing');
+            setIsInputEnabled(true);
+            setStartTime(Date.now()); // Clock starts NOW
+            if (inputRef.current) inputRef.current.focus();
+        }, 800);
       });
     }
   }, [currentRoom?.gameState?.currentWord, ttsVolume]);
@@ -249,6 +257,24 @@ const Play: React.FC = () => {
     if (status !== 'playing') return;
     
     if (checkAnswer(currentWord, inputValue.trim())) {
+       // --- BURST WPM CALCULATION ---
+       // Formula: Round( (Length / 4) / (TimeInMinutes) )
+       if (startTime) {
+           const now = Date.now();
+           const timeTakenMs = now - startTime;
+           // Avoid division by zero if they type instantly (e.g. <1ms)
+           const timeInMinutes = Math.max(timeTakenMs, 1) / 60000; 
+           
+           const wordLength = currentWord.length;
+           // The "4-Character Rule"
+           const normalizedWordCount = wordLength / 4;
+           
+           const wpm = Math.round(normalizedWordCount / timeInMinutes);
+           
+           setLastBurstWpm(wpm);
+           setCorrectWords(prev => [...prev, { word: currentWord, wpm }]);
+       }
+
        setFeedback({ type: 'success', msg: 'Correct!' });
        // Logic to trigger next word (if I am driver, or update shared state)
        if (isGameDriver) {
