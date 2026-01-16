@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-// Fix: Use namespace imports for Auth and Database to resolve export errors in certain environments
+// Firebase Namespace Imports
 import * as firebaseAuth from 'firebase/auth';
 import * as firebaseDatabase from 'firebase/database';
 import { auth, db } from '../firebase';
 import { useNavigate } from 'react-router-dom';
 
-// Fix: Destructure Auth members from namespace cast to any
+// Auth Methods
 const { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } = firebaseAuth as any;
-// Cast firebaseDatabase to any to resolve TS errors
+// Database Methods
 const { ref, set, get } = firebaseDatabase as any;
 
 const Auth: React.FC = () => {
@@ -28,16 +28,23 @@ const Auth: React.FC = () => {
       if (isLogin) {
         let emailToUse = emailOrUser;
 
-        // If input doesn't look like an email, assume it's a username and look it up
+        // Username Login Logic
         if (!emailOrUser.includes('@')) {
           // Clean input: remove spaces and lowercase to match storage format
           const cleanUser = emailOrUser.trim().replace(/\s/g, '').toLowerCase();
           
-          // Use direct path reference
+          // Use direct path reference to get the UID mapped to this username
           const snapshot = await get(ref(db, `usernames/${cleanUser}`));
           
           if (snapshot.exists()) {
-            emailToUse = snapshot.val();
+            const uid = snapshot.val();
+            // Now fetch the email associated with this UID
+            const userSnapshot = await get(ref(db, `users/${uid}`));
+            if (userSnapshot.exists() && userSnapshot.val().email) {
+               emailToUse = userSnapshot.val().email;
+            } else {
+               throw new Error("User data invalid.");
+            }
           } else {
             throw new Error("Username not found.");
           }
@@ -45,8 +52,8 @@ const Auth: React.FC = () => {
 
         await signInWithEmailAndPassword(auth, emailToUse, password);
       } else {
-        // Sign Up
-        // 1. Check if username exists
+        // Registration Logic
+        // Username Availability Check
         const cleanUsername = username.trim().replace(/\s/g, '').toLowerCase();
         const usernameRef = ref(db, `usernames/${cleanUsername}`);
         const userSnap = await get(usernameRef);
@@ -72,8 +79,9 @@ const Auth: React.FC = () => {
           wins: 0
         });
 
-        // 5. Create Username Mapping (Username -> Email) for login lookup
-        await set(ref(db, `usernames/${cleanUsername}`), emailOrUser);
+        // Link Username to UID
+        // CRITICAL CHANGE: We now map the name to the UID, not the email.
+        await set(ref(db, `usernames/${cleanUsername}`), user.uid);
       }
       navigate('/lobby');
     } catch (error: any) {

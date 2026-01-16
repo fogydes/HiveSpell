@@ -2,26 +2,58 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { wordBank } from '../services/gameService';
 import { useAuth } from '../context/AuthContext';
+import { findPublicMatch, createPrivateMatch, joinPrivateMatchByCode } from '../services/multiplayerService';
 
 const Lobby: React.FC = () => {
   const modes = Object.keys(wordBank);
   const navigate = useNavigate();
   const [joinCode, setJoinCode] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
   const { user } = useAuth();
 
-  const handleStartPublic = (mode: string) => {
-    navigate(`/play/${mode}`, { state: { type: 'public', role: 'player' } });
+  const handleStartPublic = async (mode: string) => {
+    if (!user || isProcessing) return;
+    setIsProcessing(true);
+    try {
+      const matchId = await findPublicMatch(user, mode);
+      navigate(`/play/${mode}`, { state: { type: 'public', role: 'player', matchId } });
+    } catch (err) {
+      console.error("Matchmaking failed:", err);
+      alert("Failed to join public match. Please try again.");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  const handleCreatePrivate = (mode: string) => {
-    const mockCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-    navigate(`/play/${mode}`, { state: { type: 'private', role: 'host', code: mockCode } });
+  const handleCreatePrivate = async (mode: string) => {
+    if (!user || isProcessing) return;
+    setIsProcessing(true);
+    try {
+      const { matchId, code } = await createPrivateMatch(user, mode);
+      navigate(`/play/${mode}`, { state: { type: 'private', role: 'host', code, matchId } });
+    } catch (err) {
+      console.error("Private creation failed:", err);
+      alert("Failed to create private room.");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  const handleJoinPrivate = (e: React.FormEvent) => {
+  const handleJoinPrivate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!joinCode.trim()) return;
-    navigate(`/play/polymath`, { state: { type: 'private', role: 'player', code: joinCode } });
+    if (!joinCode.trim() || !user || isProcessing) return;
+    
+    setIsProcessing(true);
+    try {
+      const matchId = await joinPrivateMatchByCode(user, joinCode.trim().toUpperCase());
+      /** Join private match */
+      // We'll pass 'polymath' as a placeholder or handle it in Play.tsx
+      navigate(`/play/polymath`, { state: { type: 'private', role: 'player', code: joinCode, matchId } });
+    } catch (err) {
+      alert("Invalid Code or Room Expired.");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const getModeColor = (mode: string) => {
@@ -41,7 +73,7 @@ const Lobby: React.FC = () => {
   return (
     <div className="min-h-screen pt-24 p-6 flex flex-col items-center bg-slate-900 pb-24">
       
-      {/* Main Content Area */}
+      {/* Difficulty Selection UI */}
       <div className="w-full max-w-6xl text-center mb-10">
         <h2 className="text-4xl font-extrabold text-white mb-2 tracking-tight">Select Difficulty</h2>
         <p className="text-slate-400">Choose your challenge level to enter the hive.</p>
@@ -62,14 +94,16 @@ const Lobby: React.FC = () => {
             
             <div className="space-y-3">
               <button 
+                  disabled={isProcessing}
                   onClick={() => handleStartPublic(mode)}
-                  className="w-full py-3 bg-slate-700 group-hover:bg-white group-hover:text-slate-900 text-white rounded-lg font-bold text-sm tracking-wider transition-colors uppercase"
+                  className="w-full py-3 bg-slate-700 group-hover:bg-white group-hover:text-slate-900 text-white rounded-lg font-bold text-sm tracking-wider transition-colors uppercase disabled:opacity-50 disabled:cursor-wait"
               >
-                Public Match
+                {isProcessing ? 'Connecting...' : 'Public Match'}
               </button>
               <button 
+                  disabled={isProcessing}
                   onClick={() => handleCreatePrivate(mode)}
-                  className="w-full py-2 bg-transparent border border-slate-600 text-slate-400 hover:text-white hover:border-white rounded-lg text-xs font-bold transition-colors uppercase"
+                  className="w-full py-2 bg-transparent border border-slate-600 text-slate-400 hover:text-white hover:border-white rounded-lg text-xs font-bold transition-colors uppercase disabled:opacity-50 disabled:cursor-wait"
               >
                 Create Private
               </button>
@@ -94,9 +128,10 @@ const Lobby: React.FC = () => {
           />
           <button 
             type="submit"
-            className="bg-emerald-500 hover:bg-emerald-400 text-slate-900 px-6 py-2 rounded-lg font-bold transition-transform active:scale-95"
+            disabled={isProcessing}
+            className="bg-emerald-500 hover:bg-emerald-400 text-slate-900 px-6 py-2 rounded-lg font-bold transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-wait"
           >
-            JOIN
+            {isProcessing ? '...' : 'JOIN'}
           </button>
         </form>
       </div>

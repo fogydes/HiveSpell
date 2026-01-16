@@ -1,4 +1,4 @@
-// Raw text data from files
+// Word Lists by Difficulty
 const BABY_TEXT = `Air
 Heir
 Baby
@@ -851,7 +851,7 @@ Tonsillopharyngitis
 Uvulopalatopharyngoplasty
 Ventriculocisternostomy`;
 
-// 1. EXTENSIVE DICTIONARY MAPPING
+// Local Definitions for Offline Support
 // Updated to include words from Heated, Genius, and Polymath lists
 const LOCAL_DEFINITIONS: Record<string, string> = {
   // --- Heated ---
@@ -973,7 +973,7 @@ const LOCAL_DEFINITIONS: Record<string, string> = {
 
 const parseWords = (text: string) => text.split('\n').map(w => w.trim()).filter(w => w.length > 0 && !w.startsWith('-'));
 
-// 2. SORTED LISTS for Progressive Difficulty
+// Sorted Word Lists (Shortest to Longest)
 // We sort by length so "nextWord" can pick based on streak.
 const sortByLength = (arr: string[]) => arr.sort((a, b) => a.length - b.length);
 
@@ -1052,8 +1052,8 @@ const normalizeSuffix = (word: string) => {
 };
 
 export const checkAnswer = (target: string, input: string): boolean => {
-  const normTarget = normalizeSuffix(target);
-  const normInput = normalizeSuffix(input);
+  const normTarget = normalizeSuffix(target.trim());
+  const normInput = normalizeSuffix(input.trim());
 
   if (normTarget === normInput) return true;
 
@@ -1093,7 +1093,7 @@ export const getTitle = (corrects: number, wins: number): string => {
   return 'Newbee';
 };
 
-// Audio State Management
+/** Audio State Management */
 let currentAudio: HTMLAudioElement | null = null;
 let activeUtterance: SpeechSynthesisUtterance | null = null; 
 
@@ -1109,7 +1109,7 @@ export const stopAudio = () => {
   activeUtterance = null;
 };
 
-// Helper: Get alternate spelling for audio file mapping
+/** Maps word variations to available audio files */
 const getAlternateAudioName = (word: string): string | null => {
   const lower = word.toLowerCase();
 
@@ -1130,34 +1130,23 @@ const getAlternateAudioName = (word: string): string | null => {
 };
 
 // IMPROVED SPEAK FUNCTION
-// Logic: Try MP3 -> Try Alternate Spelling MP3 -> Fallback to Browser TTS
 export const speak = async (word: string, volume: number = 1.0): Promise<void> => {
   stopAudio();
 
+  const lowerWord = word.toLowerCase();
+
   const playBrowserTTS = (): Promise<void> => {
     return new Promise<void>((resolve) => {
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
       const utterance = new SpeechSynthesisUtterance(word);
       activeUtterance = utterance;
       utterance.volume = volume;
-      utterance.rate = 0.9; // Slightly slower for clarity
-      
-      const finish = () => {
-        activeUtterance = null;
-      };
-
-      utterance.onend = finish;
-      utterance.onerror = () => {
-        finish();
-        resolve(); // Safety resolve on error
-      };
-      
-      // Resolve immediately when speech starts to allow game interaction
-      utterance.onstart = () => resolve();
-
+      utterance.rate = 0.9;
+      utterance.onend = () => { activeUtterance = null; resolve(); };
+      utterance.onerror = () => { activeUtterance = null; resolve(); };
       window.speechSynthesis.speak(utterance);
-      
-      // Safety resolve in case onstart is delayed or missing in some browsers
-      setTimeout(() => resolve(), 500);
     });
   };
 
@@ -1168,55 +1157,40 @@ export const speak = async (word: string, volume: number = 1.0): Promise<void> =
        currentAudio = audio;
        audio.volume = volume;
 
-       // If metadata fails or 404, we reject this attempt immediately
+       // Use a timeout to detect if metadata fails or file is missing
+       const timeout = setTimeout(() => {
+          audio.pause();
+          resolve(false);
+       }, 1000);
+
+       audio.oncanplaythrough = () => {
+          clearTimeout(timeout);
+          const playPromise = audio.play();
+          if (playPromise !== undefined) {
+             playPromise.then(() => resolve(true)).catch(() => resolve(false));
+          } else {
+             resolve(true);
+          }
+       };
+
        audio.onerror = () => {
+          clearTimeout(timeout);
           resolve(false);
        };
-
-       // Cleanup when done
-       audio.onended = () => {
-         if (currentAudio === audio) currentAudio = null;
-       };
-
-       const playPromise = audio.play();
-       if (playPromise !== undefined) {
-          playPromise
-            .then(() => {
-               // Success!
-               resolve(true); 
-            })
-            .catch((e) => {
-               // Autoplay blocked or other playback error
-               console.warn("Playback error:", e);
-               resolve(false);
-            });
-       } else {
-         // Older browsers
-         resolve(true); 
-       }
     });
   };
 
-  return new Promise<void>(async (resolve) => {
-     // 1. Try exact word match
-     const lowerWord = word.toLowerCase();
-     let success = await attemptPlayAudioFile(lowerWord);
+  // Logic: Try MP3 -> Alternate -> TTS
+  let success = await attemptPlayAudioFile(lowerWord);
+  if (!success) {
+     const alt = getAlternateAudioName(word);
+     if (alt) success = await attemptPlayAudioFile(alt);
+  }
 
-     // 2. If failed, try alternate spelling (e.g. flavor -> flavour)
-     if (!success) {
-        const alt = getAlternateAudioName(word);
-        if (alt) {
-           success = await attemptPlayAudioFile(alt);
-        }
-     }
-
-     // 3. If still failed, fallback to TTS
-     if (!success) {
-        console.warn(`All local audio failed for "${word}". Falling back to Browser TTS.`);
-        playBrowserTTS().then(resolve);
-     } else {
-        // Audio started successfully
-        resolve();
-     }
-  });
+  if (!success) {
+     console.warn(`Local audio failed for "${word}". Playing TTS.`);
+     await playBrowserTTS();
+  } else {
+     console.log(`Playing local audio for "${word}"`);
+  }
 };

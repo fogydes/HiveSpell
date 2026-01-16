@@ -1,17 +1,17 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-// Fix: Use namespace import for Auth and define User type as any to bypass export errors
+// Firebase Imports
 import * as firebaseAuth from 'firebase/auth';
 import * as firebaseDatabase from 'firebase/database';
 import { auth, db } from '../firebase';
 
-// Fix: Destructure onAuthStateChanged and define User type
+// Auth Listener
 const { onAuthStateChanged } = firebaseAuth as any;
 type User = any;
 
-// Cast firebaseDatabase to any to resolve TS errors
+// Database References
 const { ref, onValue, off, update } = firebaseDatabase as any;
 
-// 1. Define 'UserData' interface
+// User Profile Data Interface
 export interface UserData {
   stars: number;
   title: string;
@@ -49,7 +49,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const unsubscribeData = onValue(userRef, (snapshot: any) => {
           const data = snapshot.val();
           if (data) {
-            // Self-repair: If username is missing in DB (legacy account), fix it.
+            // Legacy Account Auto-Repair
             let finalUsername = data.username;
             if (!finalUsername) {
                finalUsername = currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Player');
@@ -65,7 +65,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               username: finalUsername,
             });
           } else {
-            // Default data if new user
+            // Initialize New User Data
             const newName = currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Player');
             setUserData({ 
               stars: 0, 

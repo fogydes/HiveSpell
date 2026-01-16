@@ -1,5 +1,5 @@
 import * as firebaseApp from "firebase/app";
-// Fix: Use namespace import for Auth to resolve TS error about missing export
+// Firebase Imports
 import * as firebaseAuth from "firebase/auth";
 import * as firebaseDatabase from "firebase/database";
 
@@ -11,16 +11,16 @@ const firebaseConfig = {
   messagingSenderId: "684937158022",
   appId: "1:684937158022:web:dce1947f4f708b1d536007",
   measurementId: "G-1RZBL1BSV8",
-  // Update region to asia-southeast1 as requested
+  // Database Configuration
   databaseURL: "https://hivespell-db-default-rtdb.asia-southeast1.firebasedatabase.app"
 };
 
-// Access initializeApp via namespace and cast to any to resolve TS error about missing export
+// Initialize Firebase App
 const app = (firebaseApp as any).initializeApp(firebaseConfig);
-// Fix: Destructure getAuth from the namespace cast to any
+// Initialize Auth
 const { getAuth } = firebaseAuth as any;
 export const auth = getAuth(app);
 
-// Cast firebaseDatabase to any to access getDatabase which TS thinks is missing
+// Initialize Realtime Database
 const { getDatabase } = firebaseDatabase as any;
 export const db = getDatabase(app);

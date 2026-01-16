@@ -5,8 +5,9 @@ import { useSettings } from '../context/SettingsContext';
 import { wordBank, speak, checkAnswer, fetchDefinition, getTitle, MODE_ORDER, stopAudio } from '../services/gameService';
 import { db } from '../firebase';
 import * as firebaseDatabase from 'firebase/database';
+import { MatchState, Player } from '../services/multiplayerService';
 
-// SAFEGUARD: Move destructuring inside component or use directly to prevent module eval crashes
+// Firebase References (Direct Access)
 const dbRef = (firebaseDatabase as any).ref;
 const dbGet = (firebaseDatabase as any).get;
 const dbUpdate = (firebaseDatabase as any).update;
@@ -21,6 +22,7 @@ const dbLimitToLast = (firebaseDatabase as any).limitToLast;
 interface GameState {
   type: 'public' | 'private';
   role: 'host' | 'player';
+  matchId: string;
   code?: string;
 }
 
@@ -30,14 +32,6 @@ interface ChatMessage {
   text: string;
   timestamp: number;
   type: 'user' | 'server';
-}
-
-interface PlayerPresence {
-  uid: string;
-  title: string;
-  photoSeed: string;
-  corrects: number;
-  wins: number;
 }
 
 interface WordStat {
@@ -51,14 +45,25 @@ const Play: React.FC = () => {
   const navigate = useNavigate();
   const { user, userData } = useAuth();
   const { ttsVolume, playTypingSound } = useSettings();
-  const gameState = (location.state as GameState) || { type: 'public', role: 'player' };
-
-  const [currentMode, setCurrentMode] = useState(paramMode || 'baby');
   
-  // Game Logic State
+  const gameState = (location.state as GameState);
+
+  // If no matchId (e.g. direct URL visit), kick back to lobby
+  useEffect(() => {
+    if (!gameState || !gameState.matchId) {
+      console.warn("No Match ID found, redirecting to lobby...");
+      navigate('/lobby');
+    }
+  }, [gameState, navigate]);
+
+  // --- Multiplayer & Game State ---
+  const [matchState, setMatchState] = useState<MatchState | null>(null);
+  const [myPlayerStatus, setMyPlayerStatus] = useState<'alive' | 'eliminated' | 'spectating'>('spectating');
+  
+  // Gameplay State (Synced or Local)
   const [timeLeft, setTimeLeft] = useState(10);
   const [totalTime, setTotalTime] = useState(10);
-  const [streak, setStreak] = useState(0);
+  const [streak, setStreak] = useState(0); // This is GLOBAL streak now
   
   // WPM & Stats State
   const [correctWords, setCorrectWords] = useState<WordStat[]>([]);
@@ -77,28 +82,77 @@ const Play: React.FC = () => {
   // UI States
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
-  const [players, setPlayers] = useState<PlayerPresence[]>([]);
+  const [playersList, setPlayersList] = useState<Player[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
   
   const joinTimeRef = useRef<number>(Date.now());
   const [activeTab, setActiveTab] = useState<'none' | 'chat' | 'players'>('none');
 
   const previousWordRef = useRef<string>('');
+  const lastSpokenWordRef = useRef<string>('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const matchStateRef = useRef<MatchState | null>(null);
+
+  // Sync Match State Ref
+  useEffect(() => {
+    matchStateRef.current = matchState;
+  }, [matchState]);
+
   const processingRef = useRef(false);
   const timerEndRef = useRef<number>(0);
   const animationFrameRef = useRef<number>(0);
 
+  // 1. Real-time Match Subscription
+  useEffect(() => {
+    if (!gameState?.matchId) return;
+
+    const matchRef = dbRef(db, `matches/${gameState.matchId}`);
+    const unsubscribe = dbOnValue(matchRef, (snapshot: any) => {
+      const val = snapshot.val();
+      if (val) {
+         setMatchState(val);
+         
+         // Sync Players List
+         const pList: Player[] = val.players ? Object.values(val.players) : [];
+         // Sort by join time
+         pList.sort((a, b) => a.joinedAt - b.joinedAt);
+         setPlayersList(pList);
+
+         // Sync Global Streak & Difficulty
+         setStreak(val.streak || 0);
+         
+         // Sync Status
+         if (val.status) setStatus(val.status);
+
+         // Determine MY Status
+         if (user && val.players && val.players[user.uid]) {
+            const me = val.players[user.uid];
+            // If match is 'playing' and I am 'eliminated', I am spectating
+            // If match is 'intermission', everyone is waiting (but effectively alive for next round)
+            setMyPlayerStatus(me.status);
+         }
+      } else {
+        // Match deleted or invalid
+        navigate('/lobby');
+      }
+    });
+
+    return () => unsubscribe();
+  }, [gameState?.matchId, user, navigate]);
+
+
   // SESSION STORAGE SYNC
   useEffect(() => {
     if (correctWords.length > 0) {
-      sessionStorage.setItem("gameData", JSON.stringify({ difficulty: currentMode, correctWords: correctWords }));
+      // Use match difficulty if available, else param
+      const diff = matchState?.difficulty || paramMode || 'baby';
+      sessionStorage.setItem("gameData", JSON.stringify({ difficulty: diff, correctWords: correctWords }));
       
       // Calculate Average WPM
       const total = correctWords.reduce((sum, item) => sum + item.wpm, 0);
       setAvgWpm(Math.round(total / correctWords.length));
     }
-  }, [correctWords, currentMode]);
+  }, [correctWords, matchState?.difficulty, paramMode]);
 
   // AUTO-FOCUS FIX: This effect runs after render, ensuring the input is enabled in the DOM before we focus it
   useEffect(() => {
@@ -113,67 +167,12 @@ const Play: React.FC = () => {
     }
   }, [isInputEnabled, status]);
 
-  // PRESENCE SYSTEM
+  // CHAT SYSTEM (Scoped to Match ID now)
   useEffect(() => {
-    if (!user || !currentMode) return;
+    if (!gameState?.matchId) return;
     
-    const presenceRef = dbRef(db, `presence/${currentMode}/${user.uid}`);
-    dbSet(presenceRef, true).catch((err: any) => {}); 
-    dbOnDisconnect(presenceRef).remove().catch((err: any) => {});
-
-    const modePresenceRef = dbRef(db, `presence/${currentMode}`);
-    const unsubscribePresence = dbOnValue(modePresenceRef, async (snapshot: any) => {
-      const uids = snapshot.val() ? Object.keys(snapshot.val()) : [];
-      
-      const newPlayers: PlayerPresence[] = [];
-      for (const uid of uids) {
-         try {
-           const userRef = dbRef(db, `users/${uid}`);
-           const userSnap = await dbGet(userRef);
-           const uData = userSnap.val() || {};
-           newPlayers.push({
-             uid,
-             title: uData.username || (uData.email ? uData.email.split('@')[0] : 'Player'),
-             photoSeed: uid,
-             corrects: uData.corrects || 0,
-             wins: uData.wins || 0
-           });
-         } catch (e) {
-           newPlayers.push({
-             uid,
-             title: 'Unknown',
-             photoSeed: uid,
-             corrects: 0,
-             wins: 0
-           });
-         }
-      }
-      newPlayers.sort((a, b) => b.corrects - a.corrects);
-      setPlayers(newPlayers);
-    }, (error: any) => {
-      console.warn("Presence listener failed:", error);
-      if (user) {
-        setPlayers([{
-           uid: user.uid,
-           title: userData?.username || (user.email ? user.email.split('@')[0] : 'Player'),
-           photoSeed: user.uid,
-           corrects: userData?.corrects || 0,
-           wins: userData?.wins || 0
-        }]);
-      }
-    });
-
-    return () => {
-      unsubscribePresence();
-      dbSet(presenceRef, null).catch(() => {});
-    };
-  }, [user, currentMode, userData]);
-
-  // CHAT SYSTEM
-  useEffect(() => {
-    if (!currentMode) return;
-    
-    const chatRef = dbQuery(dbRef(db, `chat/${currentMode}`), dbLimitToLast(50));
+    // Use matchId for chat room
+    const chatRef = dbQuery(dbRef(db, `matches/${gameState.matchId}/chat`), dbLimitToLast(50));
     const unsubscribeChat = dbOnValue(chatRef, (snapshot: any) => {
       const data = snapshot.val();
       if (data) {
@@ -197,7 +196,7 @@ const Play: React.FC = () => {
     });
 
     return () => unsubscribeChat();
-  }, [currentMode]);
+  }, [gameState?.matchId]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -205,9 +204,9 @@ const Play: React.FC = () => {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!chatInput.trim() || !user) return;
+    if (!chatInput.trim() || !user || !gameState?.matchId) return;
 
-    const chatRef = dbRef(db, `chat/${currentMode}`);
+    const chatRef = dbRef(db, `matches/${gameState.matchId}/chat`);
     try {
       await dbPush(chatRef, {
         sender: userData?.username || (user.email ? user.email.split('@')[0] : 'Player'),
@@ -235,236 +234,360 @@ const Play: React.FC = () => {
     }
   };
 
-  const nextWord = useCallback(async () => {
-    if (!currentMode || !wordBank[currentMode]) return;
-    if (processingRef.current) return;
-    processingRef.current = true;
+  // --- HELPER: Identify Roles ---
+  const isGameDriver = React.useMemo(() => {
+    if (!matchState || playersList.length === 0) return false;
+    // Private: Host is driver
+    if (gameState.type === 'private' && gameState.role === 'host') return true;
+    // Public: Player 0 (First joiner) is driver
+    if (gameState.type === 'public' && user && playersList[0].uid === user.uid) return true;
+    return false;
+  }, [matchState, playersList, gameState, user]);
+
+  const amIActivePlayer = React.useMemo(() => {
+    if (!matchState || !user || playersList.length === 0) return false;
     
-    try {
-      let activeMode = currentMode;
-      // Rampage Logic: switch mode if streak is high
-      if (streak > 25) {
-        const currentIndex = MODE_ORDER.indexOf(currentMode);
-        if (currentIndex !== -1 && currentIndex < MODE_ORDER.length - 1) {
-          activeMode = MODE_ORDER[currentIndex + 1];
-        }
-      }
-
-      const words = wordBank[activeMode];
-      
-      // PROGRESSIVE DIFFICULTY SELECTION
-      let selectionPool = [];
-      if (streak < 5) {
-        const limit = Math.max(5, Math.floor(words.length * 0.3));
-        selectionPool = words.slice(0, limit);
-      } else if (streak < 15) {
-        const limit = Math.max(10, Math.floor(words.length * 0.7));
-        selectionPool = words.slice(0, limit);
-      } else {
-        selectionPool = words;
-      }
-
-      let word = '';
-      let attempts = 0;
-      do {
-        const randomIndex = Math.floor(Math.random() * selectionPool.length);
-        word = selectionPool[randomIndex];
-        attempts++;
-      } while (word === previousWordRef.current && attempts < 5);
-      
-      previousWordRef.current = word;
-
-      setCurrentWord(word);
-      setInputValue('');
-      setDefinition('Loading definition...');
-      fetchDefinition(word).then(setDefinition);
-      
-      // CLEAN TIMER LOGIC STEP 1: Disable Input, Clear Start Time
-      setIsInputEnabled(false);
-      setStartTime(undefined);
-      setStatus('speaking');
-      setIntermissionTime(5); 
-      setFeedback(null);
-
-      // Play Audio (Non-blocking usually, but we want it to start before timer)
-      await speak(word, ttsVolume);
-
-      // CLEAN TIMER LOGIC STEP 2: Wait 500ms (approx halfway through word, since speak resolves on start)
-      setTimeout(() => {
-         // Enable Input
-         setIsInputEnabled(true);
-         // Set START TIME
-         setStartTime(Date.now());
-         setStatus('playing');
-         
-         // COUNTDOWN TIMER LOGIC (Game Over Timer)
-         // Calculate duration based on word length + streak decay
-         const wordLen = word.length;
-         let secPerChar = 1.0; 
-         if (activeMode === 'intermediate' || activeMode === 'heated') secPerChar = 0.9;
-         if (activeMode === 'genius' || activeMode === 'polymath') secPerChar = 0.8;
-
-         let calculatedTime = 2.0 + (wordLen * secPerChar);
-         const decayFactor = Math.max(0.6, 1 - (streak * 0.01)); 
-         calculatedTime = Math.max(2.5, calculatedTime * decayFactor); 
-
-         setTotalTime(calculatedTime);
-         setTimeLeft(calculatedTime);
-         
-         // Start Countdown
-         timerEndRef.current = Date.now() + (calculatedTime * 1000);
-
-      }, 500);
-
-    } catch (e) {
-      console.error("Error in loop:", e);
-      setStatus('playing');
-      setIsInputEnabled(true);
-      setStartTime(Date.now());
-    } finally {
-      processingRef.current = false;
+    // Debug Difficulty
+    if (matchState.difficulty) {
+       console.log("Active Difficulty:", matchState.difficulty);
     }
 
-  }, [currentMode, streak, ttsVolume]);
+    // Safety check: ensure turnIndex is within bounds
+    const safeIndex = (matchState.turnIndex || 0) % playersList.length;
+    const activePlayer = playersList[safeIndex];
+    return activePlayer && activePlayer.uid === user.uid && activePlayer.status === 'alive';
+  }, [matchState, user, playersList]);
 
-  const handleModeChange = (newMode: string) => {
-    stopAudio();
-    setCurrentMode(newMode);
-    setStreak(0);
-    setCorrectWords([]);
-    setAvgWpm(0);
-    setLastBurstWpm(0);
-    joinTimeRef.current = Date.now();
-    setTimeout(() => nextWord(), 100);
-  };
+  // --- 2. AUDIO & INPUT SYNC (Everyone) ---
+  useEffect(() => {
+    if (!matchState) return;
+
+    // A. Detect New Word -> Play Audio & Reset Input
+    if (matchState.currentWord && matchState.currentWord !== lastSpokenWordRef.current) {
+      lastSpokenWordRef.current = matchState.currentWord;
+      setCurrentWord(matchState.currentWord); // SYNC LOCAL STATE
+      
+      // Reset local input for everyone
+      setInputValue('');
+      setFeedback(null);
+      setDefinition('Loading...');
+      
+      // Fetch Definition (Visual only)
+      fetchDefinition(matchState.currentWord).then(setDefinition);
+
+      // Play Audio
+      setStatus('speaking');
+      speak(matchState.currentWord, ttsVolume).then(() => {
+        setStatus('playing');
+        // If I am active, I focus. If not, I just watch.
+        if (amIActivePlayer) {
+           setIsInputEnabled(true);
+        }
+      });
+    }
+
+    // B. Spectator Input Sync
+    if (!amIActivePlayer && matchState.currentInput !== undefined) {
+       setInputValue(matchState.currentInput);
+    }
+
+    // C. Timer Sync
+    if (matchState.timerEnd) {
+       timerEndRef.current = matchState.timerEnd;
+    }
+
+  }, [matchState?.currentWord, matchState?.currentInput, matchState?.timerEnd, amIActivePlayer, ttsVolume]);
+
+
+  // --- Game Loop Driver (Host or Player 0) ---
+  const driverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    nextWord();
-    
-    return () => {
-      stopAudio();
-    }
-  }, []);
+    if (!isGameDriver || !matchState || !gameState.matchId) return;
 
-  // GAME OVER TIMER LOOP
+    // A. INITIALIZE TURN (If currentWord is missing)
+    if (matchState.status === 'playing' && !matchState.currentWord) {
+        if (processingRef.current) return;
+        processingRef.current = true;
+
+        let activeDifficulty = matchState.difficulty || 'baby';
+        if (streak >= 25) {
+           const idx = MODE_ORDER.indexOf(activeDifficulty);
+           if (idx !== -1 && idx < MODE_ORDER.length - 1) {
+              activeDifficulty = MODE_ORDER[idx + 1];
+           }
+        }
+
+        const words = wordBank[activeDifficulty];
+        const newWord = words[Math.floor(Math.random() * words.length)];
+
+        const wordLen = newWord.length;
+        const decay = Math.max(0.6, 1 - (streak * 0.01));
+        const finalTime = Math.max(3, (2.0 + wordLen) * decay);
+        const newTimerEnd = Date.now() + (finalTime * 1000) + 1000;
+
+        dbUpdate(dbRef(db, `matches/${gameState.matchId}`), {
+           currentWord: newWord,
+           timerEnd: newTimerEnd,
+           currentInput: '',
+           difficulty: activeDifficulty
+        }).then(() => processingRef.current = false);
+    }
+
+    // B. MONITOR TURN TIMER
+    if (matchState.status === 'playing' && matchState.currentWord && matchState.timerEnd) {
+       const checkTimeout = () => {
+          const now = Date.now();
+          if (now > matchState.timerEnd!) {
+             // WHO FAILS?
+             // If I am the active player, I fail.
+             // If someone else is active but dead/gone, I (as Driver) must skip them.
+             const safeIndex = (matchState.turnIndex || 0) % playersList.length;
+             const activePlayer = playersList[safeIndex];
+             
+             // Trigger fail/skip
+             console.log("Timer expired. Triggering fail for active player.");
+             // We'll call passTurn logic here, but we need to know WHO failed.
+             // For now, let's just trigger a fail for the active player.
+             // Since I am driver, I will update the DB.
+             
+             const updates: any = {
+                turnIndex: (matchState.turnIndex + 1) % playersList.length,
+                currentWord: null,
+                timerEnd: null,
+                currentInput: '',
+                streak: 0
+             };
+             // If the active player was me, set my status
+             if (activePlayer?.uid === user?.uid) {
+                updates[`players/${user?.uid}/status`] = 'eliminated';
+             } else if (activePlayer) {
+                updates[`players/${activePlayer.uid}/status`] = 'eliminated';
+             }
+
+             // Win Condition Check (Single player logic included)
+             const aliveCount = playersList.filter(p => p.status === 'alive').length;
+             // If active player just died, they are no longer alive
+             if (aliveCount <= 1) {
+                updates['status'] = 'intermission';
+             }
+
+             dbUpdate(dbRef(db, `matches/${gameState.matchId}`), updates);
+          } else {
+             const remaining = matchState.timerEnd! - now;
+             driverTimeoutRef.current = setTimeout(checkTimeout, remaining + 100);
+          }
+       };
+       checkTimeout();
+    }
+
+    return () => { if (driverTimeoutRef.current) clearTimeout(driverTimeoutRef.current); };
+  }, [isGameDriver, matchState?.status, matchState?.currentWord, matchState?.timerEnd, streak, playersList, gameState.matchId]);
+
+
+  // --- Timer Visuals (Everyone) ---
   useEffect(() => {
     const updateTimer = () => {
-      if (status === 'playing') {
-        const now = Date.now();
-        const delta = timerEndRef.current - now;
-        
+      if (matchState?.status === 'playing' && matchState.timerEnd) {
+        const delta = matchState.timerEnd - Date.now();
         if (delta <= 0) {
           setTimeLeft(0);
-          handleFail("Time's up!");
         } else {
-          setTimeLeft(delta / 1000); 
+          setTimeLeft(delta / 1000);
           animationFrameRef.current = requestAnimationFrame(updateTimer);
         }
       }
     };
-
-    if (status === 'playing') {
+    if (matchState?.status === 'playing') {
       animationFrameRef.current = requestAnimationFrame(updateTimer);
-    } else {
-      cancelAnimationFrame(animationFrameRef.current);
     }
     return () => cancelAnimationFrame(animationFrameRef.current);
-  }, [status, currentWord]);
+  }, [matchState?.status, matchState?.timerEnd, matchState?.currentWord]);
 
-  // INTERMISSION TIMER LOOP
-  useEffect(() => {
-    let interval: any;
-    if (status === 'intermission') {
-      interval = setInterval(() => {
-        setIntermissionTime((prev) => {
-          if (prev <= 1) {
-             nextWord();
-             return 5;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [status, nextWord]);
-
-
-  const handleFail = (msg: string) => {
-    setStreak(0);
-    // On fail, we do not reset WPM history, only current streak
-    setStatus('intermission');
-    setFeedback({ type: 'error', msg: `${msg} The word was: ${currentWord}` });
-  };
+  // --- HANDLERS ---
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
-    if (val.length > inputValue.length) {
-        playTypingSound();
-    }
     setInputValue(val);
+    
+    // Sync to DB if I am active
+    if (amIActivePlayer && gameState.matchId) {
+        if (val.length > (matchState?.currentInput || '').length) {
+            playTypingSound();
+        }
+        // Debounce slightly if needed, but for local LAN/fast internet direct is fine
+        dbUpdate(dbRef(db, `matches/${gameState.matchId}`), { currentInput: val });
+    }
   }
+
+  const passTurn = async (wasEliminated: boolean) => {
+     if (!matchState || !gameState.matchId) return;
+     
+     let nextTurnIndex = (matchState.turnIndex + 1) % playersList.length;
+     let loopCount = 0;
+     
+     // Find next ALIVE player
+     while (loopCount < playersList.length) {
+        const p = playersList[nextTurnIndex];
+        // If I was just eliminated, I am not 'alive' in the local list yet, so logic handles it
+        // BUT, we are updating DB.
+        
+        // We need to know who IS alive.
+        // If I was eliminated, I am definitely out.
+        // We need to look at OTHER players.
+        
+        if (p.uid !== user?.uid && p.status === 'alive') {
+           break; 
+        }
+        // If it's me, and I was eliminated, skip me.
+        if (p.uid === user?.uid && wasEliminated) {
+           nextTurnIndex = (nextTurnIndex + 1) % playersList.length;
+           loopCount++;
+           continue;
+        }
+        
+        // If it's me and I am alive, I can play again (if solo)
+        if (p.uid === user?.uid && !wasEliminated) {
+           break;
+        }
+        
+        nextTurnIndex = (nextTurnIndex + 1) % playersList.length;
+        loopCount++;
+     }
+
+     const updates: any = {
+        turnIndex: nextTurnIndex,
+        currentWord: null, // Clear word to trigger next turn generation
+        timerEnd: null,
+        currentInput: ''
+     };
+
+     if (wasEliminated) {
+        updates[`players/${user?.uid}/status`] = 'eliminated';
+        updates['streak'] = 0; // Global reset
+     } else {
+        updates['streak'] = (matchState.streak || 0) + 1;
+     }
+
+     // Win Condition Check:
+     // If >1 players: End when 1 alive.
+     // If 1 player: End when 0 alive (Solo practice mode)
+     const aliveCount = playersList.filter(p => p.status === 'alive').length;
+     const effectiveAlive = wasEliminated ? aliveCount - 1 : aliveCount;
+     
+     if ((playersList.length > 1 && effectiveAlive <= 1) || (playersList.length === 1 && effectiveAlive === 0)) {
+        updates['status'] = 'intermission';
+     }
+
+     await dbUpdate(dbRef(db, `matches/${gameState.matchId}`), updates);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (status !== 'playing') return;
+    if (!amIActivePlayer || status !== 'playing') return;
     
-    // BURST WPM LOGIC STEP 1: Capture End Time Immediately
-    const endTime = Date.now();
-
+    // Debug Log
+    console.log(`Checking Answer: Target="${currentWord}", Input="${inputValue.trim()}"`);
+    
     if (checkAnswer(currentWord, inputValue.trim())) {
-      
-      // BURST WPM LOGIC STEP 2: Calculate
-      if (startTime) {
-        const durationMs = endTime - startTime;
-        // Avoid division by zero if they type instantly (e.g. 1ms)
-        const minutesElapsed = Math.max(durationMs, 1) / 60000;
-        
-        // Formula: (Characters / 4) / Minutes
-        const burstWpm = Math.round((currentWord.length / 4) / minutesElapsed);
-        
-        // Update Stats
-        setLastBurstWpm(burstWpm);
-        setCorrectWords(prev => [...prev, { word: currentWord, wpm: burstWpm }]);
-      }
-
-      const newStreak = streak + 1;
-      setStreak(newStreak);
-      
-      const { stars: starReward } = getModeConfig(currentMode);
-
-      if (user) {
-        const userRef = dbRef(db, `users/${user.uid}`);
-        try {
-           const snapshot = await dbGet(userRef);
-           const currentData = snapshot.val() || {};
-           const currentStars = currentData.stars || 0;
-           const currentCorrects = currentData.corrects || 0;
-           const currentWins = currentData.wins || 0;
-
-           const newWins = newStreak % 10 === 0 ? currentWins + 1 : currentWins;
-           const newCorrects = currentCorrects + 1;
-           const newTitle = getTitle(newCorrects, newWins);
-
-           await dbUpdate(userRef, {
-             stars: currentStars + starReward,
-             corrects: newCorrects,
-             wins: newWins,
-             title: newTitle
-           });
-        } catch (err) {
-            console.error("Error updating stats", err);
-        }
-      }
-
-      setFeedback({ type: 'success', msg: `Correct! +${starReward}` });
-      setTimeout(() => nextWord(), 200);
-
+       setFeedback({ type: 'success', msg: 'Correct!' });
+       await passTurn(false);
     } else {
-      handleFail("Incorrect.");
+       console.warn("Answer Incorrect. Homophones check failed.");
+       handleFail("Incorrect.");
     }
   };
 
-  const skipIntermission = () => nextWord();
+  const handleFail = async (msg: string) => {
+     if (!amIActivePlayer) return;
+     setFeedback({ type: 'error', msg });
+     await passTurn(true);
+  };
+
+  // --- Intermission & Round Reset Logic ---
+  useEffect(() => {
+    // Only Game Driver runs this
+    if (!matchState || matchState.status !== 'intermission' || !gameState.matchId || !isGameDriver) return;
+
+    const intermissionDuration = 15; // 15 seconds
+    
+    // 1. Initialize Timer if missing
+    if (!matchState.intermissionEndsAt) {
+       console.log("Driver: Starting Intermission Timer");
+       dbUpdate(dbRef(db, `matches/${gameState.matchId}`), {
+          intermissionEndsAt: Date.now() + (intermissionDuration * 1000)
+       });
+       return;
+    }
+
+    // 2. Monitor Timer
+    const timer = setInterval(() => {
+       const now = Date.now();
+       const currentMatch = matchStateRef.current;
+       if (currentMatch?.intermissionEndsAt && now > currentMatch.intermissionEndsAt) {
+           clearInterval(timer);
+           startNewRound();
+       }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [matchState?.status, matchState?.intermissionEndsAt, isGameDriver, gameState.matchId]);
+
+  // --- SYNC INTERMISSION TIMER (Visuals for Everyone) ---
+  useEffect(() => {
+     if (matchState?.status === 'intermission' && matchState.intermissionEndsAt) {
+        const updateVisuals = () => {
+           const left = Math.ceil((matchState.intermissionEndsAt! - Date.now()) / 1000);
+           setIntermissionTime(Math.max(0, left));
+           if (left > 0) requestAnimationFrame(updateVisuals);
+        };
+        requestAnimationFrame(updateVisuals);
+     }
+  }, [matchState?.status, matchState?.intermissionEndsAt]);
+
+
+  const startNewRound = async () => {
+     if (!gameState.matchId || !matchState) return;
+     
+     // REVIVAL LOGIC
+     const updates: any = {
+        status: 'playing',
+        intermissionEndsAt: null,
+        currentWord: null, // Triggers active player to pick word
+        turnIndex: 0, // Reset turn order
+        streak: 0,
+        // Reset Difficulty:
+        // Private: Use nextRoundDifficulty if set
+        // Public: Keep existing difficulty (Do not use paramMode, it corrupts the lobby)
+        difficulty: (gameState.type === 'private' && matchState.nextRoundDifficulty) 
+                    ? matchState.nextRoundDifficulty 
+                    : matchState.difficulty // Keep current
+     };
+
+     // Set all players to ALIVE
+     playersList.forEach(p => {
+        updates[`players/${p.uid}/status`] = 'alive';
+     });
+
+     await dbUpdate(dbRef(db, `matches/${gameState.matchId}`), updates);
+  };
+
+  const skipIntermission = async () => {
+     if (gameState.role === 'host') {
+        startNewRound();
+     }
+  };
+
+  // --- Private Match Settings ---
+  const handleModeChange = async (newMode: string) => {
+     if (gameState.role !== 'host' || !gameState.matchId) return;
+     // Just queue it for next round
+     await dbUpdate(dbRef(db, `matches/${gameState.matchId}`), {
+        nextRoundDifficulty: newMode
+     });
+     // Visual feedback locally
+     setCurrentMode(newMode);
+  };
   const exitArena = () => navigate('/lobby');
 
   const getFireIntensity = () => {
@@ -492,6 +615,32 @@ const Play: React.FC = () => {
     const mobileState = activeTab === 'players' ? 'scale-100 opacity-100 pointer-events-auto' : 'scale-0 opacity-0 pointer-events-none';
     const desktop = "lg:right-4 lg:top-1/2 lg:-translate-y-1/2 lg:w-64 lg:h-[60vh] lg:rounded-xl lg:origin-center lg:scale-100 lg:opacity-100 lg:pointer-events-auto";
     return `${base} ${mobilePos} ${mobileState} ${desktop}`;
+  };
+
+  // --- DEBUG LOADING STATE ---
+  if (!matchState) {
+     return (
+        <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
+           <div className="text-center">
+              <div className="text-2xl font-bold mb-4 text-emerald-500">Entering Hive...</div>
+              <div className="text-slate-400 text-xs font-mono">
+                 Match ID: {gameState?.matchId || 'None'} <br/>
+                 Status: Connecting to Neural Link...
+              </div>
+           </div>
+        </div>
+     );
+  }
+
+  // --- RENDER HELPERS ---
+  const renderStatusMessage = () => {
+     if (myPlayerStatus === 'eliminated') {
+        return <div className="text-red-500 font-bold text-xl uppercase tracking-widest animate-pulse">Spectating Next Round</div>;
+     }
+     if (matchState?.status === 'intermission') {
+        return <div className="text-yellow-400 font-bold text-xl uppercase tracking-widest">Intermission</div>;
+     }
+     return null;
   };
 
   return (
@@ -544,24 +693,23 @@ const Play: React.FC = () => {
 
       <div className={getPlayerListClasses()}>
          <div className="p-3 border-b border-slate-700 bg-black/20 font-bold text-sm flex justify-between">
-            <span>People ({players.length})</span>
+            <span>People ({playersList.length})</span>
          </div>
          <div className="grid grid-cols-[1fr_50px_40px] px-3 py-2 text-[10px] text-slate-400 font-bold uppercase border-b border-slate-700/50">
             <span>Name</span>
-            <span className="text-right">Correct</span>
-            <span className="text-right">Wins</span>
+            <span className="text-right">Status</span>
          </div>
          <div className="flex-1 overflow-y-auto">
-            {players.map((p) => (
+            {playersList.map((p) => (
               <div key={p.uid} className={`grid grid-cols-[1fr_50px_40px] px-3 py-3 text-xs items-center transition-colors border-b border-slate-800/50 ${p.uid === user?.uid ? 'bg-emerald-900/20' : 'hover:bg-white/5'}`}>
                   <div className="flex items-center gap-2 overflow-hidden">
-                     <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${p.photoSeed}`} className="w-6 h-6 rounded bg-slate-700" alt="p" />
-                     <span className={`truncate font-medium ${p.uid === user?.uid ? 'text-emerald-400' : 'text-white'}`}>
-                       {p.title} {p.uid === user?.uid && '(You)'}
+                     {/* Placeholder Avatar */}
+                     <div className={`w-2 h-2 rounded-full ${p.status === 'alive' ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
+                     <span className={`truncate font-medium ${p.uid === user?.uid ? 'text-emerald-400' : 'text-white'} ${p.status === 'eliminated' ? 'line-through text-slate-500' : ''}`}>
+                       {p.username} {p.uid === user?.uid && '(You)'}
                      </span>
                   </div>
-                  <div className="text-right text-emerald-400 font-mono">{p.corrects}</div>
-                  <div className="text-right text-slate-300 font-mono">{p.wins}</div>
+                  <div className={`text-right font-mono ${p.status === 'alive' ? 'text-emerald-400' : 'text-red-500'}`}>{p.status === 'alive' ? 'LIVE' : 'DEAD'}</div>
               </div>
             ))}
          </div>
@@ -584,13 +732,14 @@ const Play: React.FC = () => {
            ) : (
              <div className="h-[50px]">
                 {status === 'speaking' && <div className="text-emerald-400 animate-pulse text-sm font-bold tracking-widest">LISTENING TO HIVE...</div>}
+                {renderStatusMessage()}
              </div>
            )}
         </div>
 
         <div className="flex items-center gap-4 mb-4 sm:mb-6">
           <div className="bg-slate-800/80 px-4 py-1 rounded text-xs font-bold tracking-widest uppercase text-emerald-400 border border-slate-700">
-             {streak > 25 ? 'RAMPAGE MODE' : currentMode}
+             {streak > 25 ? 'RAMPAGE MODE' : (matchState?.difficulty || currentMode)}
           </div>
         </div>
 
@@ -622,19 +771,21 @@ const Play: React.FC = () => {
         </div>
 
         <div className="mb-8 relative min-h-[100px] flex items-center justify-center w-full">
-           {status === 'playing' ? (
-             <button 
-               onClick={() => speak(currentWord, ttsVolume)}
-               className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center transition-all group cursor-pointer active:scale-95 animate-pulse-slow"
-             >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 sm:h-10 sm:w-10 text-emerald-400 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                </svg>
-             </button>
-           ) : status === 'speaking' ? (
+           {status !== 'intermission' ? (
+             status === 'speaking' ? (
                 <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-emerald-500/20 border-2 border-emerald-400 flex items-center justify-center animate-spin-slow">
                      <span className="text-2xl">🔊</span>
                 </div>
+             ) : (
+               <button 
+                 onClick={() => speak(currentWord, ttsVolume)}
+                 className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center transition-all group cursor-pointer active:scale-95 animate-pulse-slow"
+               >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 sm:h-10 sm:w-10 text-emerald-400 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                  </svg>
+               </button>
+             )
            ) : (
              <div className="flex flex-col items-center bg-slate-900/90 p-4 rounded-xl border border-slate-700 shadow-xl z-20 w-full max-w-sm">
                <div className="text-red-400 font-bold mb-2 text-center text-lg">{feedback?.msg}</div>
@@ -663,9 +814,9 @@ const Play: React.FC = () => {
                 autoFocus
                 value={inputValue}
                 onChange={handleInputChange}
-                disabled={!isInputEnabled || status !== 'playing'}
-                placeholder="Type word..."
-                className="w-full bg-transparent border-b-2 border-slate-700 focus:border-emerald-500 text-center text-3xl sm:text-5xl font-bold text-white outline-none py-2 sm:py-4 placeholder:text-slate-800 transition-colors disabled:opacity-50 disabled:cursor-wait"
+                disabled={!isInputEnabled || status !== 'playing' || myPlayerStatus !== 'alive'} // ONLY ALIVE CAN TYPE
+                placeholder={myPlayerStatus === 'alive' ? "Type word..." : "SPECTATING..."}
+                className="w-full bg-transparent border-b-2 border-slate-700 focus:border-emerald-500 text-center text-3xl sm:text-5xl font-bold text-white outline-none py-2 sm:py-4 placeholder:text-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               />
            </form>
         </div>
