@@ -370,7 +370,7 @@ const Play: React.FC = () => {
                      {/* Placeholder Avatar */}
                      <div className={`w-2 h-2 rounded-full ${p.status === 'connected' ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
                      <span className={`truncate font-medium ${p.id === user?.uid ? 'text-emerald-400' : 'text-white'} ${p.status === 'disconnected' ? 'line-through text-slate-500' : ''}`}>
-                       {p.name} {p.id === user?.uid && '(You)'}
+                       {p.name}
                      </span>
                   </div>
                   <div className={`text-right font-mono ${p.status === 'connected' ? 'text-emerald-400' : 'text-red-500'}`}>{p.status === 'connected' ? 'LIVE' : 'DEAD'}</div>

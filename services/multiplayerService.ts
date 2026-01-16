@@ -14,7 +14,7 @@ export const createRoom = async (hostId: string, settings: GameSettings, type: '
     id: roomId,
     hostId,
     type,
-    status: 'waiting',
+    status: 'playing',
     createdAt: Date.now(),
     settings,
     players: {},
