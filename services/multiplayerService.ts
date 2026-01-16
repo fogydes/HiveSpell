@@ -8,15 +8,14 @@ export const createRoom = async (hostId: string, settings: GameSettings, type: '
   const roomId = newRoomRef.key as string;
   
   // Only generate code for private rooms
-  const code = type === 'private' ? Math.random().toString(36).substring(2, 8).toUpperCase() : undefined;
+  const code = type === 'private' ? Math.random().toString(36).substring(2, 8).toUpperCase() : null;
 
-  const newRoom: Room = {
+  const newRoom: any = {
     id: roomId,
     hostId,
     type,
     status: 'waiting',
     createdAt: Date.now(),
-    code,
     settings,
     players: {},
     gameState: {
@@ -25,6 +24,8 @@ export const createRoom = async (hostId: string, settings: GameSettings, type: '
         startTime: 0
     }
   };
+  
+  if (code) newRoom.code = code;
 
   // Add host as player
   newRoom.players[hostId] = {
