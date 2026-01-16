@@ -1,0 +1,2 @@
+Phase 3 Fix: Handle undefined code in service.
+Why: Prevent Firebase set error.
