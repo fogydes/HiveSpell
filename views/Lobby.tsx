@@ -2,58 +2,64 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { wordBank } from '../services/gameService';
 import { useAuth } from '../context/AuthContext';
-import { findPublicMatch, createPrivateMatch, joinPrivateMatchByCode } from '../services/multiplayerService';
+// import { findPublicMatch, createPrivateMatch, joinPrivateMatchByCode } from '../services/multiplayerService';
 
 const Lobby: React.FC = () => {
   const modes = Object.keys(wordBank);
   const navigate = useNavigate();
   const [joinCode, setJoinCode] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
+  // const [isProcessing, setIsProcessing] = useState(false);
   const { user } = useAuth();
 
   const handleStartPublic = async (mode: string) => {
-    if (!user || isProcessing) return;
-    setIsProcessing(true);
-    try {
-      const matchId = await findPublicMatch(user, mode);
-      navigate(`/play/${mode}`, { state: { type: 'public', role: 'player', matchId } });
-    } catch (err) {
-      console.error("Matchmaking failed:", err);
-      alert("Failed to join public match. Please try again.");
-    } finally {
-      setIsProcessing(false);
-    }
+    // if (!user || isProcessing) return;
+    // setIsProcessing(true);
+    // try {
+    //   const matchId = await findPublicMatch(user, mode);
+    //   navigate(`/play/${mode}`, { state: { type: 'public', role: 'player', matchId } });
+    // } catch (err) {
+    //   console.error("Matchmaking failed:", err);
+    //   alert("Failed to join public match. Please try again.");
+    // } finally {
+    //   setIsProcessing(false);
+    // }
+    console.log("Public match requested for", mode);
+    alert("Multiplayer is currently being updated. Please check back later.");
   };
 
   const handleCreatePrivate = async (mode: string) => {
-    if (!user || isProcessing) return;
-    setIsProcessing(true);
-    try {
-      const { matchId, code } = await createPrivateMatch(user, mode);
-      navigate(`/play/${mode}`, { state: { type: 'private', role: 'host', code, matchId } });
-    } catch (err) {
-      console.error("Private creation failed:", err);
-      alert("Failed to create private room.");
-    } finally {
-      setIsProcessing(false);
-    }
+    // if (!user || isProcessing) return;
+    // setIsProcessing(true);
+    // try {
+    //   const { matchId, code } = await createPrivateMatch(user, mode);
+    //   navigate(`/play/${mode}`, { state: { type: 'private', role: 'host', code, matchId } });
+    // } catch (err) {
+    //   console.error("Private creation failed:", err);
+    //   alert("Failed to create private room.");
+    // } finally {
+    //   setIsProcessing(false);
+    // }
+    console.log("Private match requested for", mode);
+    alert("Multiplayer is currently being updated. Please check back later.");
   };
 
   const handleJoinPrivate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!joinCode.trim() || !user || isProcessing) return;
+    // if (!joinCode.trim() || !user || isProcessing) return;
     
-    setIsProcessing(true);
-    try {
-      const matchId = await joinPrivateMatchByCode(user, joinCode.trim().toUpperCase());
-      /** Join private match */
-      // We'll pass 'polymath' as a placeholder or handle it in Play.tsx
-      navigate(`/play/polymath`, { state: { type: 'private', role: 'player', code: joinCode, matchId } });
-    } catch (err) {
-      alert("Invalid Code or Room Expired.");
-    } finally {
-      setIsProcessing(false);
-    }
+    // setIsProcessing(true);
+    // try {
+    //   const matchId = await joinPrivateMatchByCode(user, joinCode.trim().toUpperCase());
+    //   /** Join private match */
+    //   // We'll pass 'polymath' as a placeholder or handle it in Play.tsx
+    //   navigate(`/play/polymath`, { state: { type: 'private', role: 'player', code: joinCode, matchId } });
+    // } catch (err) {
+    //   alert("Invalid Code or Room Expired.");
+    // } finally {
+    //   setIsProcessing(false);
+    // }
+    console.log("Join private requested with code", joinCode);
+    alert("Multiplayer is currently being updated. Please check back later.");
   };
 
   const getModeColor = (mode: string) => {
@@ -94,14 +100,15 @@ const Lobby: React.FC = () => {
             
             <div className="space-y-3">
               <button 
-                  disabled={isProcessing}
+                  // disabled={isProcessing}
                   onClick={() => handleStartPublic(mode)}
                   className="w-full py-3 bg-slate-700 group-hover:bg-white group-hover:text-slate-900 text-white rounded-lg font-bold text-sm tracking-wider transition-colors uppercase disabled:opacity-50 disabled:cursor-wait"
               >
-                {isProcessing ? 'Connecting...' : 'Public Match'}
+                {/* {isProcessing ? 'Connecting...' : 'Public Match'} */}
+                Public Match
               </button>
               <button 
-                  disabled={isProcessing}
+                  // disabled={isProcessing}
                   onClick={() => handleCreatePrivate(mode)}
                   className="w-full py-2 bg-transparent border border-slate-600 text-slate-400 hover:text-white hover:border-white rounded-lg text-xs font-bold transition-colors uppercase disabled:opacity-50 disabled:cursor-wait"
               >
@@ -128,10 +135,11 @@ const Lobby: React.FC = () => {
           />
           <button 
             type="submit"
-            disabled={isProcessing}
+            // disabled={isProcessing}
             className="bg-emerald-500 hover:bg-emerald-400 text-slate-900 px-6 py-2 rounded-lg font-bold transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-wait"
           >
-            {isProcessing ? '...' : 'JOIN'}
+            {/* {isProcessing ? '...' : 'JOIN'} */}
+            JOIN
           </button>
         </form>
       </div>
