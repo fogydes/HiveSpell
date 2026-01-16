@@ -1,0 +1,6 @@
+Task: Update Firebase Security Rules
+Summary:
+- Updated database.rules.json to include rules for rooms path.
+- Host-only write access for room properties.
+- Player-only write access for joining/leaving.
+Why: To secure the multiplayer data.
