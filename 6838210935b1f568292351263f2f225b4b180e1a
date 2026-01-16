@@ -1,0 +1,3 @@
+Task: Implement Multiplayer Service
+Summary: Implemented createRoom, joinRoom, leaveRoom, subscribeToRoom with tests.
+Why: Core logic for lobby.
