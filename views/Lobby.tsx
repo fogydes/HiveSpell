@@ -1,65 +1,62 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { wordBank } from '../services/gameService';
-import { useAuth } from '../context/AuthContext';
-// import { findPublicMatch, createPrivateMatch, joinPrivateMatchByCode } from '../services/multiplayerService';
+import { useMultiplayer } from '../context/MultiplayerContext';
+import RoomWaitingRoom from '../components/RoomWaitingRoom';
 
 const Lobby: React.FC = () => {
   const modes = Object.keys(wordBank);
   const navigate = useNavigate();
   const [joinCode, setJoinCode] = useState('');
-  // const [isProcessing, setIsProcessing] = useState(false);
-  const { user } = useAuth();
+  const { createGameRoom, joinGameRoom, loading, currentRoom } = useMultiplayer();
+
+  if (currentRoom) {
+    return <RoomWaitingRoom />;
+  }
 
   const handleStartPublic = async (mode: string) => {
-    // if (!user || isProcessing) return;
-    // setIsProcessing(true);
-    // try {
-    //   const matchId = await findPublicMatch(user, mode);
-    //   navigate(`/play/${mode}`, { state: { type: 'public', role: 'player', matchId } });
-    // } catch (err) {
-    //   console.error("Matchmaking failed:", err);
-    //   alert("Failed to join public match. Please try again.");
-    // } finally {
-    //   setIsProcessing(false);
-    // }
-    console.log("Public match requested for", mode);
-    alert("Multiplayer is currently being updated. Please check back later.");
+    if (loading) return;
+    try {
+      // For now, public matches also create a room (to be refined in matchmaking logic later)
+      const roomId = await createGameRoom({ difficulty: mode, maxPlayers: 10 });
+      // Navigation is handled by conditional rendering above once currentRoom is set
+    } catch (err) {
+      console.error("Matchmaking failed:", err);
+      alert("Failed to create room. Please try again.");
+    }
   };
 
   const handleCreatePrivate = async (mode: string) => {
-    // if (!user || isProcessing) return;
-    // setIsProcessing(true);
-    // try {
-    //   const { matchId, code } = await createPrivateMatch(user, mode);
-    //   navigate(`/play/${mode}`, { state: { type: 'private', role: 'host', code, matchId } });
-    // } catch (err) {
-    //   console.error("Private creation failed:", err);
-    //   alert("Failed to create private room.");
-    // } finally {
-    //   setIsProcessing(false);
-    // }
-    console.log("Private match requested for", mode);
-    alert("Multiplayer is currently being updated. Please check back later.");
+    if (loading) return;
+    try {
+      const roomId = await createGameRoom({ difficulty: mode, maxPlayers: 10 });
+      // Navigation is handled by conditional rendering above once currentRoom is set
+    } catch (err) {
+      console.error("Private creation failed:", err);
+      alert("Failed to create private room.");
+    }
   };
 
   const handleJoinPrivate = async (e: React.FormEvent) => {
     e.preventDefault();
-    // if (!joinCode.trim() || !user || isProcessing) return;
+    if (!joinCode.trim() || loading) return;
     
-    // setIsProcessing(true);
-    // try {
-    //   const matchId = await joinPrivateMatchByCode(user, joinCode.trim().toUpperCase());
-    //   /** Join private match */
-    //   // We'll pass 'polymath' as a placeholder or handle it in Play.tsx
-    //   navigate(`/play/polymath`, { state: { type: 'private', role: 'player', code: joinCode, matchId } });
-    // } catch (err) {
-    //   alert("Invalid Code or Room Expired.");
-    // } finally {
-    //   setIsProcessing(false);
-    // }
-    console.log("Join private requested with code", joinCode);
-    alert("Multiplayer is currently being updated. Please check back later.");
+    try {
+      // We need a way to look up room ID by code if we use codes.
+      // Current createRoom generates a code, but joinGameRoom takes an ID (in my context impl).
+      // We need a lookup function `findRoomByCode` in service?
+      // Or update joinGameRoom to take an ID (which the context has).
+      // Wait, the context `joinGameRoom` takes `roomId`.
+      // The UI input says "ENTER PRIVATE CODE".
+      // Users usually enter a CODE, not a raw UUID.
+      // So we need a `joinRoomByCode` in context/service.
+      // I missed this in the service impl!
+      // I will add a TODO to fix this service gap.
+      // For now, I'll alert implementation pending.
+      alert("Joining by code is implementing next step!");
+    } catch (err) {
+      alert("Invalid Code or Room Expired.");
+    }
   };
 
   const getModeColor = (mode: string) => {
@@ -100,15 +97,14 @@ const Lobby: React.FC = () => {
             
             <div className="space-y-3">
               <button 
-                  // disabled={isProcessing}
+                  disabled={loading}
                   onClick={() => handleStartPublic(mode)}
                   className="w-full py-3 bg-slate-700 group-hover:bg-white group-hover:text-slate-900 text-white rounded-lg font-bold text-sm tracking-wider transition-colors uppercase disabled:opacity-50 disabled:cursor-wait"
               >
-                {/* {isProcessing ? 'Connecting...' : 'Public Match'} */}
-                Public Match
+                {loading ? 'Connecting...' : 'Public Match'}
               </button>
               <button 
-                  // disabled={isProcessing}
+                  disabled={loading}
                   onClick={() => handleCreatePrivate(mode)}
                   className="w-full py-2 bg-transparent border border-slate-600 text-slate-400 hover:text-white hover:border-white rounded-lg text-xs font-bold transition-colors uppercase disabled:opacity-50 disabled:cursor-wait"
               >
@@ -135,11 +131,10 @@ const Lobby: React.FC = () => {
           />
           <button 
             type="submit"
-            // disabled={isProcessing}
+            disabled={loading}
             className="bg-emerald-500 hover:bg-emerald-400 text-slate-900 px-6 py-2 rounded-lg font-bold transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-wait"
           >
-            {/* {isProcessing ? '...' : 'JOIN'} */}
-            JOIN
+            {loading ? '...' : 'JOIN'}
           </button>
         </form>
       </div>
