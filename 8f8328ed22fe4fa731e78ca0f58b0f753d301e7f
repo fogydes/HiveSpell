@@ -1,0 +1,3 @@
+Task: Connect UI to Service
+Summary: Wired Lobby to MultiplayerContext. Implemented RoomWaitingRoom component.
+Why: Enable users to create and see rooms.
