@@ -183,11 +183,7 @@ const Play: React.FC = () => {
     if (!currentRoom?.gameState?.currentWord) return;
 
     const syncedWord = currentRoom.gameState.currentWord;
-    
-    // DEBUG: Trace audio trigger
-    console.log(`[Audio Sync] Target: "${syncedWord}", Last: "${lastSpokenWordRef.current}"`);
 
-    // Strict check to prevent double speak
     if (syncedWord !== lastSpokenWordRef.current) {
       lastSpokenWordRef.current = syncedWord;
       setCurrentWord(syncedWord);
@@ -197,28 +193,52 @@ const Play: React.FC = () => {
       setDefinition('Loading...');
       fetchDefinition(syncedWord).then(setDefinition);
 
-      setStatus('speaking');
-      // Ensure we stop previous
-      stopAudio();
-      
-      console.log(`[Audio] Speaking now: "${syncedWord}"`);
-      speak(syncedWord, ttsVolume).then(() => {
-        // "Fair-Start" Timer Logic:
-        setTimeout(() => {
-            setStatus('playing');
-            setIsInputEnabled(true);
-            setStartTime(Date.now()); // Clock starts NOW
-            if (inputRef.current) inputRef.current.focus();
-        }, 500);
-      });
+      // Only play audio if we are in 'playing' state or transitioning to it
+      if (currentRoom.status === 'playing') {
+          setStatus('speaking');
+          stopAudio();
+          speak(syncedWord, ttsVolume).then(() => {
+            setTimeout(() => {
+                setStatus('playing');
+                setIsInputEnabled(true);
+                setStartTime(Date.now());
+                if (inputRef.current) inputRef.current.focus();
+            }, 500);
+          });
+      }
     }
-  }, [currentRoom?.gameState?.currentWord]); // Removed ttsVolume to prevent re-trigger on volume change
+  }, [currentRoom?.gameState?.currentWord]); 
 
+  // --- SELF-ELIMINATION TIMER (Decentralized) ---
+  useEffect(() => {
+      // If I am the active player, I must watch the clock and eliminate myself.
+      // This solves the security rule issue where Host cannot write to my player node.
+      if (status === 'playing' && currentRoom?.gameState?.startTime && (currentRoom.gameState as any).timerDuration) {
+          const duration = (currentRoom.gameState as any).timerDuration;
+          const start = currentRoom.gameState.startTime;
+          
+          const timer = setInterval(() => {
+              const now = Date.now();
+              const elapsed = (now - start) / 1000;
+              const remaining = duration - elapsed;
+              
+              if (remaining <= 0) {
+                  clearInterval(timer);
+                  if (amIActivePlayer && myStatus === 'alive') {
+                      console.log("[Timer] Time expired. Self-eliminating.");
+                      handleFail("Time's up!");
+                  }
+              }
+          }, 100);
+          return () => clearInterval(timer);
+      }
+  }, [status, currentRoom?.gameState?.startTime, amIActivePlayer, myStatus]);
 
-  // --- Game Loop Driver (Host) ---
+  // --- Game Loop Driver (Host/Driver ONLY) ---
   useEffect(() => {
     if (!isGameDriver || !currentRoom || !currentRoom.id) return;
 
+    // A. Start New Round / Next Word
     if (currentRoom.status === 'playing' && !currentRoom.gameState?.currentWord) {
         if (processingRef.current) return;
         processingRef.current = true;
@@ -227,7 +247,6 @@ const Play: React.FC = () => {
         const words = wordBank[difficulty];
         const newWord = words[Math.floor(Math.random() * words.length)];
 
-        // Calculate timer
         const wordLen = newWord.length;
         const decay = 1.0; 
         const finalTime = Math.max(5, (2.0 + wordLen) * decay);
@@ -241,7 +260,7 @@ const Play: React.FC = () => {
     }
   }, [isGameDriver, currentRoom?.status, currentRoom?.gameState?.currentWord]);
 
-  // Timer calculation
+  // Visual Timer (UI Only)
   useEffect(() => {
       if (currentRoom?.gameState?.startTime && (currentRoom.gameState as any).timerDuration) {
           const duration = (currentRoom.gameState as any).timerDuration;
@@ -272,25 +291,31 @@ const Play: React.FC = () => {
      console.log(`[PassTurn] Eliminated: ${wasEliminated}`);
      
      const updates: any = {
-        currentWord: null, // Clear word to trigger next turn generation
-        timerEnd: null,
-        currentInput: ''
+        "gameState/currentWord": null, // Trigger next word
+        "gameState/timerDuration": null,
+        "gameState/currentInput": ''
      };
 
      if (wasEliminated) {
         if (user?.uid) {
-            console.log(`[PassTurn] ELIMINATING USER: ${user.uid}`);
             updates[`players/${user.uid}/status`] = 'eliminated';
+        }
+     } else {
+        // Increment Score
+        if (user?.uid) {
+            const currentScore = playersList.find(p => p.id === user.uid)?.score || 0;
+            updates[`players/${user.uid}/score`] = currentScore + 1;
         }
      }
 
-     // Win Condition Check Logic (Simplified)
+     // Win Condition
      const aliveCount = playersList.filter(p => p.status === 'alive' || p.status === 'connected').length;
-     // If I was eliminated, subtract 1
      const effectiveAlive = wasEliminated ? aliveCount - 1 : aliveCount;
      
      if ((playersList.length > 1 && effectiveAlive <= 1) || (playersList.length === 1 && effectiveAlive === 0)) {
         updates['status'] = 'intermission';
+        // Set Intermission Timer
+        updates['intermissionEndsAt'] = Date.now() + 15000; 
      }
 
      await dbUpdate(dbRef(db, `rooms/${roomId}`), updates);
