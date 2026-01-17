@@ -163,17 +163,20 @@ const Play: React.FC = () => {
     }
   };
 
-  // --- HELPER: Identify Roles ---
   const isGameDriver = React.useMemo(() => {
     if (!currentRoom || playersList.length === 0) return false;
-    // Host is driver
     if (user && currentRoom.hostId === user.uid) return true;
-    // Fallback: First joiner is driver
     if (user && playersList[0].id === user.uid) return true;
     return false;
   }, [currentRoom, playersList, user]);
 
-  const amIActivePlayer = true; // Everyone plays in drop-in mode
+  // Determine MY status from the list
+  const myStatus = React.useMemo(() => {
+      const me = playersList.find(p => p.id === user?.uid);
+      return me ? me.status : 'spectating';
+  }, [playersList, user]);
+
+  const amIActivePlayer = myStatus === 'alive' || myStatus === 'connected'; 
 
   // --- AUDIO & INPUT SYNC ---
   useEffect(() => {
@@ -181,6 +184,7 @@ const Play: React.FC = () => {
 
     const syncedWord = currentRoom.gameState.currentWord;
 
+    // Strict check to prevent double speak
     if (syncedWord !== lastSpokenWordRef.current) {
       lastSpokenWordRef.current = syncedWord;
       setCurrentWord(syncedWord);
@@ -191,11 +195,10 @@ const Play: React.FC = () => {
       fetchDefinition(syncedWord).then(setDefinition);
 
       setStatus('speaking');
+      // Ensure we stop previous
+      stopAudio();
       speak(syncedWord, ttsVolume).then(() => {
         // "Fair-Start" Timer Logic:
-        // 1. Speak finishes.
-        // 2. 500ms Buffer (Animation/Fade-in).
-        // 3. Input Enable + Clock Start.
         setTimeout(() => {
             setStatus('playing');
             setIsInputEnabled(true);
@@ -204,7 +207,9 @@ const Play: React.FC = () => {
         }, 500);
       });
     }
-  }, [currentRoom?.gameState?.currentWord, ttsVolume]);
+  }, [currentRoom?.gameState?.currentWord]); // Removed ttsVolume to prevent re-trigger on volume change, volume is read ref or prop inside speak
+
+  // ... (rest of the file)
 
 
   // --- Game Loop Driver (Host) ---
@@ -388,19 +393,21 @@ const Play: React.FC = () => {
          </div>
          <div className="grid grid-cols-[1fr_50px_40px] px-3 py-2 text-[10px] text-slate-400 font-bold uppercase border-b border-slate-700/50">
             <span>Name</span>
-            <span className="text-right">Status</span>
+            <span className="text-center">Corrects</span>
+            <span className="text-right">Wins</span>
          </div>
          <div className="flex-1 overflow-y-auto">
             {playersList.map((p) => (
               <div key={p.id} className={`grid grid-cols-[1fr_50px_40px] px-3 py-3 text-xs items-center transition-colors border-b border-slate-800/50 ${p.id === user?.uid ? 'bg-emerald-900/20' : 'hover:bg-white/5'}`}>
                   <div className="flex items-center gap-2 overflow-hidden">
                      {/* Placeholder Avatar */}
-                     <div className={`w-2 h-2 rounded-full ${p.status === 'connected' ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
-                     <span className={`truncate font-medium ${p.id === user?.uid ? 'text-emerald-400' : 'text-white'} ${p.status === 'disconnected' ? 'line-through text-slate-500' : ''}`}>
+                     <div className={`w-2 h-2 rounded-full ${p.status === 'alive' || p.status === 'connected' ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
+                     <span className={`truncate font-medium ${p.id === user?.uid ? 'text-emerald-400' : 'text-white'} ${p.status === 'eliminated' ? 'line-through text-slate-500' : ''}`}>
                        {p.name}
                      </span>
                   </div>
-                  <div className={`text-right font-mono ${p.status === 'connected' ? 'text-emerald-400' : 'text-red-500'}`}>{p.status === 'connected' ? 'LIVE' : 'DEAD'}</div>
+                  <div className="text-center font-mono text-emerald-400">{p.score || 0}</div>
+                  <div className="text-right font-mono text-yellow-400">{p.wins || 0}</div>
               </div>
             ))}
          </div>
@@ -499,8 +506,8 @@ const Play: React.FC = () => {
                 autoFocus
                 value={inputValue}
                 onChange={handleInputChange}
-                disabled={!isInputEnabled || status !== 'playing'}
-                placeholder="Type word..."
+                disabled={!isInputEnabled || status !== 'playing' || myStatus === 'eliminated'}
+                placeholder={myStatus === 'eliminated' ? "ELIMINATED" : "Type word..."}
                 className="w-full bg-transparent border-b-2 border-slate-700 focus:border-emerald-500 text-center text-3xl sm:text-5xl font-bold text-white outline-none py-2 sm:py-4 placeholder:text-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               />
            </form>

@@ -2,7 +2,7 @@ import { db } from '../firebase';
 import { ref, set, push, get, update, query, orderByChild, equalTo, limitToFirst, onValue, off, remove } from 'firebase/database';
 import { Room, Player, GameSettings } from '../types/multiplayer';
 
-export const createRoom = async (hostId: string, settings: GameSettings, type: 'public' | 'private'): Promise<string> => {
+export const createRoom = async (hostId: string, hostName: string, settings: GameSettings, type: 'public' | 'private'): Promise<string> => {
   const roomsRef = ref(db, 'rooms');
   const newRoomRef = push(roomsRef);
   const roomId = newRoomRef.key as string;
@@ -30,9 +30,10 @@ export const createRoom = async (hostId: string, settings: GameSettings, type: '
   // Add host as player
   newRoom.players[hostId] = {
       id: hostId,
-      name: 'Host', 
+      name: hostName, 
       isHost: true,
       score: 0,
+      wins: 0,
       status: 'connected'
   };
 

@@ -35,15 +35,17 @@ describe('Multiplayer Service', () => {
 
     it('should create a room', async () => {
         const hostId = 'host1';
+        const hostName = 'Host';
         const settings = { difficulty: 'easy', maxPlayers: 5 };
         
-        const roomId = await service.createRoom(hostId, settings);
+        const roomId = await service.createRoom(hostId, hostName, settings, 'public');
         
         expect(firebaseDatabase.push).toHaveBeenCalled();
         expect(firebaseDatabase.set).toHaveBeenCalledWith(
             expect.anything(),
             expect.objectContaining({
                 hostId,
+                type: 'public',
                 status: 'playing',
                 settings
             })

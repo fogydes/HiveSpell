@@ -2,8 +2,9 @@ export interface Player {
   id: string;
   name: string;
   isHost: boolean;
-  score: number;
-  status: 'connected' | 'disconnected';
+  score: number; // Used as 'corrects'
+  wins: number;
+  status: 'alive' | 'eliminated' | 'spectating' | 'connected' | 'disconnected'; // Expanded status
 }
 
 export interface GameSettings {

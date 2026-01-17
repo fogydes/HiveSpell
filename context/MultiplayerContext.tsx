@@ -54,8 +54,9 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
     setLoading(true);
     setError(null);
+    const hostName = userData?.username || 'Player';
     try {
-      const roomId = await createRoom(user.uid, settings, type);
+      const roomId = await createRoom(user.uid, hostName, settings, type);
       
       setCurrentRoom({ 
         id: roomId, 
@@ -66,12 +67,13 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         players: {
             [user.uid]: {
                 id: user.uid,
-                name: userData?.username || 'Player',
+                name: hostName,
                 isHost: true,
                 score: 0,
+                wins: 0,
                 status: 'connected'
             }
-        }
+        },
       } as Room); 
        return roomId;
     } catch (err: any) {
