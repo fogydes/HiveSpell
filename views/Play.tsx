@@ -363,7 +363,11 @@ const Play: React.FC = () => {
   ]);
 
   // Visual Timer (UI Only)
+  // Visual Timer (UI Only)
   useEffect(() => {
+    // Stop the timer if I am eliminated to show exact time of death
+    if (myStatus === "eliminated") return;
+
     if (
       currentRoom?.gameState?.startTime &&
       (currentRoom.gameState as any).timerDuration
@@ -382,7 +386,7 @@ const Play: React.FC = () => {
       update();
     }
     return () => cancelAnimationFrame(animationFrameRef.current);
-  }, [currentRoom?.gameState?.startTime]);
+  }, [currentRoom?.gameState?.startTime, myStatus]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -478,12 +482,7 @@ const Play: React.FC = () => {
     // if (!amIActivePlayer) return; // Removed strict check for now to ensure fail logic runs
     console.log(`[Death] ${msg}`);
 
-    let fullMsg = msg;
-    if (correct) {
-      fullMsg = `${msg} You typed: "${typed || ""}" | Correct: "${correct}"`;
-    }
-
-    setFeedback({ type: "error", msg: fullMsg });
+    setFeedback({ type: "error", msg, typed, correct });
     await passTurn(true);
   };
 
@@ -532,8 +531,11 @@ const Play: React.FC = () => {
   const renderWordCorrection = () => {
     if (feedback?.type === "error" && feedback.correct) {
       return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#111] border-2 border-slate-700 rounded-xl p-8 shadow-2xl max-w-2xl w-full mx-4 flex flex-col gap-6 transform scale-100">
+        <div
+          onClick={() => setFeedback(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 cursor-pointer"
+        >
+          <div className="bg-[#111] border-2 border-slate-700 rounded-xl p-8 shadow-2xl max-w-2xl w-full mx-4 flex flex-col gap-6 transform scale-100 cursor-default">
             <h2 className="font-mono font-black text-3xl text-center text-white mb-2 uppercase tracking-[0.2em] drop-shadow-md">
               Word Correction
             </h2>
@@ -560,7 +562,7 @@ const Play: React.FC = () => {
             </div>
 
             <div className="mt-2 text-center text-slate-500 text-sm font-mono">
-              Next round starting soon...
+              (Click anywhere to dismiss)
             </div>
           </div>
         </div>
@@ -827,9 +829,7 @@ const Play: React.FC = () => {
             )
           ) : (
             <div className="flex flex-col items-center bg-slate-900/90 p-4 rounded-xl border border-slate-700 shadow-xl z-20 w-full max-w-sm">
-              <div className="text-red-400 font-bold mb-2 text-center text-lg">
-                {feedback?.msg}
-              </div>
+              {/* Legacy feedback removed in favor of Modal */}
               <div className="text-slate-400 text-sm mb-4">
                 Next word in{" "}
                 <span className="text-white font-bold">{intermissionTime}</span>
