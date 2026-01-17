@@ -411,11 +411,22 @@ const Play: React.FC = () => {
         updates[`players/${user.uid}/status`] = "eliminated";
       }
     } else {
-      // Increment Score
+      // Increment Room Score
       if (user?.uid) {
         const currentScore =
           playersList.find((p) => p.id === user.uid)?.score || 0;
         updates[`players/${user.uid}/score`] = currentScore + 1;
+
+        // INCREMENT LIFETIME CORRECTS
+        // We do this purely as a side-effect, fire and forget
+        const userStatsRef = dbRef(db, `users/${user.uid}`);
+        // We use a transaction or simple update with increment if available.
+        // Importing increment is tricky if not already imported.
+        // Let's use a standard get-then-update for now to be safe with imports,
+        // OR assuming we can add the import.
+        // Actually, we can just do a separate update call using the global `increment` if I import it.
+        // To be safe and minimal:
+        // Attempting to import increment at top of file is best.
       }
     }
 
@@ -432,9 +443,52 @@ const Play: React.FC = () => {
       updates["status"] = "intermission";
       // Set Intermission Timer
       updates["intermissionEndsAt"] = Date.now() + 15000;
+
+      // AWARD WIN
+      const winner = playersList.find(
+        (p) => p.status === "alive" || p.status === "connected",
+      );
+      // If wasEliminated is true, the current user just died, so the *other* person won.
+      // Ideally we find the person who is NOT the one who just died.
+      // But simplified: if effectiveAlive == 1, that survivor is the winner.
+      if (winner && effectiveAlive === 1) {
+        // Update Winner's lifetime wins
+        // We can't do it in 'updates' (relative to room).
+        // Side effect:
+        // const winnerRef = dbRef(db, `users/${winner.id}`);
+        // update(winnerRef, { wins: increment(1) });
+      }
     }
 
     await dbUpdate(dbRef(db, `rooms/${roomId}`), updates);
+
+    // PERFORM LIFETIME UPDATES (Separate from Room update)
+    if (!wasEliminated && user?.uid) {
+      // Need to import increment
+      const userRef = dbRef(db, `users/${user.uid}`);
+      // update(userRef, { corrects: increment(1) });
+      // Since I can't easily add imports in this Replace block without breaking file structure,
+      // I will use a transaction for safety or just get/set?
+      // No, transaction is better.
+      runTransaction(
+        dbRef(db, `users/${user.uid}/corrects`),
+        (current) => (current || 0) + 1,
+      );
+    }
+
+    if (playersList.length > 1 && effectiveAlive <= 1) {
+      const winner = playersList.find(
+        (p) =>
+          (p.status === "alive" || p.status === "connected") &&
+          p.id !== (wasEliminated ? user?.uid : null),
+      );
+      if (winner) {
+        runTransaction(
+          dbRef(db, `users/${winner.id}/wins`),
+          (current) => (current || 0) + 1,
+        );
+      }
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
