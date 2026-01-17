@@ -11,7 +11,10 @@ vi.mock('firebase/database', () => {
         ref: refMock,
         set: vi.fn(),
         push: pushMock,
-        get: vi.fn(),
+        get: vi.fn(() => Promise.resolve({
+            exists: () => true,
+            val: () => ({ status: 'waiting' })
+        })),
         update: vi.fn(),
         query: vi.fn(),
         orderByChild: vi.fn(),
