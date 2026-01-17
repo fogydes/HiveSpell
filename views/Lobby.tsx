@@ -2,24 +2,20 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { wordBank } from '../services/gameService';
 import { useMultiplayer } from '../context/MultiplayerContext';
-import RoomWaitingRoom from '../components/RoomWaitingRoom';
 
 const Lobby: React.FC = () => {
   const modes = Object.keys(wordBank);
   const navigate = useNavigate();
   const [joinCode, setJoinCode] = useState('');
-  const { createGameRoom, joinGameRoom, loading, currentRoom } = useMultiplayer();
-
-  if (currentRoom) {
-    return <RoomWaitingRoom />;
-  }
+  const { createGameRoom, joinGameRoom, loading } = useMultiplayer();
 
   const handleStartPublic = async (mode: string) => {
     if (loading) return;
     try {
-      // For now, public matches also create a room (to be refined in matchmaking logic later)
-      const roomId = await createGameRoom({ difficulty: mode, maxPlayers: 10 });
-      // Navigation is handled by conditional rendering above once currentRoom is set
+      const roomId = await createGameRoom({ difficulty: mode, maxPlayers: 10 }, 'public');
+      if (roomId) {
+          navigate(`/play/${mode}`);
+      }
     } catch (err) {
       console.error("Matchmaking failed:", err);
       alert("Failed to create room. Please try again.");
@@ -29,8 +25,10 @@ const Lobby: React.FC = () => {
   const handleCreatePrivate = async (mode: string) => {
     if (loading) return;
     try {
-      const roomId = await createGameRoom({ difficulty: mode, maxPlayers: 10 });
-      // Navigation is handled by conditional rendering above once currentRoom is set
+      const roomId = await createGameRoom({ difficulty: mode, maxPlayers: 10 }, 'private');
+      if (roomId) {
+          navigate(`/play/${mode}`);
+      }
     } catch (err) {
       console.error("Private creation failed:", err);
       alert("Failed to create private room.");
@@ -42,21 +40,11 @@ const Lobby: React.FC = () => {
     if (!joinCode.trim() || loading) return;
     
     try {
-      // We need a way to look up room ID by code if we use codes.
-      // Current createRoom generates a code, but joinGameRoom takes an ID (in my context impl).
-      // We need a lookup function `findRoomByCode` in service?
-      // Or update joinGameRoom to take an ID (which the context has).
-      // Wait, the context `joinGameRoom` takes `roomId`.
-      // The UI input says "ENTER PRIVATE CODE".
-      // Users usually enter a CODE, not a raw UUID.
-      // So we need a `joinRoomByCode` in context/service.
-      // I missed this in the service impl!
-      // I will add a TODO to fix this service gap.
-      // For now, I'll alert implementation pending.
+      // TODO: Implement join by code lookup
       alert("Joining by code is implementing next step!");
     } catch (err) {
       alert("Invalid Code or Room Expired.");
-    }
+    } 
   };
 
   const getModeColor = (mode: string) => {

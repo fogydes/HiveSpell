@@ -42,8 +42,24 @@ export const createRoom = async (hostId: string, hostName: string, settings: Gam
 };
 
 export const joinRoom = async (roomId: string, player: Player): Promise<void> => {
+  const roomRef = ref(db, `rooms/${roomId}`);
+  const roomSnap = await get(roomRef);
+  
+  if (!roomSnap.exists()) {
+      throw new Error("Room does not exist");
+  }
+  
+  const roomVal = roomSnap.val();
+  const isGameRunning = roomVal.status === 'playing';
+  
+  // Late joiners are spectators. New rooms (waiting) or Intermission -> Connected (Ready for next round)
+  // Actually, per your rules: "If a player joins between the round they are to put in spectating mode"
+  const initialStatus = isGameRunning ? 'spectating' : 'connected';
+
   const playerRef = ref(db, `rooms/${roomId}/players/${player.id}`);
-  await set(playerRef, player);
+  
+  // Merge initial status
+  await set(playerRef, { ...player, status: initialStatus });
 };
 
 export const leaveRoom = async (roomId: string, playerId: string): Promise<void> => {
