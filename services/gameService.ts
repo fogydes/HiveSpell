@@ -1193,6 +1193,8 @@ export const fetchDefinition = async (word: string): Promise<string> => {
   }
 };
 
+let speakId = 0;
+
 export const getTitle = (corrects: number, wins: number): string => {
   if (corrects >= 50000) return "Queen Bee";
   if (corrects >= 10000) return "Hive Master";
@@ -1206,6 +1208,7 @@ let currentAudio: HTMLAudioElement | null = null;
 let activeUtterance: SpeechSynthesisUtterance | null = null;
 
 export const stopAudio = () => {
+  speakId++; // Invalidate any pending async audio
   if (currentAudio) {
     currentAudio.pause();
     currentAudio.currentTime = 0;
@@ -1285,10 +1288,16 @@ export const speak = async (
 
       // Use a timeout to detect if metadata fails or file is missing
       const timeout = setTimeout(() => {
+        // TIMEOUT: strictly kill this attempt
+        audio.oncanplaythrough = null; // Prevent late firing
+        audio.onerror = null;
+        audio.pause();
+        audio.src = ""; // Stop network loading
+
         if (currentAudio === audio) {
-          audio.pause();
-          resolve(false);
+          currentAudio = null;
         }
+        resolve(false);
       }, 1000);
 
       audio.oncanplaythrough = () => {

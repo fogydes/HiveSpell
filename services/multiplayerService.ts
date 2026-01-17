@@ -102,7 +102,8 @@ export const leaveRoom = async (
   playerId: string,
 ): Promise<void> => {
   const playerRef = ref(db, `rooms/${roomId}/players/${playerId}`);
-  await remove(playerRef);
+  // Don't delete, just mark disconnected so we can persist scores on rejoin
+  await update(playerRef, { status: "disconnected" });
 };
 
 export const subscribeToRoom = (
