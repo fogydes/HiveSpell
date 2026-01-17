@@ -212,23 +212,11 @@ const Play: React.FC = () => {
   // --- AUDIO & INPUT SYNC ---
   // --- AUDIO & INPUT SYNC ---
   useEffect(() => {
-    console.log("Play Component MOUNTED");
-    return () => console.log("Play Component UNMOUNTED");
-  }, []);
-
-  useEffect(() => {
     if (!currentRoom?.gameState?.currentWord) return;
 
     const syncedWord = currentRoom.gameState.currentWord;
 
-    console.log(
-      `Audio Check: Synced="${syncedWord}", Last="${lastSpokenWordRef.current}", Status="${currentRoom.status}"`,
-    );
-
     if (syncedWord !== lastSpokenWordRef.current) {
-      console.log(
-        `Audio Trigger: Change detected (${lastSpokenWordRef.current} -> ${syncedWord})`,
-      );
       lastSpokenWordRef.current = syncedWord;
       setCurrentWord(syncedWord);
 

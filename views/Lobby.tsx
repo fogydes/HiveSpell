@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { wordBank } from "../services/gameService";
 import { useMultiplayer } from "../context/MultiplayerContext";
+import { db } from "../firebase";
+import { ref, get, query, orderByChild, equalTo } from "firebase/database";
 
 const Lobby: React.FC = () => {
   const modes = Object.keys(wordBank);
@@ -45,11 +47,45 @@ const Lobby: React.FC = () => {
     e.preventDefault();
     if (!joinCode.trim() || loading) return;
 
+    const targetId = joinCode.trim();
+
     try {
-      // TODO: Implement join by code lookup
-      alert("Joining by code is implementing next step!");
+      // 1. Try Direct ID Lookup
+      let foundRoomId = null;
+      let foundDifficulty = "";
+
+      const roomRef = ref(db, `rooms/${targetId}`);
+      let snapshot = await get(roomRef);
+
+      if (snapshot.exists()) {
+        foundRoomId = targetId;
+        foundDifficulty = snapshot.val().settings?.difficulty;
+      } else {
+        // 2. Try Lookup by "code" property
+        const roomsQuery = query(
+          ref(db, "rooms"),
+          orderByChild("code"),
+          equalTo(targetId),
+        );
+        snapshot = await get(roomsQuery);
+
+        if (snapshot.exists()) {
+          const val = snapshot.val();
+          const firstKey = Object.keys(val)[0];
+          foundRoomId = firstKey;
+          foundDifficulty = val[firstKey].settings?.difficulty;
+        }
+      }
+
+      if (foundRoomId && foundDifficulty) {
+        await joinGameRoom(foundRoomId);
+        navigate(`/play/${foundDifficulty}`);
+      } else {
+        alert("Room not found. Check the code and try again.");
+      }
     } catch (err) {
-      alert("Invalid Code or Room Expired.");
+      console.error("Join failed", err);
+      alert("Error joining room.");
     }
   };
 
