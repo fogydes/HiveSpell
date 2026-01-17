@@ -1247,19 +1247,28 @@ export const speak = async (
   word: string,
   volume: number = 1.0,
 ): Promise<void> => {
-  stopAudio();
+  stopAudio(); // Increments speakId
+  const myId = speakId; // Capture this specific attempt ID
 
   const lowerWord = word.toLowerCase();
 
   const playBrowserTTS = (): Promise<void> => {
     return new Promise<void>((resolve) => {
+      // Abort if a new speak request came in
+      if (speakId !== myId) {
+        resolve();
+        return;
+      }
+
       if (typeof window !== "undefined" && window.speechSynthesis) {
         window.speechSynthesis.cancel();
       }
+
       const utterance = new SpeechSynthesisUtterance(word);
       activeUtterance = utterance;
       utterance.volume = volume;
       utterance.rate = 0.9;
+
       utterance.onend = () => {
         activeUtterance = null;
         resolve();
@@ -1268,12 +1277,24 @@ export const speak = async (
         activeUtterance = null;
         resolve();
       };
-      window.speechSynthesis.speak(utterance);
+
+      // Verification before starting
+      if (speakId === myId) {
+        window.speechSynthesis.speak(utterance);
+      } else {
+        resolve();
+      }
     });
   };
 
   const attemptPlayAudioFile = (fileName: string): Promise<boolean> => {
     return new Promise((resolve) => {
+      // Abort if outdated
+      if (speakId !== myId) {
+        resolve(false);
+        return;
+      }
+
       const audioPath = `/audio/${fileName}.mp3`;
       const audio = new Audio(audioPath);
 
@@ -1282,19 +1303,18 @@ export const speak = async (
         currentAudio.pause();
         currentAudio = null;
       }
-
       currentAudio = audio;
       audio.volume = volume;
 
       // Use a timeout to detect if metadata fails or file is missing
       const timeout = setTimeout(() => {
         // TIMEOUT: strictly kill this attempt
-        audio.oncanplaythrough = null; // Prevent late firing
+        audio.oncanplaythrough = null;
         audio.onerror = null;
         audio.pause();
-        audio.src = ""; // Stop network loading
+        audio.src = ""; // Stop loading
 
-        if (currentAudio === audio) {
+        if (currentAudio === audio && speakId === myId) {
           currentAudio = null;
         }
         resolve(false);
@@ -1302,8 +1322,8 @@ export const speak = async (
 
       audio.oncanplaythrough = () => {
         clearTimeout(timeout);
-        // CRITICAL: Only play if this is still the active audio
-        if (currentAudio === audio) {
+        // CRITICAL: Only play if this is still the active audio AND ID matches
+        if (currentAudio === audio && speakId === myId) {
           const playPromise = audio.play();
           if (playPromise !== undefined) {
             playPromise.then(() => resolve(true)).catch(() => resolve(false));
@@ -1311,7 +1331,7 @@ export const speak = async (
             resolve(true);
           }
         } else {
-          // We were stopped/replaced
+          // We were stopped/replaced/timed-out
           resolve(false);
         }
       };
@@ -1325,18 +1345,23 @@ export const speak = async (
 
   // Logic: Try MP3 -> Alternate -> TTS
   let success = await attemptPlayAudioFile(lowerWord);
+  if (speakId !== myId) return; // Stop if interrupted
+
   if (!success) {
     const alt = getAlternateAudioName(word);
     if (alt) success = await attemptPlayAudioFile(alt);
   }
 
+  if (speakId !== myId) return; // Stop if interrupted
+
   if (!success) {
     // Check one last time if we haven't been stopped
-    if (activeUtterance === null) {
+    if (activeUtterance === null && speakId === myId) {
       console.warn(`Local audio failed for "${word}". Playing TTS.`);
       await playBrowserTTS();
     }
   } else {
+    // Audio file played successfully
     console.log(`Playing local audio for "${word}"`);
   }
 };
