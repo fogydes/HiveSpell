@@ -1289,11 +1289,14 @@ export const speak = async (
 
   const attemptPlayAudioFile = (fileName: string): Promise<boolean> => {
     return new Promise((resolve) => {
-      // Abort if outdated
+      // Abort if outdated (global check)
       if (speakId !== myId) {
         resolve(false);
         return;
       }
+
+      // Local closure flag for this specific audio attempt
+      let isCancelled = false;
 
       const audioPath = `/audio/${fileName}.mp3`;
       const audio = new Audio(audioPath);
@@ -1309,10 +1312,17 @@ export const speak = async (
       // Use a timeout to detect if metadata fails or file is missing
       const timeout = setTimeout(() => {
         // TIMEOUT: strictly kill this attempt
+        isCancelled = true; // Mark as dead
+
         audio.oncanplaythrough = null;
         audio.onerror = null;
         audio.pause();
         audio.src = ""; // Stop loading
+        try {
+          audio.load();
+        } catch (e) {
+          /* ignore */
+        }
 
         if (currentAudio === audio && speakId === myId) {
           currentAudio = null;
@@ -1321,7 +1331,11 @@ export const speak = async (
       }, 1000);
 
       audio.oncanplaythrough = () => {
+        // If timeout killed us, stop immediately
+        if (isCancelled) return;
+
         clearTimeout(timeout);
+
         // CRITICAL: Only play if this is still the active audio AND ID matches
         if (currentAudio === audio && speakId === myId) {
           const playPromise = audio.play();
@@ -1337,6 +1351,7 @@ export const speak = async (
       };
 
       audio.onerror = () => {
+        if (isCancelled) return;
         clearTimeout(timeout);
         resolve(false);
       };
