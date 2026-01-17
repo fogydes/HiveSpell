@@ -1,18 +1,21 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { useMultiplayer } from '../context/MultiplayerContext';
-import { wordBank, speak, checkAnswer, fetchDefinition, stopAudio, MODE_ORDER } from '../services/gameService';
+import { wordBank, speak, checkAnswer, fetchDefinition, getTitle, MODE_ORDER, stopAudio } from '../services/gameService';
 import { db } from '../firebase';
 import * as firebaseDatabase from 'firebase/database';
 import { Room, Player } from '../types/multiplayer';
 
 // Firebase References (Direct Access)
 const dbRef = (firebaseDatabase as any).ref;
+const dbGet = (firebaseDatabase as any).get;
 const dbUpdate = (firebaseDatabase as any).update;
 const dbOnValue = (firebaseDatabase as any).onValue;
+const dbSet = (firebaseDatabase as any).set;
 const dbPush = (firebaseDatabase as any).push;
+const dbOnDisconnect = (firebaseDatabase as any).onDisconnect;
 const dbServerTimestamp = (firebaseDatabase as any).serverTimestamp;
 const dbQuery = (firebaseDatabase as any).query;
 const dbLimitToLast = (firebaseDatabase as any).limitToLast;
@@ -52,6 +55,7 @@ const Play: React.FC = () => {
   
   // WPM & Stats State
   const [correctWords, setCorrectWords] = useState<WordStat[]>([]);
+  const [startTime, setStartTime] = useState<number | undefined>(undefined);
   const [avgWpm, setAvgWpm] = useState(0);
   const [lastBurstWpm, setLastBurstWpm] = useState(0);
   const [isInputEnabled, setIsInputEnabled] = useState(false);
@@ -73,21 +77,20 @@ const Play: React.FC = () => {
 
   const lastSpokenWordRef = useRef<string>('');
   const inputRef = useRef<HTMLInputElement>(null);
-  const currentRoomRef = useRef<Room | null>(null);
-
-  // Sync Room State Ref
-  useEffect(() => {
-    currentRoomRef.current = currentRoom;
-    if (currentRoom) {
-        // Sync local states from synced room
-        setStreak(currentRoom.gameState?.currentWordIndex || 0); // Using index as streak for now or add streak to Room
-        if (currentRoom.status) setStatus(currentRoom.status as any);
-    }
-  }, [currentRoom]);
-
+  
+  // Use currentRoom from context as the source of truth
   const processingRef = useRef(false);
   const timerEndRef = useRef<number>(0);
   const animationFrameRef = useRef<number>(0);
+
+  // Sync Room State to Local State
+  useEffect(() => {
+    if (currentRoom) {
+        // Sync local states from synced room
+        setStreak(currentRoom.gameState?.currentWordIndex || 0); // Using index as streak for now
+        if (currentRoom.status) setStatus(currentRoom.status as any);
+    }
+  }, [currentRoom]);
 
   // SESSION STORAGE SYNC
   useEffect(() => {
@@ -170,6 +173,8 @@ const Play: React.FC = () => {
     return false;
   }, [currentRoom, playersList, user]);
 
+  const amIActivePlayer = true; // Everyone plays in drop-in mode
+
   // --- AUDIO & INPUT SYNC ---
   useEffect(() => {
     if (!currentRoom?.gameState?.currentWord) return;
@@ -189,7 +194,7 @@ const Play: React.FC = () => {
       speak(syncedWord, ttsVolume).then(() => {
         // "Fair-Start" Timer Logic:
         // 1. Speak finishes.
-        // 2. 800ms Buffer (Animation/Fade-in).
+        // 2. 500ms Buffer (Animation/Fade-in).
         // 3. Input Enable + Clock Start.
         setTimeout(() => {
             setStatus('playing');
@@ -216,22 +221,22 @@ const Play: React.FC = () => {
 
         // Calculate timer
         const wordLen = newWord.length;
-        const decay = 1.0; // Simplify for now
+        const decay = 1.0; 
         const finalTime = Math.max(5, (2.0 + wordLen) * decay);
         const startTime = Date.now();
 
         dbUpdate(dbRef(db, `rooms/${currentRoom.id}/gameState`), {
            currentWord: newWord,
            startTime: startTime,
-           timerDuration: finalTime // Sync duration
+           timerDuration: finalTime 
         }).then(() => processingRef.current = false);
     }
   }, [isGameDriver, currentRoom?.status, currentRoom?.gameState?.currentWord]);
 
   // Timer calculation
   useEffect(() => {
-      if (currentRoom?.gameState?.startTime && currentRoom.gameState.timerDuration) {
-          const duration = currentRoom.gameState.timerDuration;
+      if (currentRoom?.gameState?.startTime && (currentRoom.gameState as any).timerDuration) {
+          const duration = (currentRoom.gameState as any).timerDuration;
           const start = currentRoom.gameState.startTime;
           
           const update = () => {
@@ -258,15 +263,12 @@ const Play: React.FC = () => {
     
     if (checkAnswer(currentWord, inputValue.trim())) {
        // --- BURST WPM CALCULATION ---
-       // Formula: Round( (Length / 4) / (TimeInMinutes) )
        if (startTime) {
            const now = Date.now();
            const timeTakenMs = now - startTime;
-           // Avoid division by zero if they type instantly (e.g. <1ms)
            const timeInMinutes = Math.max(timeTakenMs, 1) / 60000; 
            
            const wordLength = currentWord.length;
-           // The "4-Character Rule"
            const normalizedWordCount = wordLength / 4;
            
            const wpm = Math.round(normalizedWordCount / timeInMinutes);
@@ -296,13 +298,6 @@ const Play: React.FC = () => {
 
   const exitArena = () => navigate('/lobby');
 
-  const getFireIntensity = () => {
-    if (streak > 25) return 'bg-red-900/40 border-red-500 shadow-[0_0_50px_rgba(220,38,38,0.5)]';
-    if (streak > 10) return 'bg-orange-900/30 border-orange-500';
-    if (streak > 5) return 'bg-yellow-900/20';
-    return '';
-  };
-
   const toggleTab = (tab: 'chat' | 'players') => {
     setActiveTab(activeTab === tab ? 'none' : tab);
   };
@@ -323,7 +318,13 @@ const Play: React.FC = () => {
     return `${base} ${mobilePos} ${mobileState} ${desktop}`;
   };
 
-  // --- RENDER HELPERS ---
+  const getFireIntensity = () => {
+    if (streak > 25) return 'bg-red-900/40 border-red-500 shadow-[0_0_50px_rgba(220,38,38,0.5)]';
+    if (streak > 10) return 'bg-orange-900/30 border-orange-500';
+    if (streak > 5) return 'bg-yellow-900/20';
+    return '';
+  };
+
   const renderStatusMessage = () => {
      if (currentRoom?.status === 'intermission') {
         return <div className="text-yellow-400 font-bold text-xl uppercase tracking-widest">Intermission</div>;

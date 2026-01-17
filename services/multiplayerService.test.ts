@@ -44,7 +44,7 @@ describe('Multiplayer Service', () => {
             expect.anything(),
             expect.objectContaining({
                 hostId,
-                status: 'waiting',
+                status: 'playing',
                 settings
             })
         );
