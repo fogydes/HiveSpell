@@ -1,0 +1,2 @@
+Phase 3 Critical Fix: Solved double audio with dedicated useEffect lock. Hardened elimination logic.
+Why: Game was unplayable due to audio glitches and invincibility.
