@@ -1,21 +1,18 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useLocation, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { useMultiplayer } from '../context/MultiplayerContext';
-import { wordBank, speak, checkAnswer, fetchDefinition, getTitle, MODE_ORDER, stopAudio } from '../services/gameService';
+import { wordBank, speak, checkAnswer, fetchDefinition, stopAudio, MODE_ORDER } from '../services/gameService';
 import { db } from '../firebase';
 import * as firebaseDatabase from 'firebase/database';
 import { Room, Player } from '../types/multiplayer';
 
 // Firebase References (Direct Access)
 const dbRef = (firebaseDatabase as any).ref;
-const dbGet = (firebaseDatabase as any).get;
 const dbUpdate = (firebaseDatabase as any).update;
 const dbOnValue = (firebaseDatabase as any).onValue;
-const dbSet = (firebaseDatabase as any).set;
 const dbPush = (firebaseDatabase as any).push;
-const dbOnDisconnect = (firebaseDatabase as any).onDisconnect;
 const dbServerTimestamp = (firebaseDatabase as any).serverTimestamp;
 const dbQuery = (firebaseDatabase as any).query;
 const dbLimitToLast = (firebaseDatabase as any).limitToLast;
@@ -163,9 +160,12 @@ const Play: React.FC = () => {
     }
   };
 
+  // --- HELPER: Identify Roles ---
   const isGameDriver = React.useMemo(() => {
     if (!currentRoom || playersList.length === 0) return false;
+    // Host is driver
     if (user && currentRoom.hostId === user.uid) return true;
+    // Fallback: First joiner is driver
     if (user && playersList[0].id === user.uid) return true;
     return false;
   }, [currentRoom, playersList, user]);
@@ -183,6 +183,9 @@ const Play: React.FC = () => {
     if (!currentRoom?.gameState?.currentWord) return;
 
     const syncedWord = currentRoom.gameState.currentWord;
+    
+    // DEBUG: Trace audio trigger
+    console.log(`[Audio Sync] Target: "${syncedWord}", Last: "${lastSpokenWordRef.current}"`);
 
     // Strict check to prevent double speak
     if (syncedWord !== lastSpokenWordRef.current) {
@@ -197,6 +200,8 @@ const Play: React.FC = () => {
       setStatus('speaking');
       // Ensure we stop previous
       stopAudio();
+      
+      console.log(`[Audio] Speaking now: "${syncedWord}"`);
       speak(syncedWord, ttsVolume).then(() => {
         // "Fair-Start" Timer Logic:
         setTimeout(() => {
@@ -207,9 +212,7 @@ const Play: React.FC = () => {
         }, 500);
       });
     }
-  }, [currentRoom?.gameState?.currentWord]); // Removed ttsVolume to prevent re-trigger on volume change, volume is read ref or prop inside speak
-
-  // ... (rest of the file)
+  }, [currentRoom?.gameState?.currentWord]); // Removed ttsVolume to prevent re-trigger on volume change
 
 
   // --- Game Loop Driver (Host) ---
@@ -262,6 +265,37 @@ const Play: React.FC = () => {
     if (val.length > inputValue.length) playTypingSound();
   }
 
+  const passTurn = async (wasEliminated: boolean) => {
+     if (!currentRoom?.id) return;
+     const roomId = currentRoom.id;
+
+     console.log(`[PassTurn] Eliminated: ${wasEliminated}`);
+     
+     const updates: any = {
+        currentWord: null, // Clear word to trigger next turn generation
+        timerEnd: null,
+        currentInput: ''
+     };
+
+     if (wasEliminated) {
+        if (user?.uid) {
+            console.log(`[PassTurn] ELIMINATING USER: ${user.uid}`);
+            updates[`players/${user.uid}/status`] = 'eliminated';
+        }
+     }
+
+     // Win Condition Check Logic (Simplified)
+     const aliveCount = playersList.filter(p => p.status === 'alive' || p.status === 'connected').length;
+     // If I was eliminated, subtract 1
+     const effectiveAlive = wasEliminated ? aliveCount - 1 : aliveCount;
+     
+     if ((playersList.length > 1 && effectiveAlive <= 1) || (playersList.length === 1 && effectiveAlive === 0)) {
+        updates['status'] = 'intermission';
+     }
+
+     await dbUpdate(dbRef(db, `rooms/${roomId}`), updates);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (status !== 'playing') return;
@@ -283,9 +317,10 @@ const Play: React.FC = () => {
        }
 
        setFeedback({ type: 'success', msg: 'Correct!' });
-       // Logic to trigger next word (if I am driver, or update shared state)
+       await passTurn(false);
+       
+       // Trigger next word generation immediately if driver
        if (isGameDriver) {
-           // Move to next word
            const difficulty = currentRoom?.settings.difficulty || 'baby';
            const words = wordBank[difficulty];
            const nextWord = words[Math.floor(Math.random() * words.length)];
@@ -297,8 +332,16 @@ const Play: React.FC = () => {
            });
        }
     } else {
-       setFeedback({ type: 'error', msg: 'Incorrect!' });
+       console.warn("Incorrect Answer");
+       handleFail("Incorrect!");
     }
+  };
+
+  const handleFail = async (msg: string) => {
+     // if (!amIActivePlayer) return; // Removed strict check for now to ensure fail logic runs
+     console.log(`[Death] ${msg}`);
+     setFeedback({ type: 'error', msg });
+     await passTurn(true);
   };
 
   const exitArena = () => navigate('/lobby');
