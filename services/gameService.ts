@@ -1377,6 +1377,6 @@ export const speak = async (
     }
   } else {
     // Audio file played successfully
-    console.log(`Playing local audio for "${word}"`);
+    console.log(`Playing local audio for "${word}" (ID: ${myId})`);
   }
 };
