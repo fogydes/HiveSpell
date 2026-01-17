@@ -1,15 +1,11 @@
-<div align="center">
-  <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-  
-  # HiveSpell
-  
-  ### Represents the Competitive Multiplayer Spelling Bee
-  
-  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-  [![React](https://img.shields.io/badge/react-%2320232a.svg?style=flat&logo=react&logoColor=%2361DAFB)](https://reactjs.org/)
-  [![Firebase](https://img.shields.io/badge/firebase-%23039BE5.svg?style=flat&logo=firebase)](https://firebase.google.com/)
-  [![TailwindCSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=flat&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
-</div>
+# HiveSpell
+
+### Represents the Competitive Multiplayer Spelling Bee
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![React](https://img.shields.io/badge/react-%2320232a.svg?style=flat&logo=react&logoColor=%2361DAFB)](https://reactjs.org/)
+[![Firebase](https://img.shields.io/badge/firebase-%23039BE5.svg?style=flat&logo=firebase)](https://firebase.google.com/)
+[![TailwindCSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=flat&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 
 ---
 
@@ -47,7 +43,7 @@ Inspired by competitive typing games and the intensity of spelling bees, HiveSpe
 - **Language**: [TypeScript](https://www.typescriptlang.org/)
 - **Styling**: [Tailwind CSS](https://tailwindcss.com/)
 - **Backend / Infrastructure**: [Firebase](https://firebase.google.com/)
-  - **Authentication**: Anonymous & Email Flow (Currently Anonymous default).
+  - **Authentication**: Email & Password Flow.
   - **Realtime Database**: Low-latency game state synchronization.
   - **Hosting**: Fast global content delivery.
 - **Testing**: [Vitest](https://vitest.dev/)
@@ -107,11 +103,6 @@ This project is set up for **Firebase Hosting**.
    firebase deploy
    ```
 
-## 🔒 Security
-
-- **Strict Database Rules**: Write access is strictly scoped to authenticated users and specific data paths (e.g., users can only edit their own profiles; hosts manage their rooms).
-- **OWASP Compliance**: No dangerous innerHTML usage; dependencies audited for vulnerabilities.
-
 ## 🤝 Contributing
 
 Contributions are welcome! Please fork the repository and submit a Pull Request.
@@ -125,9 +116,3 @@ Contributions are welcome! Please fork the repository and submit a Pull Request.
 ## 📄 License
 
 Distributed under the MIT License. See `LICENSE` for more information.
-
----
-
-<div align="center">
-  Made with ❤️ by the HiveSpell Team
-</div>
