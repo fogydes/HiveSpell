@@ -78,6 +78,8 @@ const Play: React.FC = () => {
   const [feedback, setFeedback] = useState<{
     type: "success" | "error";
     msg: string;
+    typed?: string;
+    correct?: string;
   } | null>(null);
 
   // UI States
@@ -527,6 +529,46 @@ const Play: React.FC = () => {
     return "";
   };
 
+  const renderWordCorrection = () => {
+    if (feedback?.type === "error" && feedback.correct) {
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#111] border-2 border-slate-700 rounded-xl p-8 shadow-2xl max-w-2xl w-full mx-4 flex flex-col gap-6 transform scale-100">
+            <h2 className="font-mono font-black text-3xl text-center text-white mb-2 uppercase tracking-[0.2em] drop-shadow-md">
+              Word Correction
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* INCORRECT SIDE */}
+              <div className="bg-[#2a1212] border-2 border-red-900/50 rounded-lg p-6 flex flex-col items-center gap-3 shadow-inner">
+                <span className="text-xs text-red-300/80 font-bold uppercase tracking-widest">
+                  Your Spelling:
+                </span>
+                <span className="text-red-500 font-black text-3xl font-mono tracking-wide break-all text-center">
+                  {feedback.typed || "---"}
+                </span>
+              </div>
+
+              {/* CORRECT SIDE */}
+              <div className="bg-[#122a18] border-2 border-green-900/50 rounded-lg p-6 flex flex-col items-center gap-3 shadow-inner">
+                <span className="text-xs text-green-300/80 font-bold uppercase tracking-widest">
+                  Correct Word:
+                </span>
+                <span className="text-green-400 font-black text-3xl font-mono tracking-wide break-all text-center">
+                  {feedback.correct}
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-2 text-center text-slate-500 text-sm font-mono">
+              Next round starting soon...
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
   const renderStatusMessage = () => {
     if (currentRoom?.status === "intermission") {
       return (
@@ -549,6 +591,8 @@ const Play: React.FC = () => {
     <div
       className={`min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans text-white transition-colors duration-1000 ${streak > 25 ? "bg-[#1a0505]" : "bg-[#050914]"}`}
     >
+      {renderWordCorrection()}
+
       <div
         className={`absolute top-1/4 left-1/4 w-96 h-96 rounded-full blur-[100px] pointer-events-none transition-all duration-1000 ${streak > 25 ? "bg-red-600/20" : "bg-emerald-500/5"}`}
       ></div>
