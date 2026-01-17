@@ -574,7 +574,7 @@ const Play: React.FC = () => {
   const renderStatusMessage = () => {
     if (currentRoom?.status === "intermission") {
       return (
-        <div className="text-yellow-400 font-bold text-xl uppercase tracking-widest">
+        <div className="text-white font-bold text-xl uppercase tracking-widest">
           Intermission
         </div>
       );
