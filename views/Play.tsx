@@ -10,6 +10,7 @@ import {
   fetchDefinition,
   stopAudio,
   MODE_ORDER,
+  getTitle,
 } from "../services/gameService";
 import { db } from "../firebase";
 import * as firebaseDatabase from "firebase/database";
