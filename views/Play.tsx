@@ -464,15 +464,10 @@ const Play: React.FC = () => {
 
     // PERFORM LIFETIME UPDATES (Separate from Room update)
     if (!wasEliminated && user?.uid) {
-      // Need to import increment
-      const userRef = dbRef(db, `users/${user.uid}`);
-      // update(userRef, { corrects: increment(1) });
-      // Since I can't easily add imports in this Replace block without breaking file structure,
-      // I will use a transaction for safety or just get/set?
-      // No, transaction is better.
-      runTransaction(
+      // Use namespace import for transaction
+      (firebaseDatabase as any).runTransaction(
         dbRef(db, `users/${user.uid}/corrects`),
-        (current) => (current || 0) + 1,
+        (current: any) => (current || 0) + 1,
       );
     }
 
@@ -483,9 +478,9 @@ const Play: React.FC = () => {
           p.id !== (wasEliminated ? user?.uid : null),
       );
       if (winner) {
-        runTransaction(
+        (firebaseDatabase as any).runTransaction(
           dbRef(db, `users/${winner.id}/wins`),
-          (current) => (current || 0) + 1,
+          (current: any) => (current || 0) + 1,
         );
       }
     }
