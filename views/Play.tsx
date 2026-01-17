@@ -466,10 +466,37 @@ const Play: React.FC = () => {
     // PERFORM LIFETIME UPDATES (Separate from Room update)
     if (!wasEliminated && user?.uid) {
       // Use namespace import for transaction
-      (firebaseDatabase as any).runTransaction(
-        dbRef(db, `users/${user.uid}/corrects`),
-        (current: any) => (current || 0) + 1,
-      );
+      // Use namespace import for transaction
+      (
+        (firebaseDatabase as any).runTransaction(
+          dbRef(db, `users/${user.uid}`),
+          (userDoc: any) => {
+            if (userDoc) {
+              userDoc.corrects = (userDoc.corrects || 0) + 1;
+              userDoc.title = getTitle(userDoc.corrects, userDoc.wins || 0);
+            } else {
+              // Create if missing (for legacy or broken sync)
+              return {
+                corrects: 1,
+                wins: 0,
+                title: getTitle(1, 0),
+                username: user.displayName || "Player",
+              };
+            }
+            return userDoc;
+          },
+        ) as Promise<any>
+      )
+        .then((res: any) => {
+          if (res.committed) {
+            console.log("Lifetime Corrects Updated:", res.snapshot.val());
+          } else {
+            console.warn("Lifetime update aborted (no commit).");
+          }
+        })
+        .catch((err: any) =>
+          console.error("Lifetime Transaction Failed:", err),
+        );
     }
 
     if (playersList.length > 1 && effectiveAlive <= 1) {
