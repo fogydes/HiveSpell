@@ -1,0 +1,2 @@
+Phase 3 Final Fix: Restored Play.tsx logic exactly from backup, fixed test expectations.
+Why: Ensure core game mechanics are functional.
