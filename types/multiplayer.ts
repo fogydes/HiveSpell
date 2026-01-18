@@ -4,7 +4,7 @@ export interface Player {
   isHost: boolean;
   score: number; // Used as 'corrects'
   wins: number;
-  status: 'alive' | 'eliminated' | 'spectating' | 'connected' | 'disconnected'; // Expanded status
+  status: "alive" | "eliminated" | "spectating" | "connected" | "disconnected"; // Expanded status
 }
 
 export interface GameSettings {
@@ -16,13 +16,17 @@ export interface GameState {
   currentWord: string;
   currentWordIndex: number;
   startTime: number;
+  timerDuration?: number;
+  currentTurnPlayerId?: string; // Who's turn it is
+  turnOrder?: string[]; // Array of player IDs in turn order
+  currentInput?: string; // Synced typing from current player
 }
 
 export interface Room {
   id: string;
   hostId: string;
-  type: 'public' | 'private';
-  status: 'waiting' | 'playing' | 'finished';
+  type: "public" | "private";
+  status: "waiting" | "playing" | "finished";
   createdAt: number;
   code?: string; // Optional for public rooms
   settings: GameSettings;

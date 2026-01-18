@@ -272,9 +272,12 @@ const Play: React.FC = () => {
     return () => stopAudio();
   }, [currentRoom?.gameState?.currentWord]);
 
-  // --- SELF-ELIMINATION TIMER (Decentralized) ---
+  // --- SELF-ELIMINATION TIMER (only for current turn player) ---
+  const isMyTurn = currentRoom?.gameState?.currentTurnPlayerId === user?.uid;
   useEffect(() => {
-    // If I am the active player, I must watch the clock and eliminate myself.
+    // Only the player whose turn it is should self-eliminate on timeout
+    if (!isMyTurn) return;
+
     if (
       status === "playing" &&
       currentRoom?.gameState?.startTime &&
@@ -299,7 +302,7 @@ const Play: React.FC = () => {
       }, 100);
       return () => clearInterval(timer);
     }
-  }, [status, currentRoom?.gameState?.startTime, amIActivePlayer, myStatus]);
+  }, [isMyTurn, status, currentRoom?.gameState?.startTime, myStatus]);
 
   // --- INTERMISSION COUNTDOWN (UI) ---
   useEffect(() => {
@@ -316,44 +319,6 @@ const Play: React.FC = () => {
       return () => clearInterval(interval);
     }
   }, [currentRoom?.status, currentRoom?.intermissionEndsAt]);
-
-  // --- SELF-WIN DETECTION ---
-  // Each player checks if they're the winner and updates their own stats
-  const hasClaimedWinRef = useRef(false);
-  useEffect(() => {
-    if (currentRoom?.status !== "intermission") {
-      hasClaimedWinRef.current = false; // Reset for next round
-      return;
-    }
-    if (hasClaimedWinRef.current) return; // Already claimed this win
-
-    // Check if I'm the winner (last alive)
-    const alivePlayers = playersList.filter(
-      (p) => p.status === "alive" || p.status === "connected",
-    );
-
-    if (
-      playersList.length > 1 &&
-      alivePlayers.length === 1 &&
-      alivePlayers[0].id === user?.uid
-    ) {
-      console.log("[Win] I am the winner! Updating my wins...");
-      hasClaimedWinRef.current = true;
-
-      (firebaseDatabase as any)
-        .runTransaction(dbRef(db, `users/${user.uid}`), (userDoc: any) => {
-          if (userDoc) {
-            userDoc.wins = (userDoc.wins || 0) + 1;
-            userDoc.title = getTitle(userDoc.corrects || 0, userDoc.wins);
-          }
-          return userDoc;
-        })
-        .then(() => console.log("[Win] Wins updated!"))
-        .catch((err: any) =>
-          console.error("[Win] Failed to update wins:", err),
-        );
-    }
-  }, [currentRoom?.status, playersList, user]);
 
   // --- Game Loop Driver (Host/Driver ONLY) ---
   useEffect(() => {
@@ -397,10 +362,28 @@ const Play: React.FC = () => {
       const finalTime = Math.max(5, (2.0 + wordLen) * decay);
       const startTime = Date.now();
 
+      // Calculate turn order: alive/connected players, sorted by join time (using player index as proxy)
+      // In Firebase, player iteration order is typically insertion order
+      const alivePlayers = playersList.filter(
+        (p) => p.status === "alive" || p.status === "connected",
+      );
+      const turnOrder = alivePlayers.map((p) => p.id);
+      const firstTurnPlayer = turnOrder[0] || null;
+
+      console.log(
+        "[Driver] Turn order:",
+        turnOrder,
+        "First turn:",
+        firstTurnPlayer,
+      );
+
       dbUpdate(dbRef(db, `rooms/${currentRoom.id}/gameState`), {
         currentWord: newWord,
         startTime: startTime,
         timerDuration: finalTime,
+        turnOrder: turnOrder,
+        currentTurnPlayerId: firstTurnPlayer,
+        currentInput: "",
       })
         .then(() => {
           console.log("[Driver] Word set:", newWord);
@@ -486,7 +469,17 @@ const Play: React.FC = () => {
     const val = e.target.value;
     setInputValue(val);
     if (val.length > inputValue.length) playTypingSound();
+
+    // Sync typing to Firebase if it's my turn
+    if (isMyTurn && currentRoom?.id) {
+      dbUpdate(dbRef(db, `rooms/${currentRoom.id}/gameState`), {
+        currentInput: val,
+      }).catch(() => {}); // Silent fail for typing sync
+    }
   };
+
+  // Subscribe to synced input from other players (when not my turn)
+  const syncedInput = currentRoom?.gameState?.currentInput || "";
 
   const passingTurnRef = useRef(false);
   const passTurn = async (wasEliminated: boolean) => {
@@ -502,71 +495,83 @@ const Play: React.FC = () => {
     console.log(`[PassTurn] Eliminated: ${wasEliminated}`);
 
     const updates: any = {
-      "gameState/currentWord": null, // Trigger next word
-      "gameState/timerDuration": null,
-      "gameState/currentInput": "",
+      "gameState/currentInput": "", // Clear typing
     };
 
+    // Mark eliminated if wrong/timeout
     if (wasEliminated) {
       if (user?.uid) {
         updates[`players/${user.uid}/status`] = "eliminated";
       }
     } else {
-      // Increment Room Score
+      // Increment Room Score for correct answer
       if (user?.uid) {
         const currentScore =
           playersList.find((p) => p.id === user.uid)?.score || 0;
         updates[`players/${user.uid}/score`] = currentScore + 1;
-
-        // INCREMENT LIFETIME CORRECTS
-        // We do this purely as a side-effect, fire and forget
-        const userStatsRef = dbRef(db, `users/${user.uid}`);
-        // We use a transaction or simple update with increment if available.
-        // Importing increment is tricky if not already imported.
-        // Let's use a standard get-then-update for now to be safe with imports,
-        // OR assuming we can add the import.
-        // Actually, we can just do a separate update call using the global `increment` if I import it.
-        // To be safe and minimal:
-        // Attempting to import increment at top of file is best.
       }
     }
 
-    // Win Condition
-    const aliveCount = playersList.filter(
-      (p) => p.status === "alive" || p.status === "connected",
-    ).length;
-    const effectiveAlive = wasEliminated ? aliveCount - 1 : aliveCount;
+    // Calculate next turn
+    const turnOrder = currentRoom.gameState?.turnOrder || [];
+    const currentTurn = currentRoom.gameState?.currentTurnPlayerId;
+    const currentIndex = turnOrder.indexOf(currentTurn || "");
 
-    if (
-      (playersList.length > 1 && effectiveAlive <= 1) ||
-      (playersList.length === 1 && effectiveAlive === 0)
-    ) {
+    // Get alive players after this action (exclude eliminated player if applicable)
+    const aliveAfterThis = playersList.filter(
+      (p) =>
+        (p.status === "alive" || p.status === "connected") &&
+        !(wasEliminated && p.id === user?.uid),
+    );
+
+    console.log(
+      "[PassTurn] Alive after this:",
+      aliveAfterThis.map((p) => p.id),
+    );
+
+    // Win Condition: only one player left
+    if (aliveAfterThis.length <= 1 && playersList.length > 1) {
       updates["status"] = "intermission";
-      // Set Intermission Timer
       updates["intermissionEndsAt"] = Date.now() + 15000;
+      updates["gameState/currentWord"] = null;
+      updates["gameState/currentTurnPlayerId"] = null;
 
-      // AWARD WIN
-      const winner = playersList.find(
-        (p) => p.status === "alive" || p.status === "connected",
-      );
-      // If wasEliminated is true, the current user just died, so the *other* person won.
-      // Ideally we find the person who is NOT the one who just died.
-      // But simplified: if effectiveAlive == 1, that survivor is the winner.
-      if (winner && effectiveAlive === 1) {
-        // Update Winner's lifetime wins
-        // We can't do it in 'updates' (relative to room).
-        // Side effect:
-        // const winnerRef = dbRef(db, `users/${winner.id}`);
-        // update(winnerRef, { wins: increment(1) });
+      // Award win to survivor
+      if (aliveAfterThis.length === 1) {
+        const winner = aliveAfterThis[0];
+        console.log("[PassTurn] Winner:", winner.name);
+        // Award win (side effect)
+        (firebaseDatabase as any).runTransaction(
+          dbRef(db, `users/${winner.id}/wins`),
+          (current: any) => (current || 0) + 1,
+        );
       }
+    } else {
+      // Find next player in turn order who is still alive
+      let nextIndex = (currentIndex + 1) % turnOrder.length;
+      let attempts = 0;
+      while (attempts < turnOrder.length) {
+        const nextPlayerId = turnOrder[nextIndex];
+        const nextPlayer = aliveAfterThis.find((p) => p.id === nextPlayerId);
+        if (nextPlayer) {
+          updates["gameState/currentTurnPlayerId"] = nextPlayerId;
+          console.log("[PassTurn] Next turn:", nextPlayerId);
+          break;
+        }
+        nextIndex = (nextIndex + 1) % turnOrder.length;
+        attempts++;
+      }
+
+      // If correct, DON'T reset word - same word for next player
+      // If eliminated, also don't reset - next player continues
+      // Word only resets on new round (after intermission)
     }
 
     await dbUpdate(dbRef(db, `rooms/${roomId}`), updates);
-    passingTurnRef.current = false; // Reset guard
+    passingTurnRef.current = false;
 
-    // PERFORM LIFETIME UPDATES (Separate from Room update)
+    // PERFORM LIFETIME CORRECTS UPDATE (if correct answer)
     if (!wasEliminated && user?.uid) {
-      // Use namespace import for transaction
       // Use namespace import for transaction
       (
         (firebaseDatabase as any).runTransaction(
@@ -576,7 +581,6 @@ const Play: React.FC = () => {
               userDoc.corrects = (userDoc.corrects || 0) + 1;
               userDoc.title = getTitle(userDoc.corrects, userDoc.wins || 0);
             } else {
-              // Create if missing (for legacy or broken sync)
               return {
                 corrects: 1,
                 wins: 0,
@@ -591,22 +595,24 @@ const Play: React.FC = () => {
         .then((res: any) => {
           if (res.committed) {
             console.log("Lifetime Corrects Updated:", res.snapshot.val());
-          } else {
-            console.warn("Lifetime update aborted (no commit).");
           }
         })
         .catch((err: any) =>
           console.error("Lifetime Transaction Failed:", err),
         );
     }
-
-    // NOTE: Each player updates their OWN wins via the win detection effect below.
-    // We can't update another player's stats due to security rules.
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (status !== "playing") return;
+
+    // Only allow submit if it's my turn
+    const isMyTurn = currentRoom?.gameState?.currentTurnPlayerId === user?.uid;
+    if (!isMyTurn) {
+      console.warn("[Submit] Not my turn, ignoring.");
+      return;
+    }
 
     if (checkAnswer(currentWord, inputValue.trim())) {
       // --- BURST WPM CALCULATION ---
@@ -625,20 +631,8 @@ const Play: React.FC = () => {
       }
 
       setFeedback({ type: "success", msg: "Correct!" });
-      await passTurn(false);
-
-      // Trigger next word generation immediately if driver
-      if (isGameDriver) {
-        const difficulty = currentRoom?.settings.difficulty || "baby";
-        const words = wordBank[difficulty];
-        const nextWord = words[Math.floor(Math.random() * words.length)];
-
-        dbUpdate(dbRef(db, `rooms/${currentRoom!.id}/gameState`), {
-          currentWord: nextWord,
-          startTime: Date.now(),
-          currentWordIndex: (currentRoom?.gameState?.currentWordIndex || 0) + 1,
-        });
-      }
+      setStreak((prev) => prev + 1);
+      await passTurn(false); // Advances turn to next player (same word)
     } else {
       console.warn("Incorrect Answer");
       handleFail("Incorrect!", inputValue, currentWord);
@@ -1013,7 +1007,9 @@ const Play: React.FC = () => {
 
         <div className="w-full max-w-lg mb-8 sm:mb-12">
           <div className="text-center text-slate-500 text-[10px] font-bold tracking-[0.2em] mb-2 sm:mb-4">
-            TYPE THE WORD YOU HEAR
+            {isMyTurn
+              ? "TYPE THE WORD YOU HEAR"
+              : `WATCHING ${playersList.find((p) => p.id === currentRoom?.gameState?.currentTurnPlayerId)?.name || "..."}`}
           </div>
           <form onSubmit={handleSubmit}>
             <input
@@ -1022,17 +1018,22 @@ const Play: React.FC = () => {
               type="text"
               autoComplete="off"
               autoFocus
-              value={inputValue}
+              value={isMyTurn ? inputValue : syncedInput}
               onChange={handleInputChange}
               disabled={
+                !isMyTurn ||
                 !isInputEnabled ||
                 status !== "playing" ||
                 myStatus === "eliminated"
               }
               placeholder={
-                myStatus === "eliminated" ? "ELIMINATED" : "Type word..."
+                myStatus === "eliminated"
+                  ? "ELIMINATED"
+                  : !isMyTurn
+                    ? "Watching..."
+                    : "Type word..."
               }
-              className="w-full bg-transparent border-b-2 border-slate-700 focus:border-emerald-500 text-center text-3xl sm:text-5xl font-bold text-white outline-none py-2 sm:py-4 placeholder:text-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`w-full bg-transparent border-b-2 ${isMyTurn ? "border-emerald-500" : "border-slate-700"} text-center text-3xl sm:text-5xl font-bold ${isMyTurn ? "text-white" : "text-slate-400"} outline-none py-2 sm:py-4 placeholder:text-slate-800 transition-colors disabled:opacity-70 disabled:cursor-not-allowed`}
             />
           </form>
         </div>
