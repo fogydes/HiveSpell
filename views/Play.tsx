@@ -562,9 +562,9 @@ const Play: React.FC = () => {
         attempts++;
       }
 
-      // If correct, DON'T reset word - same word for next player
-      // If eliminated, also don't reset - next player continues
-      // Word only resets on new round (after intermission)
+      // Reset word so driver picks a new word for next player
+      updates["gameState/currentWord"] = null;
+      updates["gameState/timerDuration"] = null;
     }
 
     await dbUpdate(dbRef(db, `rooms/${roomId}`), updates);
