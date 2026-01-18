@@ -620,8 +620,26 @@ const Play: React.FC = () => {
     await dbUpdate(dbRef(db, `rooms/${roomId}`), updates);
     passingTurnRef.current = false;
 
-    // PERFORM LIFETIME CORRECTS UPDATE (if correct answer)
+    // PERFORM LIFETIME CORRECTS + STARS UPDATE (if correct answer)
     if (!wasEliminated && user?.uid) {
+      // Calculate stars based on difficulty
+      const difficultyStars: Record<string, number> = {
+        baby: 6,
+        cakewalk: 8,
+        learner: 10,
+        intermediate: 12,
+        heated: 14,
+        genius: 16,
+        omniscient: 18,
+      };
+      const difficulty =
+        currentRoom.settings?.difficulty?.toLowerCase() || "baby";
+      const starsToAdd = difficultyStars[difficulty] || 6;
+
+      console.log(
+        `[Stats] Adding ${starsToAdd} stars for difficulty: ${difficulty}`,
+      );
+
       // Use namespace import for transaction
       (
         (firebaseDatabase as any).runTransaction(
@@ -629,11 +647,13 @@ const Play: React.FC = () => {
           (userDoc: any) => {
             if (userDoc) {
               userDoc.corrects = (userDoc.corrects || 0) + 1;
+              userDoc.stars = (userDoc.stars || 0) + starsToAdd;
               userDoc.title = getTitle(userDoc.corrects, userDoc.wins || 0);
             } else {
               return {
                 corrects: 1,
                 wins: 0,
+                stars: starsToAdd,
                 title: getTitle(1, 0),
                 username: user.displayName || "Player",
               };
@@ -644,7 +664,7 @@ const Play: React.FC = () => {
       )
         .then((res: any) => {
           if (res.committed) {
-            console.log("Lifetime Corrects Updated:", res.snapshot.val());
+            console.log("Lifetime Stats Updated:", res.snapshot.val());
           }
         })
         .catch((err: any) =>
