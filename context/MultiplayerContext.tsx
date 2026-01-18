@@ -139,7 +139,9 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const joinPublicGame = async (difficulty: string) => {
+    console.log("[JoinPublic] Starting for difficulty:", difficulty);
     if (!user) {
+      console.error("[JoinPublic] No user!");
       setError("Must be logged in to join");
       return;
     }
@@ -147,17 +149,27 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
     setError(null);
     try {
       // 1. Try to find an existing room
+      console.log("[JoinPublic] Searching for existing room...");
       const existingRoomId = await findPublicRoom(difficulty);
 
       if (existingRoomId) {
+        console.log("[JoinPublic] Found room:", existingRoomId);
         // 2. Join it
         await joinGameRoom(existingRoomId);
+        console.log("[JoinPublic] Joined room successfully.");
       } else {
+        console.log("[JoinPublic] No room found, creating new...");
         // 3. Create new one
-        await createGameRoom({ difficulty, maxPlayers: 10 }, "public");
+        const newRoomId = await createGameRoom(
+          { difficulty, maxPlayers: 10 },
+          "public",
+        );
+        console.log("[JoinPublic] Created room:", newRoomId);
       }
     } catch (err: any) {
+      console.error("[JoinPublic] ERROR:", err);
       setError(err.message);
+      throw err; // Re-throw so Lobby's catch block sees it
     } finally {
       setLoading(false);
     }

@@ -211,9 +211,15 @@ const Play: React.FC = () => {
   const isGameDriver = React.useMemo(() => {
     if (!currentRoom || playersList.length === 0) return false;
     // Host is driver
-    if (user && currentRoom.hostId === user.uid) return true;
+    if (user && currentRoom.hostId === user.uid) {
+      console.log("[Driver] I am HOST, so I am driver.");
+      return true;
+    }
     // Fallback: First joiner is driver
-    if (user && playersList[0].id === user.uid) return true;
+    if (user && playersList[0].id === user.uid) {
+      console.log("[Driver] I am FIRST PLAYER, so I am driver.");
+      return true;
+    }
     return false;
   }, [currentRoom, playersList, user]);
 
@@ -226,13 +232,16 @@ const Play: React.FC = () => {
   const amIActivePlayer = myStatus === "alive" || myStatus === "connected";
 
   // --- AUDIO & INPUT SYNC ---
-  // --- AUDIO & INPUT SYNC ---
   useEffect(() => {
     if (!currentRoom?.gameState?.currentWord) return;
 
     const syncedWord = currentRoom.gameState.currentWord;
+    console.log(
+      `[Audio] Synced word: "${syncedWord}", Last spoken: "${lastSpokenWordRef.current}"`,
+    );
 
     if (syncedWord !== lastSpokenWordRef.current) {
+      console.log(`[Audio] New word detected, will speak: "${syncedWord}"`);
       lastSpokenWordRef.current = syncedWord;
       setCurrentWord(syncedWord);
 
