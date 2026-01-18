@@ -125,6 +125,15 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
     setLoading(true);
     setError(null);
     try {
+      // Leave current room first (if any)
+      if (currentRoom?.id && currentRoom.id !== roomId) {
+        console.log(
+          "[Context] Leaving current room before joining new one:",
+          currentRoom.id,
+        );
+        await leaveRoom(currentRoom.id, user.uid);
+      }
+
       const player: Player = {
         id: user.uid,
         name: userData.username,
