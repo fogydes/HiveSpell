@@ -76,20 +76,23 @@ export const joinRoom = async (
   const roomVal = roomSnap.val();
   const isGameRunning = roomVal.status === "playing";
 
-  // Late joiners are spectators. New rooms (waiting) or Intermission -> Connected (Ready for next round)
-  // Actually, per your rules: "If a player joins between the round they are to put in spectating mode"
+  // Late joiners are spectators. Waiting/Intermission -> Connected (Ready for next round)
+  // ALWAYS reset status on join (don't carry over "eliminated" from previous rounds)
   const initialStatus = isGameRunning ? "spectating" : "connected";
 
-  // Check for existing player data to persist stats
+  // Check for existing player data to persist stats (score/wins only, NOT status)
   let finalPlayer = { ...player, status: initialStatus };
 
   if (roomVal.players && roomVal.players[player.id]) {
     const existing = roomVal.players[player.id];
-    // console.log(`[Join] Found existing player stats for ${player.name}: Score ${existing.score}, Wins ${existing.wins}`);
+    console.log(
+      `[Join] Found existing player stats for ${player.name}: Score ${existing.score}, Wins ${existing.wins}`,
+    );
     finalPlayer = {
       ...finalPlayer,
       score: existing.score || 0,
       wins: existing.wins || 0,
+      // status is NOT preserved - always use fresh initialStatus
     };
   }
 

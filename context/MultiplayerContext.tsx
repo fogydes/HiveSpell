@@ -60,6 +60,23 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
     return () => unsubscribe();
   }, [currentRoom?.id]);
 
+  // Handle tab close / refresh - mark player as disconnected
+  useEffect(() => {
+    if (!currentRoom?.id || !user?.uid) return;
+
+    const handleBeforeUnload = () => {
+      // Use sendBeacon for reliable disconnect signaling
+      const data = JSON.stringify({ status: "disconnected" });
+      navigator.sendBeacon(`/api/disconnect`, data); // This won't work without API, fallback below
+
+      // Fallback: synchronous Firebase update (may not always complete)
+      leaveRoom(currentRoom.id, user.uid);
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [currentRoom?.id, user?.uid]);
+
   const createGameRoom = async (
     settings: GameSettings,
     type: "public" | "private",
