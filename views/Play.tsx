@@ -529,7 +529,7 @@ const Play: React.FC = () => {
       aliveAfterThis.map((p) => p.id),
     );
 
-    // Win Condition: only one player left
+    // Win Condition: only one player left AND there were multiple players
     if (aliveAfterThis.length <= 1 && playersList.length > 1) {
       updates["status"] = "intermission";
       updates["intermissionEndsAt"] = Date.now() + 15000;
@@ -550,21 +550,35 @@ const Play: React.FC = () => {
       // Find next player in turn order who is still alive
       let nextIndex = (currentIndex + 1) % turnOrder.length;
       let attempts = 0;
+      let nextPlayerId = currentTurn; // default to same player
+
       while (attempts < turnOrder.length) {
-        const nextPlayerId = turnOrder[nextIndex];
-        const nextPlayer = aliveAfterThis.find((p) => p.id === nextPlayerId);
-        if (nextPlayer) {
-          updates["gameState/currentTurnPlayerId"] = nextPlayerId;
-          console.log("[PassTurn] Next turn:", nextPlayerId);
+        const candidateId = turnOrder[nextIndex];
+        const candidate = aliveAfterThis.find((p) => p.id === candidateId);
+        if (candidate) {
+          nextPlayerId = candidateId;
           break;
         }
         nextIndex = (nextIndex + 1) % turnOrder.length;
         attempts++;
       }
 
-      // Reset word so driver picks a new word for next player
-      updates["gameState/currentWord"] = null;
-      updates["gameState/timerDuration"] = null;
+      console.log("[PassTurn] Next turn:", nextPlayerId, "Was:", currentTurn);
+      updates["gameState/currentTurnPlayerId"] = nextPlayerId;
+
+      // If we're cycling back to the same player (solo OR full rotation), get NEW word
+      // Also reset word if correct answer to avoid same word twice
+      if (
+        !wasEliminated &&
+        (nextPlayerId === currentTurn || aliveAfterThis.length === 1)
+      ) {
+        console.log(
+          "[PassTurn] Same player or solo - resetting word for new round",
+        );
+        updates["gameState/currentWord"] = null; // Will trigger driver to pick new word
+        updates["gameState/startTime"] = null;
+        updates["gameState/timerDuration"] = null;
+      }
     }
 
     await dbUpdate(dbRef(db, `rooms/${roomId}`), updates);
