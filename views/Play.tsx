@@ -403,6 +403,15 @@ const Play: React.FC = () => {
       const now = Date.now();
       const timeRemaining = currentRoom.intermissionEndsAt - now;
 
+      console.log(
+        "[Driver] Intermission detected. EndsAt:",
+        currentRoom.intermissionEndsAt,
+        "Now:",
+        now,
+        "TimeRemaining:",
+        timeRemaining,
+      );
+
       const restartRound = () => {
         console.log("[Driver] Intermission Over. Starting new round.");
         const updates: any = {
@@ -423,14 +432,15 @@ const Play: React.FC = () => {
         dbUpdate(dbRef(db, `rooms/${currentRoom.id}`), updates);
       };
 
-      if (timeRemaining <= 0) {
-        // Timer already finished, trigger immediately
-        restartRound();
-      } else {
-        // Wait for the exact remaining time
-        const timerId = setTimeout(restartRound, timeRemaining);
-        return () => clearTimeout(timerId);
-      }
+      // Minimum 1 second delay to prevent race conditions
+      const safeTimeRemaining = Math.max(timeRemaining, 1000);
+      console.log(
+        "[Driver] Setting intermission timeout for:",
+        safeTimeRemaining,
+        "ms",
+      );
+      const timerId = setTimeout(restartRound, safeTimeRemaining);
+      return () => clearTimeout(timerId);
     }
   }, [
     isGameDriver,
