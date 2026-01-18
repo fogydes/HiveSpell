@@ -498,7 +498,21 @@ const Play: React.FC = () => {
       "gameState/currentInput": "", // Clear typing
     };
 
-    // Mark eliminated if wrong/timeout
+    // Solo mode: don't eliminate, just give new word
+    const isSoloMode = playersList.length === 1;
+    if (isSoloMode && wasEliminated) {
+      console.log(
+        "[PassTurn] Solo mode - skipping elimination, resetting word",
+      );
+      updates["gameState/currentWord"] = null; // Trigger new word
+      updates["gameState/startTime"] = null;
+      updates["gameState/timerDuration"] = null;
+      await dbUpdate(dbRef(db, `rooms/${roomId}`), updates);
+      passingTurnRef.current = false;
+      return; // Exit early for solo mode
+    }
+
+    // Mark eliminated if wrong/timeout (multiplayer only)
     if (wasEliminated) {
       if (user?.uid) {
         updates[`players/${user.uid}/status`] = "eliminated";
