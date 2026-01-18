@@ -23,6 +23,7 @@
       ".write": "auth != null"
     },
     "rooms": {
+      ".indexOn": ["type", "code"],
       ".read": "auth != null",
       "$roomId": {
         ".write": "(auth != null && !data.exists() && newData.child('hostId').val() === auth.uid) || (data.exists() && data.child('hostId').val() === auth.uid)",

@@ -19,6 +19,7 @@ interface MultiplayerContextType {
     type: "public" | "private",
   ) => Promise<string>;
   joinGameRoom: (roomId: string) => Promise<void>;
+  joinPublicGame: (difficulty: string) => Promise<void>;
   leaveGameRoom: () => Promise<void>;
 }
 
@@ -29,6 +30,7 @@ const MultiplayerContext = createContext<MultiplayerContextType>({
   error: null,
   createGameRoom: async () => "",
   joinGameRoom: async () => {},
+  joinPublicGame: async () => {},
   leaveGameRoom: async () => {},
 });
 
@@ -172,6 +174,7 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
         error,
         createGameRoom,
         joinGameRoom,
+        joinPublicGame,
         leaveGameRoom,
       }}
     >
