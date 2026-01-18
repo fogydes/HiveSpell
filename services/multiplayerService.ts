@@ -105,8 +105,27 @@ export const leaveRoom = async (
   playerId: string,
 ): Promise<void> => {
   const playerRef = ref(db, `rooms/${roomId}/players/${playerId}`);
-  // Don't delete, just mark disconnected so we can persist scores on rejoin
+  // Mark player as disconnected
   await update(playerRef, { status: "disconnected" });
+
+  // Check if all players are now disconnected - if so, delete the room
+  const roomRef = ref(db, `rooms/${roomId}`);
+  const roomSnap = await get(roomRef);
+
+  if (roomSnap.exists()) {
+    const roomData = roomSnap.val();
+    const players = roomData.players || {};
+    const allDisconnected = Object.values(players).every(
+      (p: any) => p.status === "disconnected",
+    );
+
+    if (allDisconnected) {
+      console.log(
+        `[LeaveRoom] All players disconnected, deleting room: ${roomId}`,
+      );
+      await remove(roomRef);
+    }
+  }
 };
 
 export const subscribeToRoom = (
