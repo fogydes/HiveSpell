@@ -616,8 +616,12 @@ const Play: React.FC = () => {
       console.log("[PassTurn] Next turn:", nextPlayerId, "Was:", currentTurn);
       updates["gameState/currentTurnPlayerId"] = nextPlayerId;
 
+      // ALWAYS reset timer for the next player's turn
+      updates["gameState/startTime"] = Date.now();
+      // Timer duration stays the same (don't reset timerDuration)
+      updates["gameState/currentInput"] = ""; // Clear input for next player
+
       // If we're cycling back to the same player (solo OR full rotation), get NEW word
-      // Also reset word if correct answer to avoid same word twice
       if (
         !wasEliminated &&
         (nextPlayerId === currentTurn || aliveAfterThis.length === 1)
