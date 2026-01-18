@@ -321,15 +321,27 @@ const Play: React.FC = () => {
   useEffect(() => {
     if (!isGameDriver || !currentRoom || !currentRoom.id) return;
 
+    console.log(
+      "[Driver] Effect running. Status:",
+      currentRoom.status,
+      "Word:",
+      currentRoom.gameState?.currentWord,
+    );
+
     // A. Start New Round / Next Word
     if (
       currentRoom.status === "playing" &&
       !currentRoom.gameState?.currentWord
     ) {
-      if (processingRef.current) return;
+      if (processingRef.current) {
+        console.log("[Driver] Already processing, skipping.");
+        return;
+      }
       processingRef.current = true;
 
-      const difficulty = currentRoom.settings.difficulty || "baby";
+      const difficulty =
+        currentRoom.settings?.difficulty || paramMode || "baby";
+      console.log("[Driver] Setting new word for difficulty:", difficulty);
       const words = wordBank[difficulty];
       const newWord = words[Math.floor(Math.random() * words.length)];
 
@@ -342,7 +354,15 @@ const Play: React.FC = () => {
         currentWord: newWord,
         startTime: startTime,
         timerDuration: finalTime,
-      }).then(() => (processingRef.current = false));
+      })
+        .then(() => {
+          console.log("[Driver] Word set:", newWord);
+          processingRef.current = false;
+        })
+        .catch((err) => {
+          console.error("[Driver] Failed to set word:", err);
+          processingRef.current = false;
+        });
     }
 
     // B. Handle Intermission End with Robust Scheduling
