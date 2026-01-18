@@ -50,10 +50,26 @@ const Play: React.FC = () => {
   } = useMultiplayer();
 
   // If no room context (user refreshed page or direct link without join), kick back to lobby
+  // Use a ref to avoid redirecting immediately on first mount before context syncs
+  const hasAttemptedLoadRef = useRef(false);
   useEffect(() => {
+    // Don't check on first mount, give context time to sync
+    if (!hasAttemptedLoadRef.current) {
+      hasAttemptedLoadRef.current = true;
+      return;
+    }
+
+    // Wait a beat before deciding to redirect (context might be updating)
     if (!contextLoading && !currentRoom) {
-      console.warn("No Room Context found, redirecting to lobby...");
-      navigate("/lobby");
+      const timer = setTimeout(() => {
+        if (!currentRoom) {
+          console.warn(
+            "No Room Context found after delay, redirecting to lobby...",
+          );
+          navigate("/lobby");
+        }
+      }, 500);
+      return () => clearTimeout(timer);
     }
   }, [currentRoom, contextLoading, navigate]);
 
@@ -396,8 +412,15 @@ const Play: React.FC = () => {
     if (val.length > inputValue.length) playTypingSound();
   };
 
+  const passingTurnRef = useRef(false);
   const passTurn = async (wasEliminated: boolean) => {
     if (!currentRoom?.id) return;
+    // Guard: prevent double-trigger
+    if (passingTurnRef.current) {
+      console.warn("[PassTurn] Already in progress, skipping.");
+      return;
+    }
+    passingTurnRef.current = true;
     const roomId = currentRoom.id;
 
     console.log(`[PassTurn] Eliminated: ${wasEliminated}`);
@@ -463,6 +486,7 @@ const Play: React.FC = () => {
     }
 
     await dbUpdate(dbRef(db, `rooms/${roomId}`), updates);
+    passingTurnRef.current = false; // Reset guard
 
     // PERFORM LIFETIME UPDATES (Separate from Room update)
     if (!wasEliminated && user?.uid) {
