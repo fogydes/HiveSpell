@@ -616,23 +616,13 @@ const Play: React.FC = () => {
       console.log("[PassTurn] Next turn:", nextPlayerId, "Was:", currentTurn);
       updates["gameState/currentTurnPlayerId"] = nextPlayerId;
 
-      // ALWAYS reset timer for the next player's turn
-      updates["gameState/startTime"] = Date.now();
-      // Timer duration stays the same (don't reset timerDuration)
+      // ALWAYS reset word and timer for the next player's turn
+      // Each player gets their own fresh word
+      console.log("[PassTurn] Resetting word for next player");
+      updates["gameState/currentWord"] = null; // Driver will pick new word
+      updates["gameState/startTime"] = null;
+      updates["gameState/timerDuration"] = null;
       updates["gameState/currentInput"] = ""; // Clear input for next player
-
-      // If we're cycling back to the same player (solo OR full rotation), get NEW word
-      if (
-        !wasEliminated &&
-        (nextPlayerId === currentTurn || aliveAfterThis.length === 1)
-      ) {
-        console.log(
-          "[PassTurn] Same player or solo - resetting word for new round",
-        );
-        updates["gameState/currentWord"] = null; // Will trigger driver to pick new word
-        updates["gameState/startTime"] = null;
-        updates["gameState/timerDuration"] = null;
-      }
     }
 
     await dbUpdate(dbRef(db, `rooms/${roomId}`), updates);
