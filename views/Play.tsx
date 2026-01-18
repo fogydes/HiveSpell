@@ -508,15 +508,19 @@ const Play: React.FC = () => {
       "gameState/currentInput": "", // Clear typing
     };
 
-    // Solo mode: don't eliminate, just give new word
+    // Solo mode: trigger intermission on failure (15 sec break)
     const isSoloMode = playersList.length === 1;
     if (isSoloMode && wasEliminated) {
-      console.log(
-        "[PassTurn] Solo mode - skipping elimination, resetting word",
-      );
-      updates["gameState/currentWord"] = null; // Trigger new word
+      console.log("[PassTurn] Solo mode - triggering intermission");
+      updates["status"] = "intermission";
+      updates["intermissionEndsAt"] = Date.now() + 15000; // 15 second break
+      updates["gameState/currentWord"] = null;
       updates["gameState/startTime"] = null;
       updates["gameState/timerDuration"] = null;
+      // Mark player as needing revive (will be revived by intermission handler)
+      if (user?.uid) {
+        updates[`players/${user.uid}/status`] = "eliminated";
+      }
       await dbUpdate(dbRef(db, `rooms/${roomId}`), updates);
       passingTurnRef.current = false;
       return; // Exit early for solo mode
