@@ -623,8 +623,13 @@ const Play: React.FC = () => {
       updates["gameState/startTime"] = null;
       updates["gameState/timerDuration"] = null;
       updates["gameState/currentInput"] = ""; // Clear input for next player
-    console.log("[PassTurn] Updates to apply:", JSON.stringify(updates, null, 2));
-    
+    }
+
+    console.log(
+      "[PassTurn] Updates to apply:",
+      JSON.stringify(updates, null, 2),
+    );
+
     try {
       await dbUpdate(dbRef(db, `rooms/${roomId}`), updates);
       console.log("[PassTurn] Firebase update successful!");
