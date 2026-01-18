@@ -129,7 +129,7 @@ const Play: React.FC = () => {
   // SESSION STORAGE SYNC
   useEffect(() => {
     if (correctWords.length > 0) {
-      const diff = currentRoom?.settings.difficulty || paramMode || "baby";
+      const diff = currentRoom?.settings?.difficulty || paramMode || "baby";
       sessionStorage.setItem(
         "gameData",
         JSON.stringify({ difficulty: diff, correctWords: correctWords }),
@@ -138,7 +138,7 @@ const Play: React.FC = () => {
       const total = correctWords.reduce((sum, item) => sum + item.wpm, 0);
       setAvgWpm(Math.round(total / correctWords.length));
     }
-  }, [correctWords, currentRoom?.settings.difficulty, paramMode]);
+  }, [correctWords, currentRoom?.settings?.difficulty, paramMode]);
 
   // AUTO-FOCUS
   useEffect(() => {
