@@ -878,7 +878,9 @@ const Play: React.FC = () => {
 
         <div className="flex items-center gap-4 mb-4 sm:mb-6">
           <div className="bg-slate-800/80 px-4 py-1 rounded text-xs font-bold tracking-widest uppercase text-emerald-400 border border-slate-700">
-            {streak > 25 ? "RAMPAGE MODE" : currentRoom?.settings.difficulty}
+            {streak > 25
+              ? "RAMPAGE MODE"
+              : currentRoom?.settings?.difficulty || paramMode}
           </div>
         </div>
 
