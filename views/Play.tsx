@@ -529,8 +529,16 @@ const Play: React.FC = () => {
       aliveAfterThis.map((p) => p.id),
     );
 
+    console.log(
+      "[PassTurn] Win check: aliveAfterThis.length =",
+      aliveAfterThis.length,
+      "playersList.length =",
+      playersList.length,
+    );
+
     // Win Condition: only one player left AND there were multiple players
     if (aliveAfterThis.length <= 1 && playersList.length > 1) {
+      console.log("[PassTurn] Triggering intermission!");
       updates["status"] = "intermission";
       updates["intermissionEndsAt"] = Date.now() + 15000;
       updates["gameState/currentWord"] = null;
