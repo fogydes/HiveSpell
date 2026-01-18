@@ -317,6 +317,44 @@ const Play: React.FC = () => {
     }
   }, [currentRoom?.status, currentRoom?.intermissionEndsAt]);
 
+  // --- SELF-WIN DETECTION ---
+  // Each player checks if they're the winner and updates their own stats
+  const hasClaimedWinRef = useRef(false);
+  useEffect(() => {
+    if (currentRoom?.status !== "intermission") {
+      hasClaimedWinRef.current = false; // Reset for next round
+      return;
+    }
+    if (hasClaimedWinRef.current) return; // Already claimed this win
+
+    // Check if I'm the winner (last alive)
+    const alivePlayers = playersList.filter(
+      (p) => p.status === "alive" || p.status === "connected",
+    );
+
+    if (
+      playersList.length > 1 &&
+      alivePlayers.length === 1 &&
+      alivePlayers[0].id === user?.uid
+    ) {
+      console.log("[Win] I am the winner! Updating my wins...");
+      hasClaimedWinRef.current = true;
+
+      (firebaseDatabase as any)
+        .runTransaction(dbRef(db, `users/${user.uid}`), (userDoc: any) => {
+          if (userDoc) {
+            userDoc.wins = (userDoc.wins || 0) + 1;
+            userDoc.title = getTitle(userDoc.corrects || 0, userDoc.wins);
+          }
+          return userDoc;
+        })
+        .then(() => console.log("[Win] Wins updated!"))
+        .catch((err: any) =>
+          console.error("[Win] Failed to update wins:", err),
+        );
+    }
+  }, [currentRoom?.status, playersList, user]);
+
   // --- Game Loop Driver (Host/Driver ONLY) ---
   useEffect(() => {
     if (!isGameDriver || !currentRoom || !currentRoom.id) return;
@@ -562,19 +600,8 @@ const Play: React.FC = () => {
         );
     }
 
-    if (playersList.length > 1 && effectiveAlive <= 1) {
-      const winner = playersList.find(
-        (p) =>
-          (p.status === "alive" || p.status === "connected") &&
-          p.id !== (wasEliminated ? user?.uid : null),
-      );
-      if (winner) {
-        (firebaseDatabase as any).runTransaction(
-          dbRef(db, `users/${winner.id}/wins`),
-          (current: any) => (current || 0) + 1,
-        );
-      }
-    }
+    // NOTE: Each player updates their OWN wins via the win detection effect below.
+    // We can't update another player's stats due to security rules.
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
