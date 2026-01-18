@@ -120,8 +120,7 @@ const Play: React.FC = () => {
   // Sync Room State to Local State
   useEffect(() => {
     if (currentRoom) {
-      // Sync local states from synced room
-      setStreak(currentRoom.gameState?.currentWordIndex || 0); // Using index as streak for now
+      // Sync status from room (don't sync streak - it's local)
       if (currentRoom.status) setStatus(currentRoom.status as any);
     }
   }, [currentRoom]);
