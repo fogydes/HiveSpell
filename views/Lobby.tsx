@@ -9,21 +9,17 @@ const Lobby: React.FC = () => {
   const modes = Object.keys(wordBank);
   const navigate = useNavigate();
   const [joinCode, setJoinCode] = useState("");
-  const { createGameRoom, joinGameRoom, loading } = useMultiplayer();
+  const { createGameRoom, joinGameRoom, joinPublicGame, loading } =
+    useMultiplayer();
 
   const handleStartPublic = async (mode: string) => {
     if (loading) return;
     try {
-      const roomId = await createGameRoom(
-        { difficulty: mode, maxPlayers: 10 },
-        "public",
-      );
-      if (roomId) {
-        navigate(`/play/${mode}`);
-      }
+      await joinPublicGame(mode);
+      navigate(`/play/${mode}`);
     } catch (err) {
       console.error("Matchmaking failed:", err);
-      alert("Failed to create room. Please try again.");
+      alert("Failed to join. Please try again.");
     }
   };
 

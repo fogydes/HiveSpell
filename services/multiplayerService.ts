@@ -116,3 +116,36 @@ export const subscribeToRoom = (
   });
   return () => off(roomRef, "value", listener);
 };
+// Find a public room with matching difficulty
+export const findPublicRoom = async (
+  difficulty: string,
+): Promise<string | null> => {
+  const roomsRef = ref(db, "rooms");
+  // Query for public rooms. Note: Ideally we'd index this.
+  // We limit to 50 to avoid fetching too many.
+  const publicRoomsQuery = query(
+    roomsRef,
+    orderByChild("type"),
+    equalTo("public"),
+    limitToFirst(50),
+  );
+
+  const snapshot = await get(publicRoomsQuery);
+
+  if (!snapshot.exists()) return null;
+
+  const rooms = snapshot.val();
+  // Client-side filter for specificity (Firebase RDB limits multiple queries)
+  for (const [id, room] of Object.entries(rooms) as [string, any][]) {
+    if (
+      room.settings?.difficulty === difficulty &&
+      room.status !== "finished" && // Can join waiting or playing
+      (!room.players ||
+        Object.keys(room.players).length < (room.settings.maxPlayers || 10))
+    ) {
+      return id;
+    }
+  }
+
+  return null;
+};

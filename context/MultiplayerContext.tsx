@@ -1,14 +1,23 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Room, GameSettings, Player } from '../types/multiplayer';
-import { createRoom, joinRoom, leaveRoom, subscribeToRoom } from '../services/multiplayerService';
-import { useAuth } from './AuthContext';
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { Room, GameSettings, Player } from "../types/multiplayer";
+import {
+  createRoom,
+  joinRoom,
+  leaveRoom,
+  subscribeToRoom,
+  findPublicRoom,
+} from "../services/multiplayerService";
+import { useAuth } from "./AuthContext";
 
 interface MultiplayerContextType {
   currentRoom: Room | null;
   players: Player[];
   loading: boolean;
   error: string | null;
-  createGameRoom: (settings: GameSettings, type: 'public' | 'private') => Promise<string>;
+  createGameRoom: (
+    settings: GameSettings,
+    type: "public" | "private",
+  ) => Promise<string>;
   joinGameRoom: (roomId: string) => Promise<void>;
   leaveGameRoom: () => Promise<void>;
 }
@@ -18,14 +27,16 @@ const MultiplayerContext = createContext<MultiplayerContextType>({
   players: [],
   loading: false,
   error: null,
-  createGameRoom: async () => '',
+  createGameRoom: async () => "",
   joinGameRoom: async () => {},
   leaveGameRoom: async () => {},
 });
 
 export const useMultiplayer = () => useContext(MultiplayerContext);
 
-export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const { user, userData } = useAuth();
   const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
   const [loading, setLoading] = useState(false);
@@ -47,38 +58,41 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     return () => unsubscribe();
   }, [currentRoom?.id]);
 
-  const createGameRoom = async (settings: GameSettings, type: 'public' | 'private'): Promise<string> => {
+  const createGameRoom = async (
+    settings: GameSettings,
+    type: "public" | "private",
+  ): Promise<string> => {
     if (!user) {
-        setError("Must be logged in to create a room");
-        return '';
+      setError("Must be logged in to create a room");
+      return "";
     }
     setLoading(true);
     setError(null);
-    const hostName = userData?.username || 'Player';
+    const hostName = userData?.username || "Player";
     try {
       const roomId = await createRoom(user.uid, hostName, settings, type);
-      
-      setCurrentRoom({ 
-        id: roomId, 
-        settings, 
+
+      setCurrentRoom({
+        id: roomId,
+        settings,
         type,
         hostId: user.uid,
         // code is undefined for public, or we can fetch/predict it for private but better to wait for subscription
         players: {
-            [user.uid]: {
-                id: user.uid,
-                name: hostName,
-                isHost: true,
-                score: 0,
-                wins: 0,
-                status: 'connected'
-            }
+          [user.uid]: {
+            id: user.uid,
+            name: hostName,
+            isHost: true,
+            score: 0,
+            wins: userData?.wins || 0,
+            status: "connected",
+          },
         },
-      } as Room); 
-       return roomId;
+      } as Room);
+      return roomId;
     } catch (err: any) {
       setError(err.message);
-      return '';
+      return "";
     } finally {
       setLoading(false);
     }
@@ -86,8 +100,8 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   const joinGameRoom = async (roomId: string) => {
     if (!user || !userData) {
-         setError("Must be logged in to join");
-         return;
+      setError("Must be logged in to join");
+      return;
     }
     setLoading(true);
     setError(null);
@@ -97,7 +111,8 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         name: userData.username,
         isHost: false,
         score: 0,
-        status: 'connected'
+        wins: userData?.wins || 0,
+        status: "connected",
       };
       await joinRoom(roomId, player);
       setCurrentRoom({ id: roomId } as Room); // Trigger subscription
@@ -120,19 +135,46 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       setLoading(false);
     }
   };
-  
+
+  const joinPublicGame = async (difficulty: string) => {
+    if (!user) {
+      setError("Must be logged in to join");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      // 1. Try to find an existing room
+      const existingRoomId = await findPublicRoom(difficulty);
+
+      if (existingRoomId) {
+        // 2. Join it
+        await joinGameRoom(existingRoomId);
+      } else {
+        // 3. Create new one
+        await createGameRoom({ difficulty, maxPlayers: 10 }, "public");
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const players = currentRoom ? Object.values(currentRoom.players || {}) : [];
 
   return (
-    <MultiplayerContext.Provider value={{ 
-        currentRoom, 
-        players, 
-        loading, 
-        error, 
-        createGameRoom, 
-        joinGameRoom, 
-        leaveGameRoom 
-    }}>
+    <MultiplayerContext.Provider
+      value={{
+        currentRoom,
+        players,
+        loading,
+        error,
+        createGameRoom,
+        joinGameRoom,
+        leaveGameRoom,
+      }}
+    >
       {children}
     </MultiplayerContext.Provider>
   );
