@@ -328,6 +328,15 @@ const Play: React.FC = () => {
       currentRoom.gameState?.currentWord,
     );
 
+    // 0. If status is "waiting", transition to "playing"
+    if (currentRoom.status === "waiting") {
+      console.log("[Driver] Transitioning from 'waiting' to 'playing'...");
+      dbUpdate(dbRef(db, `rooms/${currentRoom.id}`), { status: "playing" })
+        .then(() => console.log("[Driver] Status set to playing."))
+        .catch((err) => console.error("[Driver] Failed to set status:", err));
+      return; // Wait for subscription to update
+    }
+
     // A. Start New Round / Next Word
     if (
       currentRoom.status === "playing" &&
