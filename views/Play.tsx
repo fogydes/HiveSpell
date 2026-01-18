@@ -319,6 +319,21 @@ const Play: React.FC = () => {
     }
   }, [currentRoom?.status, currentRoom?.intermissionEndsAt]);
 
+  // Reset streak when new round starts (after intermission ends)
+  const prevStatusRef = useRef(currentRoom?.status);
+  useEffect(() => {
+    const prevStatus = prevStatusRef.current;
+    const newStatus = currentRoom?.status;
+
+    // If we just transitioned from intermission to playing, reset streak
+    if (prevStatus === "intermission" && newStatus === "playing") {
+      console.log("[Streak] New round started, resetting streak");
+      setStreak(0);
+    }
+
+    prevStatusRef.current = newStatus;
+  }, [currentRoom?.status]);
+
   // --- Game Loop Driver (Host/Driver ONLY) ---
   useEffect(() => {
     if (!isGameDriver || !currentRoom || !currentRoom.id) return;
