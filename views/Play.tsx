@@ -720,7 +720,9 @@ const Play: React.FC = () => {
 
       setFeedback({ type: "success", msg: "Correct!" });
       setStreak((prev) => prev + 1);
-      await passTurn(false); // Advances turn to next player (same word)
+      console.log("[Submit] Answer correct! Calling passTurn(false)...");
+      await passTurn(false);
+      console.log("[Submit] passTurn(false) completed.");
     } else {
       console.warn("Incorrect Answer");
       handleFail("Incorrect!", inputValue, currentWord);
