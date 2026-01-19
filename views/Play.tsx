@@ -376,31 +376,49 @@ const Play: React.FC = () => {
       const finalTime = Math.max(5, (2.0 + wordLen) * decay);
       const startTime = Date.now();
 
-      // Calculate turn order: alive/connected players, sorted by join time (using player index as proxy)
-      // In Firebase, player iteration order is typically insertion order
+      // Calculate turn order: alive/connected players, sorted by join time
       const alivePlayers = playersList.filter(
         (p) => p.status === "alive" || p.status === "connected",
       );
       const turnOrder = alivePlayers.map((p) => p.id);
-      const firstTurnPlayer = turnOrder[0] || null;
+
+      // Check if there's already a turn set (passTurn sets this before triggering new word)
+      const existingTurnPlayer = currentRoom.gameState?.currentTurnPlayerId;
 
       console.log(
         "[Driver] Turn order:",
         turnOrder,
-        "First turn:",
-        firstTurnPlayer,
+        "Existing turn from passTurn:",
+        existingTurnPlayer,
       );
 
-      dbUpdate(dbRef(db, `rooms/${currentRoom.id}/gameState`), {
+      // Build update - DON'T overwrite currentTurnPlayerId if it's already set
+      // passTurn sets the turn, driver just sets the word
+      const updateData: any = {
         currentWord: newWord,
         startTime: startTime,
         timerDuration: finalTime,
         turnOrder: turnOrder,
-        currentTurnPlayerId: firstTurnPlayer,
         currentInput: "",
-      })
+      };
+
+      // Only set first turn player if NO turn is currently set (start of new round)
+      if (!existingTurnPlayer) {
+        updateData.currentTurnPlayerId = turnOrder[0] || null;
+        console.log(
+          "[Driver] No existing turn, setting first player:",
+          turnOrder[0],
+        );
+      }
+
+      dbUpdate(dbRef(db, `rooms/${currentRoom.id}/gameState`), updateData)
         .then(() => {
-          console.log("[Driver] Word set:", newWord);
+          console.log(
+            "[Driver] Word set:",
+            newWord,
+            "Turn preserved:",
+            existingTurnPlayer,
+          );
           processingRef.current = false;
         })
         .catch((err) => {
@@ -720,9 +738,7 @@ const Play: React.FC = () => {
 
       setFeedback({ type: "success", msg: "Correct!" });
       setStreak((prev) => prev + 1);
-      console.log("[Submit] Answer correct! Calling passTurn(false)...");
-      await passTurn(false);
-      console.log("[Submit] passTurn(false) completed.");
+      await passTurn(false); // Advances turn to next player (same word)
     } else {
       console.warn("Incorrect Answer");
       handleFail("Incorrect!", inputValue, currentWord);
