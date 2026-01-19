@@ -549,7 +549,15 @@ const Play: React.FC = () => {
     // Mark eliminated if wrong/timeout (multiplayer only)
     if (wasEliminated) {
       if (user?.uid) {
+        // Calculate remaining time when eliminated
+        const startTime = currentRoom.gameState?.startTime || Date.now();
+        const duration = (currentRoom.gameState as any)?.timerDuration || 10;
+        const elapsed = (Date.now() - startTime) / 1000;
+        const timeRemaining = Math.max(0, duration - elapsed);
+
         updates[`players/${user.uid}/status`] = "eliminated";
+        updates[`players/${user.uid}/eliminatedAtTime`] =
+          timeRemaining.toFixed(1);
       }
     } else {
       // Increment Room Score for correct answer
@@ -1010,6 +1018,11 @@ const Play: React.FC = () => {
                   >
                     {p.name}
                   </span>
+                  {p.status === "eliminated" && (p as any).eliminatedAtTime && (
+                    <span className="text-xs text-red-400 font-mono ml-1">
+                      ({(p as any).eliminatedAtTime}s)
+                    </span>
+                  )}
                 </div>
                 <div className="text-center font-mono text-emerald-400">
                   {p.score || 0}
