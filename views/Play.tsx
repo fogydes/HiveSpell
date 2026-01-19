@@ -747,6 +747,119 @@ const Play: React.FC = () => {
     }
   };
 
+  const handleSkipOfflineTurn = async (offlinePlayerId: string) => {
+    if (!currentRoom?.id) return;
+
+    console.log(`[Driver] Skipping offline player: ${offlinePlayerId}`);
+
+    const updates: any = {};
+    const roomId = currentRoom.id;
+
+    // Clear input
+    updates["gameState/currentInput"] = "";
+
+    // Calculate survival state
+    // "Alive" means physically connected and game-status alive
+    const aliveAfterThis = playersList.filter(
+      (p) =>
+        p.id !== offlinePlayerId &&
+        (p.status === "alive" || p.status === "connected"),
+    );
+
+    console.log(
+      "[SkipOffline] Alive players after skip:",
+      aliveAfterThis.map((p) => p.name),
+    );
+
+    if (aliveAfterThis.length <= 1 && playersList.length > 1) {
+      // Win Condition (Intermission)
+      updates["status"] = "intermission";
+      updates["intermissionEndsAt"] = Date.now() + 15000;
+      updates["gameState/currentWord"] = null;
+      updates["gameState/currentTurnPlayerId"] = null;
+      updates["gameState/streak"] = 0;
+
+      if (aliveAfterThis.length === 1) {
+        const winner = aliveAfterThis[0];
+        console.log("[SkipOffline] Winner by default:", winner.name);
+        updates["gameState/winnerId"] = winner.id;
+        updates["gameState/winnerName"] = winner.name;
+
+        try {
+          // Award win
+          await (firebaseDatabase as any).runTransaction(
+            dbRef(db, `users/${winner.id}/wins`),
+            (current: any) => (current || 0) + 1,
+          );
+        } catch (e) {
+          console.error("[SkipOffline] Failed to award win:", e);
+        }
+      }
+    } else {
+      // Find Next Player
+      const turnOrder = currentRoom.gameState?.turnOrder || [];
+      const currentIndex = turnOrder.indexOf(offlinePlayerId);
+
+      if (currentIndex !== -1) {
+        let nextIndex = (currentIndex + 1) % turnOrder.length;
+        let attempts = 0;
+        let nextPlayerId = null;
+
+        while (attempts < turnOrder.length) {
+          const candidateId = turnOrder[nextIndex];
+          const candidate = aliveAfterThis.find((p) => p.id === candidateId);
+          if (candidate) {
+            nextPlayerId = candidateId;
+            break;
+          }
+          nextIndex = (nextIndex + 1) % turnOrder.length;
+          attempts++;
+        }
+
+        if (nextPlayerId) {
+          console.log("[SkipOffline] Passing turn to:", nextPlayerId);
+          updates["gameState/currentTurnPlayerId"] = nextPlayerId;
+          updates["gameState/currentWord"] = null; // Driver will pick new word
+          updates["gameState/startTime"] = null;
+          updates["gameState/timerDuration"] = null;
+        }
+      }
+    }
+
+    try {
+      await dbUpdate(dbRef(db, `rooms/${roomId}`), updates);
+    } catch (err) {
+      console.error("[SkipOffline] Failed to update game state:", err);
+    }
+  };
+
+  // --- DRIVER: Monitor for Offline Players in Turn ---
+  useEffect(() => {
+    if (
+      !isGameDriver ||
+      !currentRoom?.gameState?.currentTurnPlayerId ||
+      currentRoom.status !== "playing"
+    )
+      return;
+
+    const currentTurnId = currentRoom.gameState.currentTurnPlayerId;
+    const currentPlayer = playersList.find((p) => p.id === currentTurnId);
+
+    // If turn player is disconnected or missing from list entirely
+    if (!currentPlayer || currentPlayer.status === "disconnected") {
+      const reason = !currentPlayer ? "missing" : "disconnected";
+      console.log(
+        `[Driver] Detected ${reason} player holding turn: ${currentTurnId}. Force skipping.`,
+      );
+      handleSkipOfflineTurn(currentTurnId);
+    }
+  }, [
+    currentRoom?.gameState?.currentTurnPlayerId,
+    playersList,
+    isGameDriver,
+    currentRoom?.status,
+  ]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (status !== "playing") return;
