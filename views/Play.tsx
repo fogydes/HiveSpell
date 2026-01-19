@@ -1147,7 +1147,7 @@ const Play: React.FC = () => {
               </div>
             ) : (
               <button
-                onClick={() => speak(currentWord, ttsVolume)}
+                onClick={() => speak(currentWord, ttsVolume, true)}
                 className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center transition-all group cursor-pointer active:scale-95 animate-pulse-slow"
               >
                 <svg

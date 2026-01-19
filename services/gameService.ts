@@ -1243,10 +1243,26 @@ const getAlternateAudioName = (word: string): string | null => {
 };
 
 // IMPROVED SPEAK FUNCTION
+
+// Audio Deduplication State
+let lastSpokenWord: string | null = null;
+let lastSpokenTime: number = 0;
+
 export const speak = async (
   word: string,
   volume: number = 1.0,
+  force: boolean = false,
 ): Promise<void> => {
+  const now = Date.now();
+  // Dedupe: If same word requested within 1s, and not forced, ignore
+  if (!force && word === lastSpokenWord && now - lastSpokenTime < 1000) {
+    console.log(`[Audio] Ignoring duplicate speak request for "${word}"`);
+    return;
+  }
+
+  lastSpokenWord = word;
+  lastSpokenTime = now;
+
   stopAudio(); // Increments speakId
   const myId = speakId; // Capture this specific attempt ID
 
