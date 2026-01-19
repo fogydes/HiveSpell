@@ -98,15 +98,22 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
         hostId: user.uid,
         // code is undefined for public, or we can fetch/predict it for private but better to wait for subscription
         players: {
-          [user.uid]: {
-            id: user.uid,
-            name: hostName,
-            isHost: true,
-            score: 0,
-            corrects: userData?.corrects || 0,
-            wins: userData?.wins || 0,
-            status: "connected",
-          },
+          [user.uid]: (() => {
+            console.log("[CreateRoom] Host userData stats:", {
+              corrects: userData?.corrects,
+              wins: userData?.wins,
+              username: hostName,
+            });
+            return {
+              id: user.uid,
+              name: hostName,
+              isHost: true,
+              score: 0,
+              corrects: userData?.corrects || 0,
+              wins: userData?.wins || 0,
+              status: "connected",
+            };
+          })(),
         },
       } as Room);
       return roomId;
@@ -135,6 +142,12 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
         await leaveRoom(currentRoom.id, user.uid);
       }
 
+      console.log("[JoinRoom] userData stats:", {
+        corrects: userData?.corrects,
+        wins: userData?.wins,
+        username: userData?.username,
+      });
+
       const player: Player = {
         id: user.uid,
         name: userData.username,
@@ -144,6 +157,7 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
         wins: userData?.wins || 0,
         status: "connected",
       };
+      console.log("[JoinRoom] Player object:", player);
       await joinRoom(roomId, player);
       setCurrentRoom({ id: roomId } as Room); // Trigger subscription
     } catch (err: any) {
