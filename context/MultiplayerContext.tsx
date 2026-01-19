@@ -8,6 +8,8 @@ import {
   findPublicRoom,
 } from "../services/multiplayerService";
 import { useAuth } from "./AuthContext";
+import { db } from "../firebase";
+import { ref, get } from "firebase/database";
 
 interface MultiplayerContextType {
   currentRoom: Room | null;
@@ -91,29 +93,43 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       const roomId = await createRoom(user.uid, hostName, settings, type);
 
+      // Fetch FRESH user stats directly from Firebase (fixes mobile timing issues)
+      let freshCorrects = userData?.corrects || 0;
+      let freshWins = userData?.wins || 0;
+      try {
+        const userRef = ref(db, `users/${user.uid}`);
+        const snapshot = await get(userRef);
+        if (snapshot.exists()) {
+          const freshData = snapshot.val();
+          freshCorrects = freshData.corrects || 0;
+          freshWins = freshData.wins || 0;
+          console.log("[CreateRoom] Fetched fresh stats from Firebase:", {
+            corrects: freshCorrects,
+            wins: freshWins,
+          });
+        }
+      } catch (fetchErr) {
+        console.warn(
+          "[CreateRoom] Failed to fetch fresh stats, using cached:",
+          fetchErr,
+        );
+      }
+
       setCurrentRoom({
         id: roomId,
         settings,
         type,
         hostId: user.uid,
-        // code is undefined for public, or we can fetch/predict it for private but better to wait for subscription
         players: {
-          [user.uid]: (() => {
-            console.log("[CreateRoom] Host userData stats:", {
-              corrects: userData?.corrects,
-              wins: userData?.wins,
-              username: hostName,
-            });
-            return {
-              id: user.uid,
-              name: hostName,
-              isHost: true,
-              score: 0,
-              corrects: userData?.corrects || 0,
-              wins: userData?.wins || 0,
-              status: "connected",
-            };
-          })(),
+          [user.uid]: {
+            id: user.uid,
+            name: hostName,
+            isHost: true,
+            score: 0,
+            corrects: freshCorrects,
+            wins: freshWins,
+            status: "connected",
+          },
         },
       } as Room);
       return roomId;
@@ -142,9 +158,31 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
         await leaveRoom(currentRoom.id, user.uid);
       }
 
-      console.log("[JoinRoom] userData stats:", {
-        corrects: userData?.corrects,
-        wins: userData?.wins,
+      // Fetch FRESH user stats directly from Firebase (fixes mobile timing issues)
+      let freshCorrects = userData?.corrects || 0;
+      let freshWins = userData?.wins || 0;
+      try {
+        const userRef = ref(db, `users/${user.uid}`);
+        const snapshot = await get(userRef);
+        if (snapshot.exists()) {
+          const freshData = snapshot.val();
+          freshCorrects = freshData.corrects || 0;
+          freshWins = freshData.wins || 0;
+          console.log("[JoinRoom] Fetched fresh stats from Firebase:", {
+            corrects: freshCorrects,
+            wins: freshWins,
+          });
+        }
+      } catch (fetchErr) {
+        console.warn(
+          "[JoinRoom] Failed to fetch fresh stats, using cached:",
+          fetchErr,
+        );
+      }
+
+      console.log("[JoinRoom] Final stats:", {
+        corrects: freshCorrects,
+        wins: freshWins,
         username: userData?.username,
       });
 
@@ -153,8 +191,8 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
         name: userData.username,
         isHost: false,
         score: 0,
-        corrects: userData?.corrects || 0,
-        wins: userData?.wins || 0,
+        corrects: freshCorrects,
+        wins: freshWins,
         status: "connected",
       };
       console.log("[JoinRoom] Player object:", player);
