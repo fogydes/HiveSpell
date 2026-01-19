@@ -86,13 +86,12 @@ export const joinRoom = async (
   if (roomVal.players && roomVal.players[player.id]) {
     const existing = roomVal.players[player.id];
     console.log(
-      `[Join] Found existing player stats for ${player.name}: Score ${existing.score}, Wins ${existing.wins}`,
+      `[Join] Found existing player, preserving room score: ${existing.score}`,
     );
     finalPlayer = {
       ...finalPlayer,
-      score: existing.score || 0,
-      wins: existing.wins || 0,
-      // status is NOT preserved - always use fresh initialStatus
+      score: existing.score || 0, // Only preserve room score
+      // corrects and wins come fresh from user profile on join, don't overwrite
     };
   }
 

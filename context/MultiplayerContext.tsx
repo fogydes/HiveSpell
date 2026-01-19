@@ -103,6 +103,7 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
             name: hostName,
             isHost: true,
             score: 0,
+            corrects: userData?.corrects || 0,
             wins: userData?.wins || 0,
             status: "connected",
           },
@@ -139,6 +140,7 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
         name: userData.username,
         isHost: false,
         score: 0,
+        corrects: userData?.corrects || 0,
         wins: userData?.wins || 0,
         status: "connected",
       };

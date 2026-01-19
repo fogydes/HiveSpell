@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import { useMultiplayer } from "../context/MultiplayerContext";
+import { leaveRoom } from "../services/multiplayerService";
 import {
   wordBank,
   speak,
@@ -72,6 +73,29 @@ const Play: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [currentRoom, contextLoading, navigate]);
+
+  // Handle page reload and back button - disconnect player
+  useEffect(() => {
+    if (!currentRoom?.id || !user?.uid) return;
+
+    const handleBeforeUnload = () => {
+      // Synchronous leaveRoom for page reload/close
+      leaveRoom(currentRoom.id, user.uid);
+    };
+
+    const handlePopState = () => {
+      // Handle browser back button
+      leaveRoom(currentRoom.id, user.uid);
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [currentRoom?.id, user?.uid]);
 
   // --- Gameplay State ---
   const [timeLeft, setTimeLeft] = useState(10);
@@ -771,7 +795,13 @@ const Play: React.FC = () => {
     await passTurn(true);
   };
 
-  const exitArena = () => navigate("/lobby");
+  const exitArena = async () => {
+    // Mark player as disconnected before leaving
+    if (currentRoom?.id && user?.uid) {
+      await leaveRoom(currentRoom.id, user.uid);
+    }
+    navigate("/lobby");
+  };
 
   const toggleTab = (tab: "chat" | "players") => {
     setActiveTab(activeTab === tab ? "none" : tab);
@@ -1035,7 +1065,7 @@ const Play: React.FC = () => {
                   </span>
                 </div>
                 <div className="text-center font-mono text-emerald-400">
-                  {p.score || 0}
+                  {p.corrects || 0}
                 </div>
                 <div className="text-right font-mono text-yellow-400">
                   {p.wins || 0}

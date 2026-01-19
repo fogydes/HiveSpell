@@ -2,9 +2,10 @@ export interface Player {
   id: string;
   name: string;
   isHost: boolean;
-  score: number; // Used as 'corrects'
-  wins: number;
-  status: "alive" | "eliminated" | "spectating" | "connected" | "disconnected"; // Expanded status
+  score: number; // Room-specific score for current session
+  corrects: number; // Global corrects from user profile
+  wins: number; // Global wins from user profile
+  status: "alive" | "eliminated" | "spectating" | "connected" | "disconnected";
 }
 
 export interface GameSettings {
