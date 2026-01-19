@@ -472,6 +472,17 @@ const Play: React.FC = () => {
   // Visual Timer (UI Only)
   // Visual Timer (UI Only)
   useEffect(() => {
+    // If someone died, show frozen timer for everyone
+    const frozenTime = currentRoom?.gameState?.frozenTimeLeft;
+    if (
+      frozenTime !== undefined &&
+      frozenTime !== null &&
+      currentRoom?.status === "intermission"
+    ) {
+      setTimeLeft(frozenTime);
+      return; // Don't run the animation, just show frozen time
+    }
+
     // Stop the timer if I am eliminated to show exact time of death
     if (myStatus === "eliminated") return;
 
@@ -493,7 +504,12 @@ const Play: React.FC = () => {
       update();
     }
     return () => cancelAnimationFrame(animationFrameRef.current);
-  }, [currentRoom?.gameState?.startTime, myStatus]);
+  }, [
+    currentRoom?.gameState?.startTime,
+    currentRoom?.gameState?.frozenTimeLeft,
+    myStatus,
+    currentRoom?.status,
+  ]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -549,16 +565,15 @@ const Play: React.FC = () => {
     // Mark eliminated if wrong/timeout (multiplayer only)
     if (wasEliminated) {
       if (user?.uid) {
-        // Calculate remaining time when eliminated
-        const startTime = currentRoom.gameState?.startTime || Date.now();
-        const duration = (currentRoom.gameState as any)?.timerDuration || 10;
-        const elapsed = (Date.now() - startTime) / 1000;
-        const timeRemaining = Math.max(0, duration - elapsed);
-
         updates[`players/${user.uid}/status`] = "eliminated";
-        updates[`players/${user.uid}/eliminatedAtTime`] =
-          timeRemaining.toFixed(1);
       }
+      // Store frozen timer for all players to see
+      const start = currentRoom.gameState?.startTime || Date.now();
+      const duration = (currentRoom.gameState as any)?.timerDuration || 10;
+      const elapsed = (Date.now() - start) / 1000;
+      const frozenTime = Math.max(0, duration - elapsed);
+      updates["gameState/frozenTimeLeft"] = frozenTime;
+      console.log("[Death] Freezing timer at:", frozenTime.toFixed(1));
     } else {
       // Increment Room Score for correct answer
       if (user?.uid) {
@@ -1018,11 +1033,6 @@ const Play: React.FC = () => {
                   >
                     {p.name}
                   </span>
-                  {p.status === "eliminated" && (p as any).eliminatedAtTime && (
-                    <span className="text-xs text-red-400 font-mono ml-1">
-                      ({(p as any).eliminatedAtTime}s)
-                    </span>
-                  )}
                 </div>
                 <div className="text-center font-mono text-emerald-400">
                   {p.score || 0}
