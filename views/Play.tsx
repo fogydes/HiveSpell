@@ -76,7 +76,8 @@ const Play: React.FC = () => {
   // --- Gameplay State ---
   const [timeLeft, setTimeLeft] = useState(10);
   const [totalTime, setTotalTime] = useState(10);
-  const [streak, setStreak] = useState(0);
+  // Streak is now synced from room state, not local
+  const streak = currentRoom?.gameState?.streak || 0;
 
   // WPM & Stats State
   const [correctWords, setCorrectWords] = useState<WordStat[]>([]);
@@ -319,20 +320,7 @@ const Play: React.FC = () => {
     }
   }, [currentRoom?.status, currentRoom?.intermissionEndsAt]);
 
-  // Reset streak when new round starts (after intermission ends)
-  const prevStatusRef = useRef(currentRoom?.status);
-  useEffect(() => {
-    const prevStatus = prevStatusRef.current;
-    const newStatus = currentRoom?.status;
-
-    // If we just transitioned from intermission to playing, reset streak
-    if (prevStatus === "intermission" && newStatus === "playing") {
-      console.log("[Streak] New round started, resetting streak");
-      setStreak(0);
-    }
-
-    prevStatusRef.current = newStatus;
-  }, [currentRoom?.status]);
+  // Streak reset is now handled in Firebase (passTurn sets streak: 0 on intermission)
 
   // --- Game Loop Driver (Host/Driver ONLY) ---
   useEffect(() => {
@@ -603,11 +591,14 @@ const Play: React.FC = () => {
       updates["intermissionEndsAt"] = Date.now() + 15000;
       updates["gameState/currentWord"] = null;
       updates["gameState/currentTurnPlayerId"] = null;
+      updates["gameState/streak"] = 0; // Reset streak for new round
 
       // Award win to survivor
       if (aliveAfterThis.length === 1) {
         const winner = aliveAfterThis[0];
         console.log("[PassTurn] Winner:", winner.name);
+        updates["gameState/winnerId"] = winner.id;
+        updates["gameState/winnerName"] = winner.name;
         // Award win (side effect)
         (firebaseDatabase as any).runTransaction(
           dbRef(db, `users/${winner.id}/wins`),
@@ -737,8 +728,12 @@ const Play: React.FC = () => {
       }
 
       setFeedback({ type: "success", msg: "Correct!" });
-      setStreak((prev) => prev + 1);
-      await passTurn(false); // Advances turn to next player (same word)
+      // Increment room-wide streak in Firebase
+      const currentStreak = currentRoom?.gameState?.streak || 0;
+      await dbUpdate(dbRef(db, `rooms/${currentRoom?.id}/gameState`), {
+        streak: currentStreak + 1,
+      });
+      await passTurn(false); // Advances turn to next player
     } else {
       console.warn("Incorrect Answer");
       handleFail("Incorrect!", inputValue, currentWord);
@@ -840,9 +835,26 @@ const Play: React.FC = () => {
 
   const renderStatusMessage = () => {
     if (currentRoom?.status === "intermission") {
+      const winnerId = currentRoom.gameState?.winnerId;
+      const winnerName = currentRoom.gameState?.winnerName;
+      const amIWinner = winnerId === user?.uid;
+
       return (
-        <div className="text-white font-bold text-xl uppercase tracking-widest">
-          Intermission
+        <div className="text-center">
+          {winnerId ? (
+            <div
+              className={`font-black text-3xl uppercase tracking-widest mb-2 ${amIWinner ? "text-yellow-400 animate-pulse" : "text-white"}`}
+            >
+              {amIWinner ? "🏆 YOU WIN! 🏆" : `${winnerName} wins!`}
+            </div>
+          ) : (
+            <div className="text-white font-bold text-xl uppercase tracking-widest">
+              INTERMISSION
+            </div>
+          )}
+          <div className="text-slate-400 text-lg mt-2">
+            Next round in {intermissionTime}s
+          </div>
         </div>
       );
     }
