@@ -20,6 +20,8 @@ export const createRoom = async (
   hostName: string,
   settings: GameSettings,
   type: "public" | "private",
+  hostCorrects: number = 0,
+  hostWins: number = 0,
 ): Promise<string> => {
   const roomsRef = ref(db, "rooms");
   const newRoomRef = push(roomsRef);
@@ -48,15 +50,21 @@ export const createRoom = async (
 
   if (code) newRoom.code = code;
 
-  // Add host as player
+  // Add host as player with their actual stats
   newRoom.players[hostId] = {
     id: hostId,
     name: hostName,
     isHost: true,
     score: 0,
-    wins: 0,
+    corrects: hostCorrects,
+    wins: hostWins,
     status: "connected",
   };
+
+  console.log("[CreateRoom] Host stats in Firebase:", {
+    corrects: hostCorrects,
+    wins: hostWins,
+  });
 
   await set(newRoomRef, newRoom);
   return roomId;

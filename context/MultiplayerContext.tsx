@@ -91,9 +91,7 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
     setError(null);
     const hostName = userData?.username || "Player";
     try {
-      const roomId = await createRoom(user.uid, hostName, settings, type);
-
-      // Fetch FRESH user stats directly from Firebase (fixes mobile timing issues)
+      // Fetch FRESH user stats FIRST (fixes mobile timing issues)
       let freshCorrects = userData?.corrects || 0;
       let freshWins = userData?.wins || 0;
       try {
@@ -114,6 +112,16 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
           fetchErr,
         );
       }
+
+      // Create room with fresh stats
+      const roomId = await createRoom(
+        user.uid,
+        hostName,
+        settings,
+        type,
+        freshCorrects,
+        freshWins,
+      );
 
       setCurrentRoom({
         id: roomId,
