@@ -941,6 +941,30 @@ const Play: React.FC = () => {
 
         wpm = Math.round(normalizedWordCount / timeInMinutes);
 
+        // --- ANTI-CHEAT: WPM VALIDATION ---
+        // Threshold scales with word length:
+        // - Short words (1-4 chars): Higher WPM possible (up to 800)
+        // - Medium words (5-8 chars): Up to 600 WPM
+        // - Long words (9+ chars): Up to 400 WPM
+        // These are generous limits to avoid false positives
+        let maxAllowedWpm = 600; // Base threshold
+        if (wordLength <= 4) {
+          maxAllowedWpm = 800; // Short words can be typed very fast
+        } else if (wordLength <= 8) {
+          maxAllowedWpm = 600;
+        } else {
+          maxAllowedWpm = 400; // Long words are harder to type quickly
+        }
+
+        if (wpm > maxAllowedWpm) {
+          console.warn(
+            `[Anti-Cheat] Suspicious WPM detected: ${wpm} for "${currentWord}" (max: ${maxAllowedWpm})`,
+          );
+          setFeedback({ type: "error", msg: "Slow down, speed demon!" });
+          // Don't count this as correct, treat as suspicious
+          return;
+        }
+
         setLastBurstWpm(wpm);
         setCorrectWords((prev) => [...prev, { word: currentWord, wpm }]);
       }
