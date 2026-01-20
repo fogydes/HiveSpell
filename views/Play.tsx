@@ -993,7 +993,7 @@ const Play: React.FC = () => {
       await passTurn(false); // Advances turn to next player
     } else {
       console.warn("Incorrect Answer");
-      handleFail("Incorrect!", inputValue, currentWord);
+      await handleFail("Incorrect!", inputValue, currentWord);
     }
   };
 
