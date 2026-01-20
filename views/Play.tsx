@@ -815,8 +815,19 @@ const Play: React.FC = () => {
       activePlayersCount,
     );
 
+    // Log all player statuses for debugging
+    console.log(
+      "[PassTurn] All player statuses:",
+      playersList.map((p) => ({ id: p.id, name: p.name, status: p.status })),
+    );
+
     // Win Condition: only one player left AND there were multiple ACTIVE players (not spectators)
-    if (aliveAfterThis.length <= 1 && activePlayersCount > 1) {
+    const conditionMet = aliveAfterThis.length <= 1 && activePlayersCount > 1;
+    console.log(
+      `[PassTurn] WIN CONDITION CHECK: aliveAfterThis=${aliveAfterThis.length} <= 1 AND activePlayersCount=${activePlayersCount} > 1 => ${conditionMet}`,
+    );
+
+    if (conditionMet) {
       console.log("[PassTurn] Triggering intermission!");
       updates["status"] = "intermission";
       updates["intermissionEndsAt"] = Date.now() + 15000;
