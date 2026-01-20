@@ -344,6 +344,137 @@ const Play: React.FC = () => {
     }
   }, [currentRoom?.status, currentRoom?.intermissionEndsAt]);
 
+  // --- DISCONNECTED PLAYER TURN HANDLER (Driver Only) ---
+  // If the current turn player is disconnected, auto-eliminate them and pass turn
+  const disconnectedTurnHandlerRef = useRef(false);
+  useEffect(() => {
+    // Only game driver handles this
+    if (!isGameDriver) return;
+    if (!currentRoom || currentRoom.status !== "playing") return;
+
+    const currentTurnPlayerId = currentRoom.gameState?.currentTurnPlayerId;
+    if (!currentTurnPlayerId) return;
+
+    // Find the current turn player
+    const currentTurnPlayer = playersList.find(
+      (p) => p.id === currentTurnPlayerId,
+    );
+
+    // If current turn player is disconnected, auto-skip them
+    if (currentTurnPlayer?.status === "disconnected") {
+      // Prevent double-processing
+      if (disconnectedTurnHandlerRef.current) return;
+      disconnectedTurnHandlerRef.current = true;
+
+      console.log(
+        "[Driver] Current turn player is DISCONNECTED:",
+        currentTurnPlayerId,
+      );
+
+      // Mark them as eliminated and find next player
+      const roomId = currentRoom.id;
+      const turnOrder = currentRoom.gameState?.turnOrder || [];
+      const currentIndex = turnOrder.indexOf(currentTurnPlayerId);
+
+      // Get still-alive players (not disconnected, not eliminated)
+      const alivePlayers = playersList.filter(
+        (p) => p.status === "alive" || p.status === "connected",
+      );
+
+      console.log(
+        "[Driver] Alive players after disconnected skip:",
+        alivePlayers.map((p) => p.name),
+      );
+
+      // Check win condition (only one player left)
+      if (alivePlayers.length <= 1 && playersList.length > 1) {
+        console.log("[Driver] Only one player left, triggering intermission");
+        const updates: any = {
+          status: "intermission",
+          intermissionEndsAt: Date.now() + 15000,
+          "gameState/currentWord": null,
+          "gameState/currentTurnPlayerId": null,
+          "gameState/streak": 0,
+          [`players/${currentTurnPlayerId}/status`]: "eliminated",
+        };
+
+        if (alivePlayers.length === 1) {
+          const winner = alivePlayers[0];
+          updates["gameState/winnerId"] = winner.id;
+          updates["gameState/winnerName"] = winner.name;
+          // Award win
+          (firebaseDatabase as any).runTransaction(
+            dbRef(db, `users/${winner.id}/wins`),
+            (current: any) => (current || 0) + 1,
+          );
+        }
+
+        dbUpdate(dbRef(db, `rooms/${roomId}`), updates)
+          .then(() => {
+            console.log(
+              "[Driver] Intermission triggered due to disconnected player",
+            );
+            disconnectedTurnHandlerRef.current = false;
+          })
+          .catch((err) => {
+            console.error("[Driver] Failed to trigger intermission:", err);
+            disconnectedTurnHandlerRef.current = false;
+          });
+      } else {
+        // Find next alive player
+        let nextPlayerId = null;
+        for (let i = 1; i <= turnOrder.length; i++) {
+          const candidateIndex = (currentIndex + i) % turnOrder.length;
+          const candidateId = turnOrder[candidateIndex];
+          const candidate = alivePlayers.find((p) => p.id === candidateId);
+          if (candidate) {
+            nextPlayerId = candidateId;
+            break;
+          }
+        }
+
+        if (!nextPlayerId && alivePlayers.length > 0) {
+          nextPlayerId = alivePlayers[0].id;
+        }
+
+        console.log(
+          "[Driver] Skipping disconnected player, next turn:",
+          nextPlayerId,
+        );
+
+        // Update: mark disconnected as eliminated, set new word and next turn
+        const difficulty =
+          currentRoom.settings?.difficulty || paramMode || "baby";
+        const words = wordBank[difficulty];
+        const newWord = words[Math.floor(Math.random() * words.length)];
+        const wordLen = newWord.length;
+        const finalTime = Math.max(5, (2.0 + wordLen) * 1.0);
+
+        const updates: any = {
+          [`players/${currentTurnPlayerId}/status`]: "eliminated",
+          "gameState/currentWord": newWord,
+          "gameState/startTime": Date.now(),
+          "gameState/timerDuration": finalTime,
+          "gameState/currentTurnPlayerId": nextPlayerId,
+          "gameState/currentInput": "",
+        };
+
+        dbUpdate(dbRef(db, `rooms/${roomId}`), updates)
+          .then(() => {
+            console.log(
+              "[Driver] Skipped disconnected player, new word:",
+              newWord,
+            );
+            disconnectedTurnHandlerRef.current = false;
+          })
+          .catch((err) => {
+            console.error("[Driver] Failed to skip disconnected player:", err);
+            disconnectedTurnHandlerRef.current = false;
+          });
+      }
+    }
+  }, [isGameDriver, currentRoom, playersList]);
+
   // Streak reset is now handled in Firebase (passTurn sets streak: 0 on intermission)
 
   // --- Game Loop Driver (Host/Driver ONLY) ---
@@ -746,119 +877,6 @@ const Play: React.FC = () => {
         );
     }
   };
-
-  const handleSkipOfflineTurn = async (offlinePlayerId: string) => {
-    if (!currentRoom?.id) return;
-
-    console.log(`[Driver] Skipping offline player: ${offlinePlayerId}`);
-
-    const updates: any = {};
-    const roomId = currentRoom.id;
-
-    // Clear input
-    updates["gameState/currentInput"] = "";
-
-    // Calculate survival state
-    // "Alive" means physically connected and game-status alive
-    const aliveAfterThis = playersList.filter(
-      (p) =>
-        p.id !== offlinePlayerId &&
-        (p.status === "alive" || p.status === "connected"),
-    );
-
-    console.log(
-      "[SkipOffline] Alive players after skip:",
-      aliveAfterThis.map((p) => p.name),
-    );
-
-    if (aliveAfterThis.length <= 1 && playersList.length > 1) {
-      // Win Condition (Intermission)
-      updates["status"] = "intermission";
-      updates["intermissionEndsAt"] = Date.now() + 15000;
-      updates["gameState/currentWord"] = null;
-      updates["gameState/currentTurnPlayerId"] = null;
-      updates["gameState/streak"] = 0;
-
-      if (aliveAfterThis.length === 1) {
-        const winner = aliveAfterThis[0];
-        console.log("[SkipOffline] Winner by default:", winner.name);
-        updates["gameState/winnerId"] = winner.id;
-        updates["gameState/winnerName"] = winner.name;
-
-        try {
-          // Award win
-          await (firebaseDatabase as any).runTransaction(
-            dbRef(db, `users/${winner.id}/wins`),
-            (current: any) => (current || 0) + 1,
-          );
-        } catch (e) {
-          console.error("[SkipOffline] Failed to award win:", e);
-        }
-      }
-    } else {
-      // Find Next Player
-      const turnOrder = currentRoom.gameState?.turnOrder || [];
-      const currentIndex = turnOrder.indexOf(offlinePlayerId);
-
-      if (currentIndex !== -1) {
-        let nextIndex = (currentIndex + 1) % turnOrder.length;
-        let attempts = 0;
-        let nextPlayerId = null;
-
-        while (attempts < turnOrder.length) {
-          const candidateId = turnOrder[nextIndex];
-          const candidate = aliveAfterThis.find((p) => p.id === candidateId);
-          if (candidate) {
-            nextPlayerId = candidateId;
-            break;
-          }
-          nextIndex = (nextIndex + 1) % turnOrder.length;
-          attempts++;
-        }
-
-        if (nextPlayerId) {
-          console.log("[SkipOffline] Passing turn to:", nextPlayerId);
-          updates["gameState/currentTurnPlayerId"] = nextPlayerId;
-          updates["gameState/currentWord"] = null; // Driver will pick new word
-          updates["gameState/startTime"] = null;
-          updates["gameState/timerDuration"] = null;
-        }
-      }
-    }
-
-    try {
-      await dbUpdate(dbRef(db, `rooms/${roomId}`), updates);
-    } catch (err) {
-      console.error("[SkipOffline] Failed to update game state:", err);
-    }
-  };
-
-  // --- DRIVER: Monitor for Offline Players in Turn ---
-  useEffect(() => {
-    if (
-      !isGameDriver ||
-      !currentRoom?.gameState?.currentTurnPlayerId ||
-      currentRoom.status !== "playing"
-    )
-      return;
-
-    const currentTurnId = currentRoom.gameState.currentTurnPlayerId;
-    const currentPlayer = playersList.find((p) => p.id === currentTurnId);
-
-    // If turn player is disconnected or missing from list entirely
-    if (!currentPlayer || currentPlayer.status === "disconnected") {
-      const reason = !currentPlayer ? "missing" : "disconnected";
-      console.log(
-        `[Driver] Detected ${reason} player holding turn: ${currentTurnId}. Force skipping.`,
-      );
-      handleSkipOfflineTurn(currentTurnId);
-    }
-  }, [
-    currentRoom?.gameState?.currentTurnPlayerId,
-    playersList,
-    isGameDriver,
-    currentRoom?.status,
-  ]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
