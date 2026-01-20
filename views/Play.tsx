@@ -891,6 +891,7 @@ const Play: React.FC = () => {
 
     if (checkAnswer(currentWord, inputValue.trim())) {
       // --- BURST WPM CALCULATION ---
+      let wpm = 0;
       if (startTime) {
         const now = Date.now();
         const timeTakenMs = now - startTime;
@@ -899,17 +900,18 @@ const Play: React.FC = () => {
         const wordLength = currentWord.length;
         const normalizedWordCount = wordLength / 4;
 
-        const wpm = Math.round(normalizedWordCount / timeInMinutes);
+        wpm = Math.round(normalizedWordCount / timeInMinutes);
 
         setLastBurstWpm(wpm);
         setCorrectWords((prev) => [...prev, { word: currentWord, wpm }]);
       }
 
       setFeedback({ type: "success", msg: "Correct!" });
-      // Increment room-wide streak in Firebase
+      // Increment room-wide streak and sync WPM in Firebase
       const currentStreak = currentRoom?.gameState?.streak || 0;
       await dbUpdate(dbRef(db, `rooms/${currentRoom?.id}/gameState`), {
         streak: currentStreak + 1,
+        currentPlayerWpm: wpm,
       });
       await passTurn(false); // Advances turn to next player
     } else {
@@ -1253,7 +1255,9 @@ const Play: React.FC = () => {
 
           <div className="text-center">
             <div className="text-emerald-400 text-xl sm:text-2xl mb-1 flex flex-col items-center leading-none">
-              <span>{lastBurstWpm}</span>
+              <span>
+                {currentRoom?.gameState?.currentPlayerWpm || lastBurstWpm || 0}
+              </span>
             </div>
             <div>WPM</div>
           </div>
