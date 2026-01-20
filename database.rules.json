@@ -47,7 +47,7 @@
         },
         "players": {
           "$playerId": {
-            ".write": "auth != null && data.parent().parent().child('players').child(auth.uid).exists()"
+            ".write": "auth != null && ($playerId === auth.uid || data.parent().parent().child('players').child(auth.uid).exists())"
           }
         }
       }
