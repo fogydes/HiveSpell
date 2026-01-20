@@ -235,25 +235,35 @@ const Play: React.FC = () => {
   const isGameDriver = React.useMemo(() => {
     if (!currentRoom || playersList.length === 0 || !user) return false;
 
-    // Check if host is still connected
-    const host = playersList.find((p) => p.id === currentRoom.hostId);
-    const hostIsConnected =
-      host && (host.status === "connected" || host.status === "alive");
+    // During intermission, eliminated players can also be driver (to restart the round)
+    const isIntermission = currentRoom.status === "intermission";
 
-    // If host is connected and I am the host, I am driver
-    if (hostIsConnected && currentRoom.hostId === user.uid) {
-      console.log("[Driver] I am HOST and connected, so I am driver.");
+    // Check if host is still in the game (connected, alive, or eliminated but not disconnected)
+    const host = playersList.find((p) => p.id === currentRoom.hostId);
+    const hostIsActive =
+      host &&
+      (host.status === "connected" ||
+        host.status === "alive" ||
+        (isIntermission && host.status === "eliminated"));
+
+    // If host is active and I am the host, I am driver
+    if (hostIsActive && currentRoom.hostId === user.uid) {
+      console.log("[Driver] I am HOST and active, so I am driver.");
       return true;
     }
 
-    // If host is disconnected, first CONNECTED player becomes driver (host migration)
-    if (!hostIsConnected) {
-      const connectedPlayers = playersList.filter(
-        (p) => p.status === "connected" || p.status === "alive",
+    // If host is not active, first ACTIVE player becomes driver (host migration)
+    if (!hostIsActive) {
+      // During intermission, include eliminated players in the pool
+      const activePlayers = playersList.filter(
+        (p) =>
+          p.status === "connected" ||
+          p.status === "alive" ||
+          (isIntermission && p.status === "eliminated"),
       );
-      if (connectedPlayers.length > 0 && connectedPlayers[0].id === user.uid) {
+      if (activePlayers.length > 0 && activePlayers[0].id === user.uid) {
         console.log(
-          "[Driver] HOST DISCONNECTED - I am first connected player, becoming driver.",
+          "[Driver] HOST INACTIVE - I am first active player, becoming driver.",
         );
         return true;
       }
