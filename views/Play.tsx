@@ -821,10 +821,14 @@ const Play: React.FC = () => {
       playersList.map((p) => ({ id: p.id, name: p.name, status: p.status })),
     );
 
-    // Win Condition: only one player left AND there were multiple ACTIVE players (not spectators)
-    const conditionMet = aliveAfterThis.length <= 1 && activePlayersCount > 1;
+    // Win Condition:
+    // 1. Only one player left AND there were multiple ACTIVE players (someone won)
+    // 2. OR no players left alive at all (everyone got eliminated - edge case)
+    const someoneWon = aliveAfterThis.length === 1 && activePlayersCount > 1;
+    const everyoneEliminated = aliveAfterThis.length === 0;
+    const conditionMet = someoneWon || everyoneEliminated;
     console.log(
-      `[PassTurn] WIN CONDITION CHECK: aliveAfterThis=${aliveAfterThis.length} <= 1 AND activePlayersCount=${activePlayersCount} > 1 => ${conditionMet}`,
+      `[PassTurn] WIN CONDITION CHECK: someoneWon=${someoneWon} (alive=${aliveAfterThis.length}, active=${activePlayersCount}) OR everyoneEliminated=${everyoneEliminated} => ${conditionMet}`,
     );
 
     if (conditionMet) {
