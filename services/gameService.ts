@@ -1056,6 +1056,26 @@ export const wordBank: Record<string, string[]> = {
   omniscient,
 };
 
+// Determine which difficulty a word belongs to (for dynamic stars in Omniscient mode)
+// Returns the HIGHEST difficulty the word appears in (for words that appear in multiple lists)
+export const getWordDifficulty = (word: string): string => {
+  const lowerWord = word.toLowerCase();
+
+  // Check in order from hardest to easiest so we return the highest difficulty
+  if (polymath.map((w) => w.toLowerCase()).includes(lowerWord))
+    return "polymath";
+  if (genius.map((w) => w.toLowerCase()).includes(lowerWord)) return "genius";
+  if (heated.map((w) => w.toLowerCase()).includes(lowerWord)) return "heated";
+  if (intermediate.map((w) => w.toLowerCase()).includes(lowerWord))
+    return "intermediate";
+  if (learner.map((w) => w.toLowerCase()).includes(lowerWord)) return "learner";
+  if (cakewalk.map((w) => w.toLowerCase()).includes(lowerWord))
+    return "cakewalk";
+  if (baby.map((w) => w.toLowerCase()).includes(lowerWord)) return "baby";
+
+  return "baby"; // fallback
+};
+
 const HOMOPHONES: Record<string, string[]> = {
   air: ["heir"],
   heir: ["air"],

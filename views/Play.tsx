@@ -12,6 +12,7 @@ import {
   stopAudio,
   MODE_ORDER,
   getTitle,
+  getWordDifficulty,
 } from "../services/gameService";
 import { db } from "../firebase";
 import * as firebaseDatabase from "firebase/database";
@@ -916,10 +917,20 @@ const Play: React.FC = () => {
         heated: 14,
         genius: 16,
         polymath: 18,
-        omniscient: 20,
       };
-      const difficulty =
+
+      let difficulty =
         currentRoom.settings?.difficulty?.toLowerCase() || "baby";
+
+      // For Omniscient mode, determine stars based on the word's original difficulty
+      if (difficulty === "omniscient") {
+        const wordOriginalDifficulty = getWordDifficulty(currentWord);
+        difficulty = wordOriginalDifficulty;
+        console.log(
+          `[Stats] Omniscient mode: word "${currentWord}" belongs to "${wordOriginalDifficulty}"`,
+        );
+      }
+
       const starsToAdd = difficultyStars[difficulty] || 6;
 
       console.log(
