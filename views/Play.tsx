@@ -233,17 +233,32 @@ const Play: React.FC = () => {
 
   // --- HELPER: Identify Roles ---
   const isGameDriver = React.useMemo(() => {
-    if (!currentRoom || playersList.length === 0) return false;
-    // Host is driver
-    if (user && currentRoom.hostId === user.uid) {
-      console.log("[Driver] I am HOST, so I am driver.");
+    if (!currentRoom || playersList.length === 0 || !user) return false;
+
+    // Check if host is still connected
+    const host = playersList.find((p) => p.id === currentRoom.hostId);
+    const hostIsConnected =
+      host && (host.status === "connected" || host.status === "alive");
+
+    // If host is connected and I am the host, I am driver
+    if (hostIsConnected && currentRoom.hostId === user.uid) {
+      console.log("[Driver] I am HOST and connected, so I am driver.");
       return true;
     }
-    // Fallback: First joiner is driver
-    if (user && playersList[0].id === user.uid) {
-      console.log("[Driver] I am FIRST PLAYER, so I am driver.");
-      return true;
+
+    // If host is disconnected, first CONNECTED player becomes driver (host migration)
+    if (!hostIsConnected) {
+      const connectedPlayers = playersList.filter(
+        (p) => p.status === "connected" || p.status === "alive",
+      );
+      if (connectedPlayers.length > 0 && connectedPlayers[0].id === user.uid) {
+        console.log(
+          "[Driver] HOST DISCONNECTED - I am first connected player, becoming driver.",
+        );
+        return true;
+      }
     }
+
     return false;
   }, [currentRoom, playersList, user]);
 
@@ -511,8 +526,25 @@ const Play: React.FC = () => {
       const difficulty =
         currentRoom.settings?.difficulty || paramMode || "baby";
       console.log("[Driver] Setting new word for difficulty:", difficulty);
-      const words = wordBank[difficulty];
-      const newWord = words[Math.floor(Math.random() * words.length)];
+      const allWords = wordBank[difficulty];
+
+      // Get recently used words from gameState (max 20 to avoid stale data)
+      const recentWords: string[] = currentRoom.gameState?.recentWords || [];
+
+      // Filter out recently used words for better randomness
+      let availableWords = allWords.filter(
+        (w) => !recentWords.includes(w.toLowerCase()),
+      );
+
+      // If all words have been used recently, reset (shouldn't happen with large word banks)
+      if (availableWords.length === 0) {
+        console.log("[Driver] All words used recently, resetting pool");
+        availableWords = allWords;
+      }
+
+      // Pick a random word from available pool
+      const newWord =
+        availableWords[Math.floor(Math.random() * availableWords.length)];
 
       const wordLen = newWord.length;
       const decay = 1.0;
@@ -537,12 +569,19 @@ const Play: React.FC = () => {
 
       // Build update - DON'T overwrite currentTurnPlayerId if it's already set
       // passTurn sets the turn, driver just sets the word
+
+      // Maintain recently used words (keep last 20 for randomness)
+      const updatedRecentWords = [...recentWords, newWord.toLowerCase()].slice(
+        -20,
+      );
+
       const updateData: any = {
         currentWord: newWord,
         startTime: startTime,
         timerDuration: finalTime,
         turnOrder: turnOrder,
         currentInput: "",
+        recentWords: updatedRecentWords,
       };
 
       // Only set first turn player if NO turn is currently set (start of new round)
