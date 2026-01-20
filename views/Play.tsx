@@ -801,8 +801,18 @@ const Play: React.FC = () => {
       playersList.length,
     );
 
-    // Win Condition: only one player left AND there were multiple players
-    if (aliveAfterThis.length <= 1 && playersList.length > 1) {
+    // Count active players (those who were actually playing, not spectating)
+    const activePlayersCount = playersList.filter(
+      (p) => p.status !== "spectating" && p.status !== "disconnected",
+    ).length;
+
+    console.log(
+      "[PassTurn] Active players (non-spectators) count:",
+      activePlayersCount,
+    );
+
+    // Win Condition: only one player left AND there were multiple ACTIVE players (not spectators)
+    if (aliveAfterThis.length <= 1 && activePlayersCount > 1) {
       console.log("[PassTurn] Triggering intermission!");
       updates["status"] = "intermission";
       updates["intermissionEndsAt"] = Date.now() + 15000;
