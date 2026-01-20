@@ -631,11 +631,15 @@ const Play: React.FC = () => {
         const updates: any = {
           status: "playing",
           intermissionEndsAt: null,
-          gameState: {
-            currentWord: null, // this will trigger logic A above
-            currentWordIndex: 0,
-            startTime: 0,
-          },
+          // Use path-based updates to preserve other gameState fields
+          "gameState/currentWord": null, // this will trigger logic A above
+          "gameState/currentWordIndex": 0,
+          "gameState/startTime": 0,
+          "gameState/currentTurnPlayerId": null,
+          "gameState/winnerId": null,
+          "gameState/winnerName": null,
+          "gameState/frozenTimeLeft": null,
+          "gameState/currentInput": "",
         };
 
         // REVIVE ALL LOGIC
