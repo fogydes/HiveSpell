@@ -561,10 +561,10 @@ const Play: React.FC = () => {
       const finalTime = Math.max(5, (2.0 + wordLen) * decay);
       const startTime = Date.now();
 
-      // Calculate turn order: alive/connected players, sorted by join time
-      const alivePlayers = playersList.filter(
-        (p) => p.status === "alive" || p.status === "connected",
-      );
+      // Calculate turn order: alive/connected players, sorted by join time (earliest first)
+      const alivePlayers = playersList
+        .filter((p) => p.status === "alive" || p.status === "connected")
+        .sort((a, b) => (a.joinedAt || 0) - (b.joinedAt || 0)); // Sort by join time ascending
       const turnOrder = alivePlayers.map((p) => p.id);
 
       // Check if there's already a turn set (passTurn sets this before triggering new word)
@@ -652,10 +652,12 @@ const Play: React.FC = () => {
           "gameState/currentInput": "",
         };
 
-        // REVIVE ALL LOGIC
-        playersList.forEach((p) => {
-          updates[`players/${p.id}/status`] = "alive";
-        });
+        // REVIVE ALL NON-DISCONNECTED PLAYERS (don't revive players who left)
+        playersList
+          .filter((p) => p.status !== "disconnected")
+          .forEach((p) => {
+            updates[`players/${p.id}/status`] = "alive";
+          });
 
         dbUpdate(dbRef(db, `rooms/${currentRoom.id}`), updates);
       };
@@ -913,7 +915,8 @@ const Play: React.FC = () => {
         intermediate: 12,
         heated: 14,
         genius: 16,
-        omniscient: 18,
+        polymath: 18,
+        omniscient: 20,
       };
       const difficulty =
         currentRoom.settings?.difficulty?.toLowerCase() || "baby";

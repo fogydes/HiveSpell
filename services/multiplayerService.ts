@@ -89,7 +89,7 @@ export const joinRoom = async (
   const initialStatus = isGameRunning ? "spectating" : "connected";
 
   // Check for existing player data to persist stats (score/wins only, NOT status)
-  let finalPlayer = { ...player, status: initialStatus };
+  let finalPlayer = { ...player, status: initialStatus, joinedAt: Date.now() };
 
   if (roomVal.players && roomVal.players[player.id]) {
     const existing = roomVal.players[player.id];
@@ -99,6 +99,7 @@ export const joinRoom = async (
     finalPlayer = {
       ...finalPlayer,
       score: existing.score || 0, // Only preserve room score
+      joinedAt: existing.joinedAt || finalPlayer.joinedAt, // Preserve original join time
       // corrects and wins come fresh from user profile on join, don't overwrite
     };
   }

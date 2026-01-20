@@ -29,7 +29,7 @@ The multiplayer experience allows for public lobbies or private rooms with frien
 
 - **Streak System:** Correct answers build a room-wide streak multiplier.
 - **Persistent Stats:** Tracks your total correct words and wins across sessions.
-- **Difficulty Tiers:** ranges from simple words ("Baby") to complex vocabulary ("Omniscient").
+- **Difficulty Tiers:** ranges from simple words ("Baby") to complex vocabulary ("Polymath").
 
 ## Technology Stack
 

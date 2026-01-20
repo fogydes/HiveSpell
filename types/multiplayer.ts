@@ -6,6 +6,7 @@ export interface Player {
   corrects: number; // Global corrects from user profile
   wins: number; // Global wins from user profile
   status: "alive" | "eliminated" | "spectating" | "connected" | "disconnected";
+  joinedAt?: number; // Timestamp when player joined the room (for turn order)
 }
 
 export interface GameSettings {
