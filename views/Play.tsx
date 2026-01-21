@@ -76,11 +76,25 @@ const Play: React.FC = () => {
   }, [currentRoom, contextLoading, navigate]);
 
   // Handle page reload and back button - disconnect player
+  // Also use Firebase onDisconnect for reliable disconnect detection
   useEffect(() => {
     if (!currentRoom?.id || !user?.uid) return;
 
+    const playerStatusRef = dbRef(
+      db,
+      `rooms/${currentRoom.id}/players/${user.uid}/status`,
+    );
+
+    // Set up Firebase onDisconnect - this will automatically run on the server
+    // when the client disconnects, even if they close the tab abruptly
+    const onDisconnectRef = (firebaseDatabase as any).onDisconnect(
+      playerStatusRef,
+    );
+    onDisconnectRef.set("disconnected");
+    console.log("[Play] onDisconnect hook set up for player:", user.uid);
+
     const handleBeforeUnload = () => {
-      // Synchronous leaveRoom for page reload/close
+      // Try synchronous leaveRoom for page reload/close (may not complete)
       leaveRoom(currentRoom.id, user.uid);
     };
 
@@ -95,6 +109,8 @@ const Play: React.FC = () => {
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
       window.removeEventListener("popstate", handlePopState);
+      // Cancel the onDisconnect when component unmounts normally (e.g., navigate away)
+      onDisconnectRef.cancel();
     };
   }, [currentRoom?.id, user?.uid]);
 
@@ -500,6 +516,157 @@ const Play: React.FC = () => {
       }
     }
   }, [isGameDriver, currentRoom, playersList]);
+
+  // --- TIMER EXPIRATION HANDLER (Driver Only) ---
+  // If timer expires and current turn player hasn't acted, auto-fail them
+  // This handles cases where player disconnects but status hasn't updated yet
+  const timerExpirationRef = useRef(false);
+  useEffect(() => {
+    if (!isGameDriver) return;
+    if (!currentRoom || currentRoom.status !== "playing") return;
+
+    const startTime = currentRoom.gameState?.startTime;
+    const timerDuration = (currentRoom.gameState as any)?.timerDuration;
+    const currentTurnPlayerId = currentRoom.gameState?.currentTurnPlayerId;
+
+    if (!startTime || !timerDuration || !currentTurnPlayerId) return;
+
+    // Calculate if timer has expired
+    const elapsed = (Date.now() - startTime) / 1000;
+    const remaining = timerDuration - elapsed;
+
+    // Only trigger if timer is expired (with 0.5s grace period)
+    if (remaining > -0.5) return;
+
+    // Prevent double-processing
+    if (timerExpirationRef.current) return;
+    timerExpirationRef.current = true;
+
+    console.log(
+      "[Driver] TIMER EXPIRED for player:",
+      currentTurnPlayerId,
+      "Remaining:",
+      remaining,
+    );
+
+    // Find current turn player
+    const currentTurnPlayer = playersList.find(
+      (p) => p.id === currentTurnPlayerId,
+    );
+
+    // If player is disconnected OR they haven't responded, fail them
+    const roomId = currentRoom.id;
+    const turnOrder = currentRoom.gameState?.turnOrder || [];
+    const currentIndex = turnOrder.indexOf(currentTurnPlayerId);
+
+    // Get still-alive players (not disconnected, not eliminated, and not the failing player)
+    const alivePlayers = playersList.filter(
+      (p) =>
+        (p.status === "alive" || p.status === "connected") &&
+        p.id !== currentTurnPlayerId,
+    );
+
+    console.log(
+      "[Driver] Timer expired - alive players after elimination:",
+      alivePlayers.map((p) => p.name),
+    );
+
+    // Check win condition (only one or zero players left)
+    const shouldTriggerIntermission =
+      alivePlayers.length <= 1 || playersList.length === 1;
+
+    if (shouldTriggerIntermission) {
+      console.log("[Driver] Timer expiration -> triggering intermission");
+      const updates: any = {
+        status: "intermission",
+        intermissionEndsAt: Date.now() + 15000,
+        "gameState/currentWord": null,
+        "gameState/currentTurnPlayerId": null,
+        "gameState/streak": 0,
+        [`players/${currentTurnPlayerId}/status`]: "eliminated",
+      };
+
+      if (alivePlayers.length === 1) {
+        const winner = alivePlayers[0];
+        updates["gameState/winnerId"] = winner.id;
+        updates["gameState/winnerName"] = winner.name;
+        // Award win
+        (firebaseDatabase as any).runTransaction(
+          dbRef(db, `users/${winner.id}/wins`),
+          (current: any) => (current || 0) + 1,
+        );
+      }
+
+      dbUpdate(dbRef(db, `rooms/${roomId}`), updates)
+        .then(() => {
+          console.log(
+            "[Driver] Intermission triggered due to timer expiration",
+          );
+          timerExpirationRef.current = false;
+        })
+        .catch((err) => {
+          console.error("[Driver] Failed to trigger intermission:", err);
+          timerExpirationRef.current = false;
+        });
+    } else {
+      // Find next alive player
+      let nextPlayerId = null;
+      for (let i = 1; i <= turnOrder.length; i++) {
+        const candidateIndex = (currentIndex + i) % turnOrder.length;
+        const candidateId = turnOrder[candidateIndex];
+        const candidate = alivePlayers.find((p) => p.id === candidateId);
+        if (candidate) {
+          nextPlayerId = candidateId;
+          break;
+        }
+      }
+
+      if (!nextPlayerId && alivePlayers.length > 0) {
+        nextPlayerId = alivePlayers[0].id;
+      }
+
+      console.log(
+        "[Driver] Timer expired, passing to next player:",
+        nextPlayerId,
+      );
+
+      // Set new word and pass turn
+      const difficulty =
+        currentRoom.settings?.difficulty || paramMode || "baby";
+      const words = wordBank[difficulty];
+      const newWord = words[Math.floor(Math.random() * words.length)];
+      const wordLen = newWord.length;
+      const finalTime = Math.max(5, (2.0 + wordLen) * 1.0);
+
+      const updates: any = {
+        [`players/${currentTurnPlayerId}/status`]: "eliminated",
+        "gameState/currentWord": newWord,
+        "gameState/startTime": Date.now(),
+        "gameState/timerDuration": finalTime,
+        "gameState/currentTurnPlayerId": nextPlayerId,
+        "gameState/currentInput": "",
+      };
+
+      dbUpdate(dbRef(db, `rooms/${roomId}`), updates)
+        .then(() => {
+          console.log(
+            "[Driver] Timer expired -> passed turn to:",
+            nextPlayerId,
+          );
+          timerExpirationRef.current = false;
+        })
+        .catch((err) => {
+          console.error("[Driver] Failed to pass turn after timeout:", err);
+          timerExpirationRef.current = false;
+        });
+    }
+  }, [
+    isGameDriver,
+    currentRoom?.status,
+    currentRoom?.gameState?.startTime,
+    currentRoom?.gameState?.currentTurnPlayerId,
+    playersList,
+  ]);
 
   // Streak reset is now handled in Firebase (passTurn sets streak: 0 on intermission)
 
