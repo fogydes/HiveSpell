@@ -112,27 +112,19 @@ export const leaveRoom = async (
   roomId: string,
   playerId: string,
 ): Promise<void> => {
-  const playerRef = ref(db, `rooms/${roomId}/players/${playerId}`);
-  // Mark player as disconnected
-  await update(playerRef, { status: "disconnected" });
+  try {
+    const playerRef = ref(db, `rooms/${roomId}/players/${playerId}`);
+    // Mark player as disconnected
+    await update(playerRef, { status: "disconnected" });
+    console.log(`[LeaveRoom] Marked player ${playerId} as disconnected`);
 
-  // Check if all players are now disconnected - if so, delete the room
-  const roomRef = ref(db, `rooms/${roomId}`);
-  const roomSnap = await get(roomRef);
-
-  if (roomSnap.exists()) {
-    const roomData = roomSnap.val();
-    const players = roomData.players || {};
-    const allDisconnected = Object.values(players).every(
-      (p: any) => p.status === "disconnected",
-    );
-
-    if (allDisconnected) {
-      console.log(
-        `[LeaveRoom] All players disconnected, deleting room: ${roomId}`,
-      );
-      await remove(roomRef);
-    }
+    // DON'T automatically delete the room here - let Firebase's onDisconnect
+    // and the game driver handle cleanup. Deleting the room immediately
+    // can cause race conditions where remaining players lose their connection.
+    // Room cleanup should happen when ALL players have been disconnected for a while,
+    // not immediately when one player leaves.
+  } catch (err) {
+    console.error(`[LeaveRoom] Error leaving room:`, err);
   }
 };
 
