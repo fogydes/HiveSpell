@@ -12,6 +12,7 @@ import {
   onValue,
   off,
   remove,
+  onDisconnect,
 } from "firebase/database";
 import { Room, Player, GameSettings } from "../types/multiplayer";
 
@@ -106,6 +107,9 @@ export const joinRoom = async (
 
   const playerRef = ref(db, `rooms/${roomId}/players/${player.id}`);
   await set(playerRef, finalPlayer);
+
+  // Register onDisconnect handler to mark player as disconnected if they lose connection/close tab
+  await onDisconnect(playerRef).update({ status: "disconnected" });
 };
 
 export const leaveRoom = async (

@@ -101,13 +101,13 @@ const Lobby: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen pt-24 p-6 flex flex-col items-center bg-slate-900 pb-24">
+    <div className="min-h-screen pt-24 p-6 flex flex-col items-center bg-app pb-24">
       {/* Difficulty Selection UI */}
       <div className="w-full max-w-6xl text-center mb-10">
-        <h2 className="text-4xl font-extrabold text-white mb-2 tracking-tight">
+        <h2 className="text-4xl font-extrabold text-text-main mb-2 tracking-tight">
           Select Difficulty
         </h2>
-        <p className="text-slate-400">
+        <p className="text-text-muted">
           Choose your challenge level to enter the hive.
         </p>
       </div>
@@ -116,13 +116,13 @@ const Lobby: React.FC = () => {
         {modes.map((mode) => (
           <div
             key={mode}
-            className={`bg-slate-800 border-2 rounded-2xl p-6 flex flex-col justify-between transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-black/50 group ${getModeColor(mode)}`}
+            className={`bg-panel border-2 rounded-2xl p-6 flex flex-col justify-between transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-app/50 group ${getModeColor(mode)}`}
           >
             <div className="mb-6">
               <h3 className="text-2xl font-black capitalize mb-2 tracking-wide">
                 {mode}
               </h3>
-              <p className="text-slate-400 text-sm font-medium">
+              <p className="text-text-muted text-sm font-medium">
                 {wordBank[mode].length} Words Available
               </p>
             </div>
@@ -131,14 +131,14 @@ const Lobby: React.FC = () => {
               <button
                 disabled={loading}
                 onClick={() => handleStartPublic(mode)}
-                className="w-full py-3 bg-slate-700 group-hover:bg-white group-hover:text-slate-900 text-white rounded-lg font-bold text-sm tracking-wider transition-colors uppercase disabled:opacity-50 disabled:cursor-wait"
+                className="w-full py-3 bg-surface group-hover:bg-text-main group-hover:text-app text-text-main rounded-lg font-bold text-sm tracking-wider transition-colors uppercase disabled:opacity-50 disabled:cursor-wait"
               >
                 {loading ? "Connecting..." : "Public Match"}
               </button>
               <button
                 disabled={loading}
                 onClick={() => handleCreatePrivate(mode)}
-                className="w-full py-2 bg-transparent border border-slate-600 text-slate-400 hover:text-white hover:border-white rounded-lg text-xs font-bold transition-colors uppercase disabled:opacity-50 disabled:cursor-wait"
+                className="w-full py-2 bg-transparent border border-surface text-text-muted hover:text-text-main hover:border-text-main rounded-lg text-xs font-bold transition-colors uppercase disabled:opacity-50 disabled:cursor-wait"
               >
                 Create Private
               </button>
@@ -147,12 +147,12 @@ const Lobby: React.FC = () => {
         ))}
       </div>
 
-      <div className="fixed bottom-0 left-0 w-full bg-slate-900/80 backdrop-blur-xl border-t border-slate-700 p-6 flex justify-center z-40">
+      <div className="fixed bottom-0 left-0 w-full bg-panel/80 backdrop-blur-xl border-t border-surface p-6 flex justify-center z-40">
         <form
           onSubmit={handleJoinPrivate}
-          className="flex items-center gap-3 w-full max-w-lg bg-slate-800 p-2 rounded-xl border border-slate-600 focus-within:border-emerald-500 transition-colors"
+          className="flex items-center gap-3 w-full max-w-lg bg-panel p-2 rounded-xl border border-surface focus-within:border-primary transition-colors"
         >
-          <div className="pl-3 text-slate-400">
+          <div className="pl-3 text-text-muted">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="h-6 w-6"
@@ -173,12 +173,12 @@ const Lobby: React.FC = () => {
             placeholder="ENTER PRIVATE CODE"
             value={joinCode}
             onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-            className="flex-1 bg-transparent text-white placeholder-slate-500 focus:outline-none font-mono text-lg tracking-widest uppercase"
+            className="flex-1 bg-transparent text-text-main placeholder-text-muted focus:outline-none font-mono text-lg tracking-widest uppercase"
           />
           <button
             type="submit"
             disabled={loading}
-            className="bg-emerald-500 hover:bg-emerald-400 text-slate-900 px-6 py-2 rounded-lg font-bold transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-wait"
+            className="bg-primary hover:bg-primary-dim text-app px-6 py-2 rounded-lg font-bold transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-wait"
           >
             {loading ? "..." : "JOIN"}
           </button>

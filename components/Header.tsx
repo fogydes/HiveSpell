@@ -1,11 +1,15 @@
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
+import { Shop } from "../views/Shop";
+import { Stash } from "../views/Stash";
+import { ProfileModal } from "./ProfileModal";
 import { auth, db } from "../firebase";
 // Fix: Use namespace import for Auth and cast to any to resolve signOut export error
 import * as firebaseAuth from "firebase/auth";
 import * as firebaseDatabase from "firebase/database";
 import { useNavigate, useLocation } from "react-router-dom";
+import { supabase } from "../services/supabase";
 
 // Fix: Destructure signOut from namespace
 const { signOut } = firebaseAuth as any;
@@ -14,7 +18,8 @@ const { ref, get, query, orderByChild, limitToLast } = firebaseDatabase as any;
 
 const Header: React.FC = () => {
   const { userData, user } = useAuth();
-  const { ttsVolume, setTtsVolume, sfxVolume, setSfxVolume } = useSettings();
+  const { ttsVolume, setTtsVolume, sfxVolume, setSfxVolume, theme, setTheme } =
+    useSettings();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -24,6 +29,9 @@ const Header: React.FC = () => {
   const [showInventory, setShowInventory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(
+    null,
+  );
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [leaderboardData, setLeaderboardData] = useState<
@@ -47,64 +55,26 @@ const Header: React.FC = () => {
     setLeaderboardData([]);
 
     try {
-      // Query top 50 scores
-      const usersQuery = query(
-        ref(db, "users"),
-        orderByChild("corrects"),
-        limitToLast(50),
-      );
-      const snapshot = await get(usersQuery);
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, username, corrects, wins")
+        .order("corrects", { ascending: false })
+        .limit(25);
 
-      if (snapshot.exists()) {
-        const entries: Array<{
-          uid: string;
-          name: string;
-          corrects: number;
-          wins: number;
-        }> = [];
+      if (error) throw error;
 
-        // Iterate through the snapshot.
-        // The key of each child IS the User UID. Uniqueness is guaranteed by Firebase.
-        snapshot.forEach((childSnapshot: any) => {
-          const uid = childSnapshot.key;
-          const u = childSnapshot.val();
-
-          const name =
-            u.username || (u.email ? u.email.split("@")[0] : "Player");
-
-          // Basic validation:
-          // 1. UID exists (implicit)
-          // 2. Name is not a default placeholder
-          // 3. User is not 'Unknown'
-          // 4. User has at least 1 correct (filter out fresh accounts)
-          const hasScore = (u.corrects || 0) > 0;
-          if (name !== "Player" && name !== "Unknown" && hasScore) {
-            entries.push({
-              uid: uid,
-              name: name,
-              corrects: u.corrects || 0,
-              wins: u.wins || 0,
-            });
-          }
-        });
-
-        // Sort by score Descending (High to Low)
-        // Firebase limitToLast returns them in ascending order of score, so we must reverse/sort.
-        entries.sort((a, b) => b.corrects - a.corrects);
-
-        // Take top 25
-        setLeaderboardData(entries.slice(0, 25));
+      if (data) {
+        const entries = data.map((profile: any) => ({
+          uid: profile.id,
+          name: profile.username || "Unknown Bee",
+          corrects: profile.corrects || 0,
+          wins: profile.wins || 0,
+        }));
+        setLeaderboardData(entries);
       }
     } catch (error) {
-      console.error("Leaderboard access denied:", error);
-      setLeaderboardData([
-        {
-          uid: "error",
-          name: "Access Denied (Check Rules)",
-          corrects: 0,
-          wins: 0,
-        },
-      ]);
+      console.error("Leaderboard fetch failed:", error);
+      // Fallback or error state
     } finally {
       setLoadingLeaderboard(false);
     }
@@ -121,13 +91,16 @@ const Header: React.FC = () => {
       {/* Top Header: Stats & Profile Only */}
       <header className="fixed top-0 left-0 w-full p-4 flex justify-between items-start z-50 pointer-events-none">
         {/* Left: Stats */}
-        <div className="flex items-center gap-3 bg-emerald-900/40 backdrop-blur-md border border-emerald-500/30 rounded-full px-5 py-2 pointer-events-auto shadow-lg shadow-emerald-900/20">
-          <span className="text-xl">✨</span>
-          <span className="text-emerald-100 font-bold font-mono text-lg">
-            {userData?.stars || 0}
+        <div className="flex items-center gap-3 bg-panel/40 backdrop-blur-md border border-primary-dim rounded-full px-5 py-2 pointer-events-auto shadow-lg shadow-app/20">
+          <span className="text-xl">🍯</span>
+          <span
+            className="text-primary-dim text-opacity-100 placeholder-opacity-100 text-emerald-100 font-bold font-mono text-lg"
+            style={{ color: "var(--primary)" }}
+          >
+            {userData?.nectar ?? userData?.stars ?? 0}
           </span>
-          <div className="w-px h-5 bg-emerald-500/40 mx-1"></div>
-          <span className="text-emerald-300 font-medium text-sm tracking-wide uppercase">
+          <div className="w-px h-5 bg-primary-dim mx-1"></div>
+          <span className="text-accent font-medium text-sm tracking-wide uppercase">
             {userData?.title || "Newbee"}
           </span>
         </div>
@@ -137,9 +110,9 @@ const Header: React.FC = () => {
           <div className="relative">
             <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-400 to-cyan-600 p-[2px] shadow-lg hover:scale-105 transition-transform"
+              className="w-12 h-12 rounded-full border-2 border-primary-dim p-[2px] shadow-lg hover:scale-105 transition-transform"
             >
-              <div className="w-full h-full rounded-full bg-slate-900 flex items-center justify-center overflow-hidden">
+              <div className="w-full h-full rounded-full bg-panel flex items-center justify-center overflow-hidden">
                 <img
                   src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`}
                   alt="Profile"
@@ -149,9 +122,9 @@ const Header: React.FC = () => {
             </button>
 
             {isDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden animate-fade-in-down z-50">
-                <div className="px-4 py-3 border-b border-slate-700">
-                  <p className="text-sm text-white font-medium truncate">
+              <div className="absolute right-0 mt-2 w-48 bg-panel border border-surface rounded-lg shadow-xl overflow-hidden animate-fade-in-down z-50">
+                <div className="px-4 py-3 border-b border-surface">
+                  <p className="text-sm text-text-main font-medium truncate">
                     {userData?.username || user.email}
                   </p>
                 </div>
@@ -161,11 +134,11 @@ const Header: React.FC = () => {
                       setShowProfile(true);
                       setIsDropdownOpen(false);
                     }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-emerald-600 hover:text-white transition-colors"
+                    className="w-full text-left px-4 py-2 text-sm text-text-muted hover:bg-primary-dim hover:text-primary transition-colors"
                   >
                     Profile
                   </button>
-                  <button className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-emerald-600 hover:text-white transition-colors opacity-50 cursor-not-allowed">
+                  <button className="w-full text-left px-4 py-2 text-sm text-text-muted hover:bg-primary-dim hover:text-primary transition-colors opacity-50 cursor-not-allowed">
                     Messages (Soon)
                   </button>
                   <button
@@ -173,7 +146,7 @@ const Header: React.FC = () => {
                       setShowSettings(true);
                       setIsDropdownOpen(false);
                     }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-emerald-600 hover:text-white transition-colors"
+                    className="w-full text-left px-4 py-2 text-sm text-text-muted hover:bg-primary-dim hover:text-primary transition-colors"
                   >
                     Settings
                   </button>
@@ -194,7 +167,7 @@ const Header: React.FC = () => {
       <div className="fixed left-4 top-1/2 -translate-y-1/2 z-50 flex flex-col items-start gap-2 pointer-events-auto md:hidden">
         <button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
-          className={`p-3 rounded-xl bg-slate-800 border border-slate-600 text-white shadow-xl hover:bg-slate-700 transition-all ${isMenuOpen ? "bg-emerald-600 border-emerald-500" : ""}`}
+          className={`p-3 rounded-xl bg-panel border border-surface text-text-main shadow-xl hover:bg-surface transition-all ${isMenuOpen ? "bg-primary border-primary" : ""}`}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -246,52 +219,58 @@ const Header: React.FC = () => {
       {/* Leaderboard Modal */}
       {showLeaderboard && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 pointer-events-auto">
-          <div className="bg-[#1a1d21] w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl overflow-hidden animate-scale-in">
-            <div className="p-4 flex justify-between items-center border-b border-slate-700 bg-slate-800/50">
-              <h2 className="text-xl font-bold text-white">Leaderboard</h2>
+          <div className="bg-panel w-full max-w-md rounded-2xl border border-surface shadow-2xl overflow-hidden animate-scale-in">
+            <div className="p-4 flex justify-between items-center border-b border-surface bg-panel/50">
+              <h2 className="text-xl font-bold text-text-main">Leaderboard</h2>
               <button
                 onClick={() => setShowLeaderboard(false)}
-                className="text-slate-400 hover:text-white"
+                className="text-text-muted hover:text-text-main"
               >
                 ✕
               </button>
             </div>
-            <div className="max-h-[60vh] overflow-y-auto">
-              <div className="grid grid-cols-[1fr_80px_60px] px-6 py-2 text-xs text-slate-400 font-bold uppercase tracking-wider">
+            <div className="max-h-[60vh] overflow-y-auto custom-scrollbar">
+              <div className="grid grid-cols-[1fr_80px_60px] px-6 py-2 text-xs text-text-muted font-bold uppercase tracking-wider">
                 <span>People</span>
                 <span className="text-right">Correct</span>
                 <span className="text-right">Wins</span>
               </div>
               {loadingLeaderboard ? (
-                <div className="p-8 text-center text-slate-500">Loading...</div>
+                <div className="p-8 text-center text-text-muted">
+                  Loading...
+                </div>
               ) : leaderboardData.length > 0 ? (
                 leaderboardData.map((p, i) => (
-                  <div
+                  <button
                     key={p.uid}
-                    className="grid grid-cols-[1fr_80px_60px] px-6 py-4 border-b border-slate-800 hover:bg-slate-800/50 transition-colors items-center"
+                    onClick={() => {
+                      setSelectedProfileId(p.uid);
+                      setShowLeaderboard(false);
+                    }}
+                    className="grid grid-cols-[1fr_80px_60px] px-6 py-4 border-b border-surface hover:bg-surface/50 transition-colors items-center w-full text-left cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded bg-slate-700 flex items-center justify-center">
+                      <div className="w-8 h-8 rounded bg-surface flex items-center justify-center">
                         <img
                           src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${p.uid}`}
                           className="w-6 h-6"
                           alt="avatar"
                         />
                       </div>
-                      <span className="text-white font-medium">
+                      <span className="text-text-main font-medium">
                         {p.name} {i < 3 && "🔥"}
                       </span>
                     </div>
-                    <div className="text-right text-emerald-400 font-mono">
+                    <div className="text-right font-mono text-primary">
                       {p.corrects.toLocaleString()}
                     </div>
-                    <div className="text-right text-slate-300 font-mono">
+                    <div className="text-right font-mono text-text-muted">
                       {p.wins.toLocaleString()}
                     </div>
-                  </div>
+                  </button>
                 ))
               ) : (
-                <div className="p-8 text-center text-slate-500">
+                <div className="p-8 text-center text-text-muted">
                   No data available
                 </div>
               )}
@@ -303,12 +282,12 @@ const Header: React.FC = () => {
       {/* Settings Modal */}
       {showSettings && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 pointer-events-auto">
-          <div className="bg-[#1a1d21] w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl p-6 animate-scale-in">
-            <h2 className="text-2xl font-bold text-white mb-6">Settings</h2>
+          <div className="bg-panel w-full max-w-md rounded-2xl border border-surface shadow-2xl p-6 animate-scale-in">
+            <h2 className="text-2xl font-bold text-text-main mb-6">Settings</h2>
 
             <div className="space-y-6">
               <div>
-                <label className="flex justify-between text-sm font-bold text-slate-400 mb-2">
+                <label className="flex justify-between text-sm font-bold text-text-muted mb-2">
                   <span>TTS Volume (Voice)</span>
                   <span>{Math.round(ttsVolume * 100)}%</span>
                 </label>
@@ -319,12 +298,12 @@ const Header: React.FC = () => {
                   step="0.1"
                   value={ttsVolume}
                   onChange={(e) => setTtsVolume(parseFloat(e.target.value))}
-                  className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                  className="w-full h-2 bg-surface rounded-lg appearance-none cursor-pointer accent-primary"
                 />
               </div>
 
               <div>
-                <label className="flex justify-between text-sm font-bold text-slate-400 mb-2">
+                <label className="flex justify-between text-sm font-bold text-text-muted mb-2">
                   <span>SFX Volume (Typing)</span>
                   <span>{Math.round(sfxVolume * 100)}%</span>
                 </label>
@@ -335,7 +314,7 @@ const Header: React.FC = () => {
                   step="0.1"
                   value={sfxVolume}
                   onChange={(e) => setSfxVolume(parseFloat(e.target.value))}
-                  className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                  className="w-full h-2 bg-surface rounded-lg appearance-none cursor-pointer accent-primary"
                 />
               </div>
             </div>
@@ -343,7 +322,7 @@ const Header: React.FC = () => {
             <div className="mt-8 flex justify-end">
               <button
                 onClick={() => setShowSettings(false)}
-                className="px-6 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-bold transition-colors"
+                className="px-6 py-2 bg-surface hover:bg-surface/80 rounded-lg text-text-main font-bold transition-colors"
               >
                 Close
               </button>
@@ -352,109 +331,23 @@ const Header: React.FC = () => {
         </div>
       )}
 
-      {/* Profile Modal */}
-      {showProfile && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 pointer-events-auto">
-          <div className="bg-[#1a1d21] w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl p-6 animate-scale-in text-center">
-            <h2 className="text-2xl font-bold text-white mb-6">
-              Player Profile
-            </h2>
-
-            <div className="w-24 h-24 rounded-full bg-slate-800 mx-auto mb-4 overflow-hidden border-4 border-slate-700">
-              <img
-                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`}
-                alt="Profile"
-                className="w-full h-full object-cover"
-              />
-            </div>
-
-            <h3 className="text-xl font-bold text-white">
-              {userData?.username || user.email}
-            </h3>
-            <p className="text-emerald-400 font-bold uppercase tracking-widest text-sm mb-6">
-              {userData?.title}
-            </p>
-
-            <div className="grid grid-cols-2 gap-4 mb-8">
-              <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
-                <div className="text-2xl font-mono text-white font-bold">
-                  {userData?.corrects}
-                </div>
-                <div className="text-xs text-slate-500 uppercase tracking-widest mt-1">
-                  Words Correct
-                </div>
-              </div>
-              <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
-                <div className="text-2xl font-mono text-white font-bold">
-                  {userData?.wins}
-                </div>
-                <div className="text-xs text-slate-500 uppercase tracking-widest mt-1">
-                  Wins
-                </div>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setShowProfile(false)}
-              className="px-6 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-bold transition-colors"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Shop Modal */}
-      {showShop && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 pointer-events-auto">
-          <div className="bg-[#1a1d21] w-full max-w-2xl rounded-2xl border border-slate-700 shadow-2xl p-6 text-center animate-scale-in">
-            <h2 className="text-2xl font-bold text-emerald-400 mb-4">
-              Hive Shop
-            </h2>
-            <p className="text-slate-300 mb-8">
-              Spend your stars on profile layouts, fonts, and more!
-            </p>
-            <div className="grid grid-cols-2 gap-4 mb-8">
-              <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 opacity-50">
-                <div className="h-24 bg-slate-700 rounded mb-2"></div>
-                <h3 className="font-bold">Pro Theme</h3>
-                <p className="text-xs text-slate-400">Locked (Need Busy Bee)</p>
-              </div>
-              <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 opacity-50">
-                <div className="h-24 bg-slate-700 rounded mb-2"></div>
-                <h3 className="font-bold">Golden Font</h3>
-                <p className="text-xs text-slate-400">500 Stars</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowShop(false)}
-              className="px-6 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
+      {showShop && <Shop onClose={() => setShowShop(false)} />}
 
       {/* Inventory Modal */}
-      {showInventory && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 pointer-events-auto">
-          <div className="bg-[#1a1d21] w-full max-w-2xl rounded-2xl border border-slate-700 shadow-2xl p-6 text-center animate-scale-in">
-            <h2 className="text-2xl font-bold text-purple-400 mb-4">
-              Your Inventory
-            </h2>
-            <p className="text-slate-300 mb-8">Items you have collected.</p>
-            <div className="bg-slate-800/50 p-12 rounded-xl border border-slate-700 border-dashed mb-8">
-              <p className="text-slate-500">Your inventory is empty.</p>
-            </div>
-            <button
-              onClick={() => setShowInventory(false)}
-              className="px-6 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white"
-            >
-              Close
-            </button>
-          </div>
-        </div>
+      {showInventory && <Stash onClose={() => setShowInventory(false)} />}
+
+      {/* Profile Modal (Self) */}
+      {showProfile && (
+        <ProfileModal userId={user.uid} onClose={() => setShowProfile(false)} />
+      )}
+
+      {/* Profile Modal (From Leaderboard/Game) */}
+      {selectedProfileId && (
+        <ProfileModal
+          userId={selectedProfileId}
+          onClose={() => setSelectedProfileId(null)}
+        />
       )}
     </>
   );
@@ -469,7 +362,7 @@ const MenuButtons: React.FC<{
   compact?: boolean;
 }> = ({ onShop, onLeaderboard, onInventory, desktop, compact }) => {
   const baseClass =
-    "flex items-center gap-3 p-3 rounded-xl bg-slate-800/90 backdrop-blur border border-slate-600 text-white hover:bg-emerald-600/50 hover:border-emerald-400 transition-all shadow-xl group";
+    "flex items-center gap-3 p-3 rounded-xl bg-panel/90 backdrop-blur border border-surface text-text-main hover:bg-primary-dim hover:border-primary transition-all shadow-xl group";
 
   // Logic for width:
   // If compact (row mode), we only show icons or smaller widths.

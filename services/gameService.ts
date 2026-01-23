@@ -1,3 +1,5 @@
+import { supabase } from "./supabase";
+
 // Word Lists by Difficulty
 const BABY_TEXT = `Air
 Heir
@@ -1085,8 +1087,8 @@ const HOMOPHONES: Record<string, string[]> = {
   bee: ["be"],
   blue: ["blew"],
   blew: ["blue"],
-  eye: ["aye", "i"],
-  aye: ["eye", "i"],
+  eye: ["aye"],
+  aye: ["eye"],
   flour: ["flower"],
   flower: ["flour"],
   know: ["no"],
@@ -1099,6 +1101,8 @@ const HOMOPHONES: Record<string, string[]> = {
   pear: ["pair", "pare"],
   pare: ["pair", "pear"],
   peace: ["piece"],
+  pi: ["pie"],
+  pie: ["pi"],
   piece: ["peace"],
   plain: ["plane"],
   plane: ["plain"],
@@ -1334,8 +1338,11 @@ export const speak = async (
       // Local closure flag for this specific audio attempt
       let isCancelled = false;
 
-      const audioPath = `/audio/${fileName}.mp3`;
-      const audio = new Audio(audioPath);
+      // Use Supabase Storage (Public Bucket)
+      const { data } = supabase.storage
+        .from("word-audios")
+        .getPublicUrl(`${fileName}.mp3`);
+      const audio = new Audio(data.publicUrl);
 
       // Force stop previous
       if (currentAudio) {

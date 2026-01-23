@@ -22,7 +22,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
   const { user, loading } = useAuth();
   if (loading)
     return (
-      <div className="min-h-screen flex items-center justify-center text-emerald-500">
+      <div className="min-h-screen flex items-center justify-center text-primary bg-app">
         Loading Hive...
       </div>
     );

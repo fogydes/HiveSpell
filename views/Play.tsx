@@ -17,6 +17,7 @@ import {
 import { db } from "../firebase";
 import * as firebaseDatabase from "firebase/database";
 import { Room, Player } from "../types/multiplayer";
+import { ProfileModal } from "../components/ProfileModal";
 
 // Firebase References (Direct Access)
 const dbRef = (firebaseDatabase as any).ref;
@@ -149,6 +150,9 @@ const Play: React.FC = () => {
   const joinTimeRef = useRef<number>(Date.now());
   const [activeTab, setActiveTab] = useState<"none" | "chat" | "players">(
     "none",
+  );
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(
+    null,
   );
 
   const lastSpokenWordRef = useRef<string>("");
@@ -433,10 +437,9 @@ const Play: React.FC = () => {
         console.log("[Driver] Only one player left, triggering intermission");
         const updates: any = {
           status: "intermission",
-          intermissionEndsAt: Date.now() + 15000,
+          intermissionEndsAt: Date.now() + 10000,
           "gameState/currentWord": null,
           "gameState/currentTurnPlayerId": null,
-          "gameState/streak": 0,
           [`players/${currentTurnPlayerId}/status`]: "eliminated",
         };
 
@@ -479,6 +482,36 @@ const Play: React.FC = () => {
           nextPlayerId = alivePlayers[0].id;
         }
 
+        // FALLBACK: If no valid player, trigger intermission
+        if (!nextPlayerId) {
+          console.log(
+            "[Driver] No valid player after disconnect skip, triggering intermission",
+          );
+          const fallbackUpdates: any = {
+            status: "intermission",
+            intermissionEndsAt: Date.now() + 10000,
+            "gameState/currentWord": null,
+            "gameState/currentTurnPlayerId": null,
+            [`players/${currentTurnPlayerId}/status`]: "eliminated",
+          };
+
+          dbUpdate(dbRef(db, `rooms/${roomId}`), fallbackUpdates)
+            .then(() => {
+              console.log(
+                "[Driver] Intermission triggered (disconnect fallback)",
+              );
+              disconnectedTurnHandlerRef.current = false;
+            })
+            .catch((err) => {
+              console.error(
+                "[Driver] Failed to trigger disconnect fallback intermission:",
+                err,
+              );
+              disconnectedTurnHandlerRef.current = false;
+            });
+          return; // Exit early
+        }
+
         console.log(
           "[Driver] Skipping disconnected player, next turn:",
           nextPlayerId,
@@ -490,7 +523,11 @@ const Play: React.FC = () => {
         const words = wordBank[difficulty];
         const newWord = words[Math.floor(Math.random() * words.length)];
         const wordLen = newWord.length;
-        const finalTime = Math.max(5, (2.0 + wordLen) * 1.0);
+        // Pace Ramping: Reduce timer by 0.3s for every 10 wins (streak)
+        const currentStreak = currentRoom.gameState?.streak || 0;
+        const reduction = Math.floor(currentStreak / 10) * 0.3;
+        const baseTime = (2.0 + wordLen) * 1.0;
+        const finalTime = Math.max(2.5, baseTime - reduction);
 
         const updates: any = {
           [`players/${currentTurnPlayerId}/status`]: "eliminated",
@@ -579,10 +616,9 @@ const Play: React.FC = () => {
       console.log("[Driver] Timer expiration -> triggering intermission");
       const updates: any = {
         status: "intermission",
-        intermissionEndsAt: Date.now() + 15000,
+        intermissionEndsAt: Date.now() + 10000,
         "gameState/currentWord": null,
         "gameState/currentTurnPlayerId": null,
-        "gameState/streak": 0,
         [`players/${currentTurnPlayerId}/status`]: "eliminated",
       };
 
@@ -625,6 +661,37 @@ const Play: React.FC = () => {
         nextPlayerId = alivePlayers[0].id;
       }
 
+      // FALLBACK: If still no valid player, trigger intermission instead of broken state
+      if (!nextPlayerId) {
+        console.log(
+          "[Driver] No valid next player found, triggering intermission fallback",
+        );
+        const fallbackUpdates: any = {
+          status: "intermission",
+          intermissionEndsAt: Date.now() + 10000,
+          "gameState/currentWord": null,
+          "gameState/currentTurnPlayerId": null,
+          "gameState/streak": 0,
+          [`players/${currentTurnPlayerId}/status`]: "eliminated",
+        };
+
+        dbUpdate(dbRef(db, `rooms/${roomId}`), fallbackUpdates)
+          .then(() => {
+            console.log(
+              "[Driver] Intermission triggered (fallback - no players left)",
+            );
+            timerExpirationRef.current = false;
+          })
+          .catch((err) => {
+            console.error(
+              "[Driver] Failed to trigger intermission fallback:",
+              err,
+            );
+            timerExpirationRef.current = false;
+          });
+        return; // Exit early
+      }
+
       console.log(
         "[Driver] Timer expired, passing to next player:",
         nextPlayerId,
@@ -636,7 +703,11 @@ const Play: React.FC = () => {
       const words = wordBank[difficulty];
       const newWord = words[Math.floor(Math.random() * words.length)];
       const wordLen = newWord.length;
-      const finalTime = Math.max(5, (2.0 + wordLen) * 1.0);
+      // Pace Ramping: Reduce timer by 0.3s for every 10 wins (streak)
+      const currentStreak = currentRoom.gameState?.streak || 0;
+      const reduction = Math.floor(currentStreak / 10) * 0.3;
+      const baseTime = (2.0 + wordLen) * 1.0;
+      const finalTime = Math.max(2.5, baseTime - reduction);
 
       const updates: any = {
         [`players/${currentTurnPlayerId}/status`]: "eliminated",
@@ -726,7 +797,12 @@ const Play: React.FC = () => {
 
       const wordLen = newWord.length;
       const decay = 1.0;
-      const finalTime = Math.max(5, (2.0 + wordLen) * decay);
+      // Pace Ramping: Reduce timer by 0.3s for every 10 wins (streak)
+      const currentStreak = currentRoom.gameState?.streak || 0;
+      const reduction = Math.floor(currentStreak / 10) * 0.3;
+      const baseTime = (2.0 + wordLen) * decay;
+      // Cap minimum time at 2.5s to keep it playable
+      const finalTime = Math.max(2.5, baseTime - reduction);
       const startTime = Date.now();
 
       // Calculate turn order: alive/connected players, sorted by join time (earliest first)
@@ -818,6 +894,7 @@ const Play: React.FC = () => {
           "gameState/winnerName": null,
           "gameState/frozenTimeLeft": null,
           "gameState/currentInput": "",
+          "gameState/streak": 0, // Reset streak only when new round actually starts
         };
 
         // REVIVE ALL NON-DISCONNECTED PLAYERS (don't revive players who left)
@@ -922,15 +999,16 @@ const Play: React.FC = () => {
       "gameState/currentInput": "", // Clear typing
     };
 
-    // Solo mode: trigger intermission on failure (15 sec break)
+    // Solo mode: trigger intermission on failure (10 sec break)
     const isSoloMode = playersList.length === 1;
     if (isSoloMode && wasEliminated) {
       console.log("[PassTurn] Solo mode - triggering intermission");
       updates["status"] = "intermission";
-      updates["intermissionEndsAt"] = Date.now() + 15000; // 15 second break
+      updates["intermissionEndsAt"] = Date.now() + 10000; // 10 second break
       updates["gameState/currentWord"] = null;
       updates["gameState/startTime"] = null;
       updates["gameState/timerDuration"] = null;
+      // updates["gameState/streak"] = 0; // Removed premature reset
       // Mark player as needing revive (will be revived by intermission handler)
       if (user?.uid) {
         updates[`players/${user.uid}/status`] = "eliminated";
@@ -951,7 +1029,12 @@ const Play: React.FC = () => {
       const elapsed = (Date.now() - start) / 1000;
       const frozenTime = Math.max(0, duration - elapsed);
       updates["gameState/frozenTimeLeft"] = frozenTime;
-      console.log("[Death] Freezing timer at:", frozenTime.toFixed(1));
+
+      console.log(
+        "[Death] Freezing timer at:",
+        frozenTime.toFixed(1),
+        "Streak Reset.",
+      );
     } else {
       // Increment Room Score for correct answer
       if (user?.uid) {
@@ -1014,10 +1097,11 @@ const Play: React.FC = () => {
     if (conditionMet) {
       console.log("[PassTurn] Triggering intermission!");
       updates["status"] = "intermission";
-      updates["intermissionEndsAt"] = Date.now() + 15000;
+      updates["intermissionEndsAt"] = Date.now() + 10000;
       updates["gameState/currentWord"] = null;
       updates["gameState/currentTurnPlayerId"] = null;
-      updates["gameState/streak"] = 0; // Reset streak for new round
+      updates["gameState/currentTurnPlayerId"] = null;
+      // updates["gameState/streak"] = 0; // Removed premature reset for new round
 
       // Award win to survivor
       if (aliveAfterThis.length === 1) {
@@ -1025,9 +1109,20 @@ const Play: React.FC = () => {
         console.log("[PassTurn] Winner:", winner.name);
         updates["gameState/winnerId"] = winner.id;
         updates["gameState/winnerName"] = winner.name;
-        // Award win (side effect)
+
+        // Award win (Global User Profile)
         (firebaseDatabase as any).runTransaction(
           dbRef(db, `users/${winner.id}/wins`),
+          (current: any) => (current || 0) + 1,
+        );
+
+        // Award win (Room Player Stats - Fix for Player List)
+        const roomPlayerRef = dbRef(
+          db,
+          `rooms/${roomId}/players/${winner.id}/wins`,
+        );
+        (firebaseDatabase as any).runTransaction(
+          roomPlayerRef,
           (current: any) => (current || 0) + 1,
         );
       }
@@ -1196,6 +1291,28 @@ const Play: React.FC = () => {
         streak: currentStreak + 1,
         currentPlayerWpm: wpm,
       });
+
+      // UPDATE ROOM PLAYER STATS (Fix for Player List not updating)
+      if (user?.uid && currentRoom?.id) {
+        try {
+          const playerRef = dbRef(
+            db,
+            `rooms/${currentRoom.id}/players/${user.uid}`,
+          );
+          await (firebaseDatabase as any).runTransaction(
+            playerRef,
+            (player: any) => {
+              if (player) {
+                player.corrects = (player.corrects || 0) + 1;
+                player.score = (player.score || 0) + 10; // Optional score update
+              }
+              return player;
+            },
+          );
+        } catch (err) {
+          console.error("Failed to update room player stats:", err);
+        }
+      }
       await passTurn(false); // Advances turn to next player
     } else {
       console.warn("Incorrect Answer");
@@ -1225,7 +1342,7 @@ const Play: React.FC = () => {
 
   const getChatClasses = () => {
     const base =
-      "fixed z-40 bg-slate-900/95 backdrop-blur-xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden transition-all duration-300";
+      "fixed z-40 bg-panel/95 backdrop-blur-xl border border-surface shadow-2xl flex flex-col overflow-hidden transition-all duration-300";
     const mobilePos =
       "right-4 top-1/2 -translate-y-1/2 w-[85vw] h-[50vh] rounded-2xl origin-right";
     const mobileState =
@@ -1239,7 +1356,7 @@ const Play: React.FC = () => {
 
   const getPlayerListClasses = () => {
     const base =
-      "fixed z-40 bg-slate-900/95 backdrop-blur-xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden transition-all duration-300";
+      "fixed z-40 bg-panel/95 backdrop-blur-xl border border-surface shadow-2xl flex flex-col overflow-hidden transition-all duration-300";
     const mobilePos =
       "right-4 top-1/2 -translate-y-1/2 w-[85vw] h-[50vh] rounded-2xl origin-right";
     const mobileState =
@@ -1339,7 +1456,7 @@ const Play: React.FC = () => {
 
   return (
     <div
-      className={`min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans text-white transition-colors duration-1000 ${streak > 25 ? "bg-[#1a0505]" : "bg-[#050914]"}`}
+      className={`min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans text-text-main transition-colors duration-1000 bg-app`}
     >
       {renderWordCorrection()}
 
@@ -1408,12 +1525,12 @@ const Play: React.FC = () => {
       </div>
 
       <div className={getChatClasses()}>
-        <div className="p-3 border-b border-slate-700 bg-black/20 font-bold text-sm">
+        <div className="p-3 border-b border-surface bg-panel/20 font-bold text-sm">
           Hive Chat
         </div>
-        <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-thin scrollbar-thumb-slate-700">
+        <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
           {messages.length === 0 && (
-            <div className="text-xs text-slate-500 text-center mt-4">
+            <div className="text-xs text-text-muted text-center mt-4">
               Welcome to the chat!
             </div>
           )}
@@ -1444,7 +1561,7 @@ const Play: React.FC = () => {
             value={chatInput}
             onChange={(e) => setChatInput(e.target.value)}
             placeholder="Message..."
-            className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-400 outline-none focus:border-emerald-500"
+            className="w-full bg-surface border border-surface/50 rounded-lg px-3 py-2 text-xs text-text-main placeholder-text-muted outline-none focus:border-primary"
           />
         </form>
       </div>
@@ -1456,7 +1573,7 @@ const Play: React.FC = () => {
             {playersList.filter((p) => p.status !== "disconnected").length})
           </span>
         </div>
-        <div className="grid grid-cols-[1fr_50px_40px] px-3 py-2 text-[10px] text-slate-400 font-bold uppercase border-b border-slate-700/50">
+        <div className="grid grid-cols-[1fr_50px_40px] px-3 py-2 text-[10px] text-text-muted font-bold uppercase border-b border-surface/50">
           <span>Name</span>
           <span className="text-center">Corrects</span>
           <span className="text-right">Wins</span>
@@ -1465,34 +1582,35 @@ const Play: React.FC = () => {
           {playersList
             .filter((p) => p.status !== "disconnected")
             .map((p) => (
-              <div
+              <button
                 key={p.id}
-                className={`grid grid-cols-[1fr_50px_40px] px-3 py-3 text-xs items-center transition-colors border-b border-slate-800/50 ${p.id === user?.uid ? "bg-emerald-900/20" : "hover:bg-white/5"} ${p.id === currentRoom?.gameState?.currentTurnPlayerId ? "ring-1 ring-emerald-500" : ""}`}
+                onClick={() => setSelectedProfileId(p.id)}
+                className={`grid grid-cols-[1fr_50px_40px] px-3 py-3 text-xs items-center transition-colors border-b border-surface/50 w-full text-left cursor-pointer ${p.id === user?.uid ? "bg-primary-dim" : "hover:bg-white/5"} ${p.id === currentRoom?.gameState?.currentTurnPlayerId ? "ring-1 ring-primary" : ""}`}
               >
                 <div className="flex items-center gap-2 overflow-hidden">
                   {/* Placeholder Avatar */}
                   <div
-                    className={`w-2 h-2 rounded-full ${p.status === "alive" || p.status === "connected" ? "bg-emerald-500" : "bg-red-500"}`}
+                    className={`w-2 h-2 rounded-full ${p.status === "alive" || p.status === "connected" ? "bg-primary" : "bg-red-500"}`}
                   ></div>
                   <span
-                    className={`truncate font-medium ${p.id === user?.uid ? "text-emerald-400" : "text-white"} ${p.status === "eliminated" ? "line-through text-slate-500" : ""}`}
+                    className={`truncate font-medium ${p.id === user?.uid ? "text-primary" : "text-text-main"} ${p.status === "eliminated" ? "line-through text-text-muted" : ""}`}
                   >
                     {p.name}
                   </span>
                 </div>
-                <div className="text-center font-mono text-emerald-400">
+                <div className="text-center font-mono text-primary">
                   {p.corrects || 0}
                 </div>
-                <div className="text-right font-mono text-yellow-400">
+                <div className="text-right font-mono text-accent">
                   {p.wins || 0}
                 </div>
-              </div>
+              </button>
             ))}
         </div>
       </div>
 
       <div
-        className={`w-full max-w-xl flex flex-col items-center z-10 transition-all duration-500 p-4 sm:p-8 rounded-3xl border border-transparent relative ${getFireIntensity()}`}
+        className={`w-full max-w-xl flex flex-col items-center z-10 transition-all duration-500 p-4 sm:p-8 rounded-3xl border border-transparent relative bg-panel/30`}
       >
         <button
           onClick={exitArena}
@@ -1503,13 +1621,13 @@ const Play: React.FC = () => {
 
         <div className="w-full max-w-lg mb-4 sm:mb-8 text-center min-h-[50px] mt-8">
           {status === "playing" ? (
-            <p className="text-slate-400 text-xs sm:text-sm italic font-serif leading-relaxed px-4 py-2 bg-slate-900/50 rounded-lg border border-slate-800">
+            <p className="text-text-muted text-xs sm:text-sm italic font-serif leading-relaxed px-4 py-2 bg-panel/50 rounded-lg border border-surface">
               "{definition}"
             </p>
           ) : (
             <div className="h-[50px]">
               {status === "speaking" && (
-                <div className="text-emerald-400 animate-pulse text-sm font-bold tracking-widest">
+                <div className="text-primary animate-pulse text-sm font-bold tracking-widest">
                   LISTENING TO HIVE...
                 </div>
               )}
@@ -1519,17 +1637,17 @@ const Play: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-4 mb-4 sm:mb-6">
-          <div className="bg-slate-800/80 px-4 py-1 rounded text-xs font-bold tracking-widest uppercase text-emerald-400 border border-slate-700">
+          <div className="bg-panel/80 px-4 py-1 rounded text-xs font-bold tracking-widest uppercase text-primary border border-surface">
             {streak > 25
               ? "RAMPAGE MODE"
               : currentRoom?.settings?.difficulty || paramMode}
           </div>
         </div>
 
-        <div className="w-full flex justify-between items-end mb-2 px-2 text-slate-400 text-[10px] sm:text-xs font-bold tracking-widest">
+        <div className="w-full flex justify-between items-end mb-2 px-2 text-text-muted text-[10px] sm:text-xs font-bold tracking-widest">
           <div className="text-center">
             <div
-              className={`text-xl sm:text-2xl mb-1 ${streak > 5 ? "text-orange-500 animate-pulse" : "text-white"}`}
+              className={`text-xl sm:text-2xl mb-1 ${streak > 5 ? "text-accent animate-pulse" : "text-text-main"}`}
             >
               {streak} {streak > 5 && "🔥"}
             </div>
@@ -1537,7 +1655,7 @@ const Play: React.FC = () => {
           </div>
 
           <div className="text-center">
-            <div className="text-emerald-400 text-xl sm:text-2xl mb-1 flex flex-col items-center leading-none">
+            <div className="text-primary text-xl sm:text-2xl mb-1 flex flex-col items-center leading-none">
               <span>
                 {currentRoom?.gameState?.currentPlayerWpm || lastBurstWpm || 0}
               </span>
@@ -1546,13 +1664,13 @@ const Play: React.FC = () => {
           </div>
         </div>
 
-        <div className="w-full text-center text-emerald-400 font-mono text-sm font-bold mb-1">
+        <div className="w-full text-center text-primary font-mono text-sm font-bold mb-1">
           {timeLeft.toFixed(1)}s
         </div>
 
-        <div className="w-full h-2 sm:h-3 bg-slate-800 rounded-full overflow-hidden mb-8 relative border border-slate-700">
+        <div className="w-full h-2 sm:h-3 bg-panel rounded-full overflow-hidden mb-8 relative border border-surface">
           <div
-            className={`h-full shadow-[0_0_15px_rgba(16,185,129,0.6)] ${timeLeft < 3 ? "bg-red-500" : "bg-emerald-500"}`}
+            className={`h-full shadow-[0_0_15px_rgba(var(--primary-rgb),0.6)] ${timeLeft < 3 ? "bg-red-500" : "bg-primary"}`}
             style={{ width: `${Math.min(100, (timeLeft / totalTime) * 100)}%` }}
           ></div>
         </div>
@@ -1560,17 +1678,17 @@ const Play: React.FC = () => {
         <div className="mb-8 relative min-h-[100px] flex items-center justify-center w-full">
           {status !== "intermission" ? (
             status === "speaking" ? (
-              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-emerald-500/20 border-2 border-emerald-400 flex items-center justify-center animate-spin-slow">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-primary-dim border-2 border-primary flex items-center justify-center animate-spin-slow">
                 <span className="text-2xl">🔊</span>
               </div>
             ) : (
               <button
                 onClick={() => speak(currentWord, ttsVolume, true)}
-                className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center transition-all group cursor-pointer active:scale-95 animate-pulse-slow"
+                className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-primary-dim/10 hover:bg-primary-dim/20 border border-primary-dim flex items-center justify-center transition-all group cursor-pointer active:scale-95 animate-pulse-slow"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-8 w-8 sm:h-10 sm:w-10 text-emerald-400 group-hover:scale-110 transition-transform"
+                  className="h-8 w-8 sm:h-10 sm:w-10 text-primary group-hover:scale-110 transition-transform"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -1585,11 +1703,13 @@ const Play: React.FC = () => {
               </button>
             )
           ) : (
-            <div className="flex flex-col items-center bg-slate-900/90 p-4 rounded-xl border border-slate-700 shadow-xl z-20 w-full max-w-sm">
+            <div className="flex flex-col items-center bg-panel/90 p-4 rounded-xl border border-surface shadow-xl z-20 w-full max-w-sm">
               {/* Legacy feedback removed in favor of Modal */}
-              <div className="text-slate-400 text-sm mb-4">
+              <div className="text-text-muted text-sm mb-4">
                 Next word in{" "}
-                <span className="text-white font-bold">{intermissionTime}</span>
+                <span className="text-text-main font-bold">
+                  {intermissionTime}
+                </span>
                 ...
               </div>
               {!feedback?.msg && (
@@ -1600,7 +1720,7 @@ const Play: React.FC = () => {
         </div>
 
         <div className="w-full max-w-lg mb-8 sm:mb-12">
-          <div className="text-center text-slate-500 text-[10px] font-bold tracking-[0.2em] mb-2 sm:mb-4">
+          <div className="text-center text-text-muted text-[10px] font-bold tracking-[0.2em] mb-2 sm:mb-4">
             {isMyTurn
               ? "TYPE THE WORD YOU HEAR"
               : `WATCHING ${playersList.find((p) => p.id === currentRoom?.gameState?.currentTurnPlayerId)?.name || "..."}`}
@@ -1627,7 +1747,7 @@ const Play: React.FC = () => {
                     ? "Watching..."
                     : "Type word..."
               }
-              className={`w-full bg-transparent border-b-2 ${isMyTurn ? "border-emerald-500" : "border-slate-700"} text-center text-3xl sm:text-5xl font-bold ${isMyTurn ? "text-white" : "text-slate-400"} outline-none py-2 sm:py-4 placeholder:text-slate-800 transition-colors disabled:opacity-70 disabled:cursor-not-allowed`}
+              className={`w-full bg-transparent border-b-2 ${isMyTurn ? "border-primary" : "border-surface"} text-center text-3xl sm:text-5xl font-bold ${isMyTurn ? "text-text-main" : "text-text-muted"} outline-none py-2 sm:py-4 placeholder:text-surface transition-colors disabled:opacity-70 disabled:cursor-not-allowed`}
             />
           </form>
         </div>
@@ -1640,6 +1760,14 @@ const Play: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Profile Modal */}
+      {selectedProfileId && (
+        <ProfileModal
+          userId={selectedProfileId}
+          onClose={() => setSelectedProfileId(null)}
+        />
+      )}
     </div>
   );
 };
