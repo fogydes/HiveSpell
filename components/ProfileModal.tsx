@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { supabase } from "../services/supabase";
+import { supabase, isSupabaseConfigured } from "../services/supabase";
 import { useAuth } from "../context/AuthContext";
 
 interface ProfileData {
@@ -34,6 +34,15 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     const fetchProfile = async () => {
       setLoading(true);
       setError(null);
+
+      // 0. Configuration Check
+      if (!isSupabaseConfigured) {
+        setLoading(false);
+        setError(
+          "Setup Required: Add Supabase Keys to your Hosting Environment.",
+        );
+        return;
+      }
 
       try {
         const { data, error: fetchError } = await supabase
