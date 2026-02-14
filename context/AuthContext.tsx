@@ -22,6 +22,7 @@ export interface UserData {
   corrects: number;
   wins: number;
   username: string; // Added username
+  avatarUrl?: string; // Added avatarUrl
 }
 
 interface AuthContextType {
@@ -59,21 +60,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     if (profile) {
       currentNectar = profile.current_nectar;
-      lifetimeNectar = profile.lifetimeNectar; // Note: check case sensitive DB col name
+      lifetimeNectar = profile.lifetime_nectar;
+      setUserData((prev) => ({
+        ...prev!,
+        stars: currentNectar,
+        nectar: currentNectar,
+        username: profile.username || finalUsername,
+        title: profile.title || "Newbee",
+        corrects: profile.corrects || 0,
+        wins: profile.wins || 0,
+        lifetimeNectar: lifetimeNectar,
+        avatarUrl: profile.avatar_url,
+      }));
     }
-
-    // Update State
-    setUserData((prev) => ({
-      ...prev!,
-      stars: currentNectar,
-      nectar: currentNectar,
-      username: finalUsername,
-      // Keep other fields from prev if exists, else defaults
-      title: prev?.title || "Newbee",
-      corrects: prev?.corrects || 0,
-      wins: prev?.wins || 0,
-      lifetimeNectar: lifetimeNectar,
-    }));
   };
 
   const refreshUser = async () => {
@@ -93,6 +92,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                 stars: profile.current_nectar,
                 nectar: profile.current_nectar,
                 lifetimeNectar: profile.lifetime_nectar,
+                avatarUrl: profile.avatar_url,
                 // We might want to sync inventory here too if we verify it in UI later
               }
             : null,
@@ -194,10 +194,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                     stars: currentNectar, // Map Nectar to Stars for backward compatibility
                     nectar: currentNectar,
                     lifetimeNectar: lifetimeNectar,
-                    title: data.title || "Newbee",
+                    title: data.title || profile?.title || "Newbee",
                     corrects: data.corrects || 0,
                     wins: data.wins || 0,
                     username: finalUsername,
+                    avatarUrl: profile?.avatar_url,
                   });
                 });
             } else {

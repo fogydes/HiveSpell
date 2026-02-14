@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../services/supabase";
+import { useAuth } from "../context/AuthContext";
 
 interface ProfileData {
   id: string;
@@ -10,6 +11,8 @@ interface ProfileData {
   current_nectar: number;
   lifetime_nectar: number;
   inventory: string[];
+  avatar_url?: string;
+  avatar_seed?: string;
 }
 
 interface ProfileModalProps {
@@ -21,8 +24,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   userId,
   onClose,
 }) => {
+  const { refreshUser } = useAuth();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -51,6 +56,65 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       fetchProfile();
     }
   }, [userId]);
+
+  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!profile) return;
+    try {
+      setUploading(true);
+      if (!event.target.files || event.target.files.length === 0) {
+        throw new Error("You must select an image to upload.");
+      }
+
+      const file = event.target.files[0];
+
+      // Allowed extensions
+      const allowedExtensions = ["png", "jpg", "jpeg", "webp", "gif"];
+      const fileExt = file.name.split(".").pop()?.toLowerCase();
+
+      if (!fileExt || !allowedExtensions.includes(fileExt)) {
+        throw new Error(
+          "Invalid file type. Please upload an image (PNG, JPG, JPEG, WEBP, or GIF).",
+        );
+      }
+
+      const fileName = `${profile.id}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      // 1. Upload to Storage
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // 2. Get Public URL
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("avatars").getPublicUrl(filePath);
+
+      // 3. Update Profile with cache-busting timestamp
+      const finalUrl = `${publicUrl}?v=${Date.now()}`;
+
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ avatar_url: finalUrl })
+        .eq("id", profile.id);
+
+      if (updateError) throw updateError;
+
+      // 4. Update local state and global context
+      setProfile({ ...profile, avatar_url: finalUrl });
+      await refreshUser();
+
+      // Optional: Refresh parent if needed (window.location.reload() is heavy but effective)
+      // window.location.reload();
+    } catch (error: any) {
+      console.error("Error uploading avatar:", error);
+      alert(error.message || "Error uploading avatar!");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
     <div
@@ -86,12 +150,31 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
             {/* Avatar */}
             <div className="flex flex-col items-center -mt-12 px-6 pb-6">
-              <div className="w-24 h-24 rounded-full bg-panel border-4 border-primary shadow-xl overflow-hidden mb-4">
+              <div className="group relative w-24 h-24 rounded-full bg-panel border-4 border-primary shadow-xl overflow-hidden mb-4">
                 <img
-                  src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.id}`}
+                  src={
+                    profile.avatar_url ||
+                    `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.avatar_seed || profile.id}`
+                  }
                   alt={profile.username}
                   className="w-full h-full object-cover"
                 />
+
+                {/* Upload Overlay */}
+                <label
+                  htmlFor="avatar-upload"
+                  className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white text-[10px] font-bold"
+                >
+                  {uploading ? "UPLOADING..." : "CHANGE PHOTO"}
+                  <input
+                    id="avatar-upload"
+                    type="file"
+                    accept=".png,.jpg,.jpeg,.webp,.gif"
+                    className="hidden"
+                    onChange={handleUpload}
+                    disabled={uploading}
+                  />
+                </label>
               </div>
 
               <h2 className="text-2xl font-bold text-text-main">

@@ -57,7 +57,7 @@ const Header: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, username, corrects, wins")
+        .select("id, username, corrects, wins, avatar_url")
         .order("corrects", { ascending: false })
         .limit(25);
 
@@ -69,6 +69,7 @@ const Header: React.FC = () => {
           name: profile.username || "Unknown Bee",
           corrects: profile.corrects || 0,
           wins: profile.wins || 0,
+          avatarUrl: profile.avatar_url,
         }));
         setLeaderboardData(entries);
       }
@@ -114,7 +115,10 @@ const Header: React.FC = () => {
             >
               <div className="w-full h-full rounded-full bg-panel flex items-center justify-center overflow-hidden">
                 <img
-                  src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`}
+                  src={
+                    userData?.avatarUrl ||
+                    `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`
+                  }
                   alt="Profile"
                   className="w-full h-full object-cover"
                 />
@@ -252,8 +256,11 @@ const Header: React.FC = () => {
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded bg-surface flex items-center justify-center">
                         <img
-                          src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${p.uid}`}
-                          className="w-6 h-6"
+                          src={
+                            p.avatarUrl ||
+                            `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.uid}`
+                          }
+                          className="w-full h-full object-cover"
                           alt="avatar"
                         />
                       </div>
