@@ -197,7 +197,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                     title: data.title || profile?.title || "Newbee",
                     corrects: data.corrects || 0,
                     wins: data.wins || 0,
-                    username: finalUsername,
+                    username: profile?.username || finalUsername,
                     avatarUrl: profile?.avatar_url,
                   });
                 });
