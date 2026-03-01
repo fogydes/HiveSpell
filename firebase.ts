@@ -4,15 +4,15 @@ import * as firebaseAuth from "firebase/auth";
 import * as firebaseDatabase from "firebase/database";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDH5327QBuQ99G2-mqp-GKNy2CVbIFVuk8",
-  authDomain: "hivespell-db.firebaseapp.com",
-  projectId: "hivespell-db",
-  storageBucket: "hivespell-db.firebasestorage.app",
-  messagingSenderId: "684937158022",
-  appId: "1:684937158022:web:dce1947f4f708b1d536007",
-  measurementId: "G-1RZBL1BSV8",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
   // Database Configuration
-  databaseURL: "https://hivespell-db-default-rtdb.asia-southeast1.firebasedatabase.app"
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
 };
 
 // Initialize Firebase App
