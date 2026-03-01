@@ -24,11 +24,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   userId,
   onClose,
 }) => {
-  const { refreshUser } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isOwnProfile = user?.uid === userId;
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -169,21 +170,23 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   className="w-full h-full object-cover"
                 />
 
-                {/* Upload Overlay */}
-                <label
-                  htmlFor="avatar-upload"
-                  className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white text-[10px] font-bold"
-                >
-                  {uploading ? "UPLOADING..." : "CHANGE PHOTO"}
-                  <input
-                    id="avatar-upload"
-                    type="file"
-                    accept=".png,.jpg,.jpeg,.webp,.gif"
-                    className="hidden"
-                    onChange={handleUpload}
-                    disabled={uploading}
-                  />
-                </label>
+                {/* Upload Overlay - only on own profile */}
+                {isOwnProfile && (
+                  <label
+                    htmlFor="avatar-upload"
+                    className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white text-[10px] font-bold"
+                  >
+                    {uploading ? "UPLOADING..." : "CHANGE PHOTO"}
+                    <input
+                      id="avatar-upload"
+                      type="file"
+                      accept=".png,.jpg,.jpeg,.webp,.gif"
+                      className="hidden"
+                      onChange={handleUpload}
+                      disabled={uploading}
+                    />
+                  </label>
+                )}
               </div>
 
               <h2 className="text-2xl font-bold text-text-main">
