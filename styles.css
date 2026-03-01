@@ -1,0 +1,131 @@
+@import "tailwindcss";
+
+/* ============================================
+   TAILWIND v4 THEME CONFIG (CSS-first)
+   Migrated from the CDN inline tailwind.config
+   ============================================ */
+
+@theme {
+  /* Custom Colors (mapped to CSS vars for runtime theme switching) */
+  --color-app: var(--bg-app);
+  --color-panel: var(--bg-panel);
+  --color-surface: var(--bg-surface);
+  --color-primary: var(--primary);
+  --color-primary-dim: var(--primary-dim);
+  --color-accent: var(--accent);
+  --color-text-main: var(--text-main);
+  --color-text-muted: var(--text-muted);
+
+  /* Custom Animations */
+  --animate-fade-in: fadeIn 0.5s ease-out;
+  --animate-hover-float: float 3s ease-in-out infinite;
+  --animate-pop-in: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --animate-slide-up: slideUp 0.4s ease-out;
+  --animate-scale-in: scaleIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes popIn {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  0% {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  0% {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ============================================
+   GLOBAL STYLES (moved from index.html <style>)
+   ============================================ */
+
+:root {
+  /* Default Hive Theme (Dark Slate & Emerald) */
+  --bg-app: #0f172a;
+  --bg-panel: #1e293b;
+  --bg-surface: #334155;
+  --primary: #10b981;
+  --primary-dim: rgba(16, 185, 129, 0.2);
+  --accent: #f59e0b;
+  --text-main: #ffffff;
+  --text-muted: #94a3b8;
+}
+
+body {
+  font-family: "Inter", sans-serif;
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  transition:
+    background-color 0.5s ease,
+    color 0.5s ease;
+}
+
+/* Utilities using vars */
+.bg-app {
+  background-color: var(--bg-app);
+}
+.bg-panel {
+  background-color: var(--bg-panel);
+}
+.text-primary {
+  color: var(--primary);
+}
+
+/* Custom Scrollbar for Webkit */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(30, 41, 59, 0.5);
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border-radius: 4px;
+  opacity: 0.5;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+  opacity: 0.8;
+}
