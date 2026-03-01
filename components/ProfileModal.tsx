@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { supabase, isSupabaseConfigured } from "../services/supabase";
 import { useAuth } from "../context/AuthContext";
+import {
+  getFriendshipStatus,
+  sendFriendRequest,
+  Friendship,
+} from "../services/friendService";
 
 interface ProfileData {
   id: string;
@@ -24,12 +29,14 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   userId,
   onClose,
 }) => {
-  const { user, refreshUser } = useAuth();
+  const { user, userData, refreshUser } = useAuth();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isOwnProfile = user?.uid === userId;
+  const [friendshipStatus, setFriendshipStatus] = useState<string | null>(null);
+  const [friendActionLoading, setFriendActionLoading] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -64,6 +71,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
     if (userId) {
       fetchProfile();
+      // Fetch friendship status if viewing another user
+      if (user && user.uid !== userId) {
+        getFriendshipStatus(user.uid, userId).then((f) => {
+          setFriendshipStatus(f?.status || null);
+        });
+      }
     }
   }, [userId]);
 
@@ -192,9 +205,46 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               <h2 className="text-2xl font-bold text-text-main">
                 {profile.username}
               </h2>
-              <p className="text-primary font-bold uppercase tracking-widest text-sm mb-4">
+              <p className="text-primary font-bold uppercase tracking-widest text-sm mb-2">
                 {profile.title || "Novice Bee"}
               </p>
+
+              {/* Add Friend Button (only on other profiles) */}
+              {!isOwnProfile && (
+                <div className="mb-4">
+                  {friendshipStatus === "accepted" ? (
+                    <span className="inline-flex items-center gap-1 px-4 py-1.5 text-xs font-bold text-primary border border-primary/30 rounded-full">
+                      🤝 Friends
+                    </span>
+                  ) : friendshipStatus === "pending" ? (
+                    <span className="inline-flex items-center gap-1 px-4 py-1.5 text-xs font-bold text-accent border border-accent/30 rounded-full">
+                      ⏳ Pending...
+                    </span>
+                  ) : (
+                    <button
+                      onClick={async () => {
+                        if (!user || !userData) return;
+                        setFriendActionLoading(true);
+                        const result = await sendFriendRequest(
+                          user.uid,
+                          userId,
+                          userData.username || "Someone",
+                        );
+                        if (result.success) {
+                          setFriendshipStatus("pending");
+                        } else {
+                          alert(result.error || "Failed to send request");
+                        }
+                        setFriendActionLoading(false);
+                      }}
+                      disabled={friendActionLoading}
+                      className="px-4 py-1.5 text-xs font-bold bg-primary/20 text-primary border border-primary/30 rounded-full hover:bg-primary/30 transition-colors disabled:opacity-50"
+                    >
+                      {friendActionLoading ? "Sending..." : "👋 Add Friend"}
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* Stats Grid */}
               <div className="grid grid-cols-3 gap-3 w-full mb-6">
