@@ -6,6 +6,7 @@ import { Stash } from "../views/Stash";
 import { ProfileModal } from "./ProfileModal";
 import NotificationBell from "./NotificationBell";
 import FriendsPanel from "./FriendsPanel";
+import ChatPanel from "./ChatPanel";
 import { auth, db } from "../firebase";
 // Fix: Use namespace import for Auth and cast to any to resolve signOut export error
 import * as firebaseAuth from "firebase/auth";
@@ -35,6 +36,7 @@ const Header: React.FC = () => {
     null,
   );
   const [showFriends, setShowFriends] = useState(false);
+  const [showChat, setShowChat] = useState(false);
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [leaderboardData, setLeaderboardData] = useState<
@@ -155,8 +157,14 @@ const Header: React.FC = () => {
                   >
                     Friends
                   </button>
-                  <button className="w-full text-left px-4 py-2 text-sm text-text-muted hover:bg-primary-dim hover:text-primary transition-colors opacity-50 cursor-not-allowed">
-                    Messages (Soon)
+                  <button
+                    onClick={() => {
+                      setShowChat(true);
+                      setIsDropdownOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-text-muted hover:bg-primary-dim hover:text-primary transition-colors"
+                  >
+                    Messages
                   </button>
                   <button
                     onClick={() => {
@@ -380,6 +388,9 @@ const Header: React.FC = () => {
           }}
         />
       )}
+
+      {/* Chat Panel */}
+      {showChat && <ChatPanel onClose={() => setShowChat(false)} />}
     </>
   );
 };
