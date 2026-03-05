@@ -122,36 +122,33 @@ export const leaveRoom = async (
     await update(playerRef, { status: "disconnected" });
     console.log(`[LeaveRoom] Marked player ${playerId} as disconnected`);
 
-    // After a short delay, check if ALL players are disconnected
-    // This delay prevents race conditions where remaining players haven't updated yet
-    setTimeout(async () => {
-      try {
-        const roomRef = ref(db, `rooms/${roomId}`);
-        const roomSnap = await get(roomRef);
+    // Check if ALL players are disconnected to clean up room immediately
+    try {
+      const roomRef = ref(db, `rooms/${roomId}`);
+      const roomSnap = await get(roomRef);
 
-        if (roomSnap.exists()) {
-          const roomData = roomSnap.val();
-          const players = roomData.players || {};
-          const playerList = Object.values(players) as any[];
+      if (roomSnap.exists()) {
+        const roomData = roomSnap.val();
+        const players = roomData.players || {};
+        const playerList = Object.values(players) as any[];
 
-          // Only delete if there are players AND all of them are disconnected
-          if (playerList.length > 0) {
-            const allDisconnected = playerList.every(
-              (p) => p.status === "disconnected",
+        // Only delete if there are players AND all of them are disconnected
+        if (playerList.length > 0) {
+          const allDisconnected = playerList.every(
+            (p) => p.status === "disconnected",
+          );
+
+          if (allDisconnected) {
+            console.log(
+              `[LeaveRoom] All players disconnected, deleting room immediately: ${roomId}`,
             );
-
-            if (allDisconnected) {
-              console.log(
-                `[LeaveRoom] All players disconnected after delay, deleting room: ${roomId}`,
-              );
-              await remove(roomRef);
-            }
+            await remove(roomRef);
           }
         }
-      } catch (cleanupErr) {
-        console.warn(`[LeaveRoom] Cleanup check failed:`, cleanupErr);
       }
-    }, 3000); // 3 second delay before cleanup check
+    } catch (cleanupErr) {
+      console.warn(`[LeaveRoom] Cleanup check failed:`, cleanupErr);
+    }
   } catch (err) {
     console.error(`[LeaveRoom] Error leaving room:`, err);
   }
