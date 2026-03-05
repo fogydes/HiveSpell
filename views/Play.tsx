@@ -1368,13 +1368,6 @@ const Play: React.FC = () => {
     return `${base} ${mobilePos} ${mobileState} ${desktop}`;
   };
 
-  const getFireIntensity = () => {
-    if (streak > 25)
-      return "bg-red-900/40 border-red-500 shadow-[0_0_50px_rgba(220,38,38,0.5)]";
-    if (streak > 10) return "bg-orange-900/30 border-orange-500";
-    if (streak > 5) return "bg-yellow-900/20";
-    return "";
-  };
 
   const renderWordCorrection = () => {
     if (feedback?.type === "error" && feedback.correct) {
@@ -1461,7 +1454,7 @@ const Play: React.FC = () => {
       {renderWordCorrection()}
 
       <div
-        className={`absolute top-1/4 left-1/4 w-96 h-96 rounded-full blur-[100px] pointer-events-none transition-all duration-1000 ${streak > 25 ? "bg-red-600/20" : "bg-emerald-500/5"}`}
+        className={`absolute top-1/4 left-1/4 w-96 h-96 rounded-full blur-[100px] pointer-events-none transition-all duration-1000 bg-emerald-500/5`}
       ></div>
 
       <div className="lg:hidden fixed right-4 top-1/2 -translate-y-1/2 flex flex-col gap-3 z-50 pointer-events-auto">
