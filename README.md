@@ -36,7 +36,7 @@ The multiplayer experience allows for public lobbies or private rooms with frien
 - **Frontend:** React 19, TypeScript, Vite
 - **Styling:** Tailwind CSS
 - **Backend:** Firebase (Realtime Database, Authentication, Hosting)
-- **Testing:** Vitest
+- **Deployment:** Firebase Hosting
 
 ## Getting Started
 

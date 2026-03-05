@@ -67,11 +67,6 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
     if (!currentRoom?.id || !user?.uid) return;
 
     const handleBeforeUnload = () => {
-      // Use sendBeacon for reliable disconnect signaling
-      const data = JSON.stringify({ status: "disconnected" });
-      navigator.sendBeacon(`/api/disconnect`, data); // This won't work without API, fallback below
-
-      // Fallback: synchronous Firebase update (may not always complete)
       leaveRoom(currentRoom.id, user.uid);
     };
 

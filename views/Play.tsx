@@ -15,18 +15,20 @@ import {
   getWordDifficulty,
 } from "../services/gameService";
 import { db } from "../firebase";
-import * as firebaseDatabase from "firebase/database";
+import {
+  ref as dbRef,
+  update as dbUpdate,
+  onValue as dbOnValue,
+  push as dbPush,
+  serverTimestamp as dbServerTimestamp,
+  query as dbQuery,
+  limitToLast as dbLimitToLast,
+  runTransaction,
+  off as dbOff,
+  onDisconnect,
+} from "firebase/database";
 import { Room, Player } from "../types/multiplayer";
 import { ProfileModal } from "../components/ProfileModal";
-
-// Firebase References (Direct Access)
-const dbRef = (firebaseDatabase as any).ref;
-const dbUpdate = (firebaseDatabase as any).update;
-const dbOnValue = (firebaseDatabase as any).onValue;
-const dbPush = (firebaseDatabase as any).push;
-const dbServerTimestamp = (firebaseDatabase as any).serverTimestamp;
-const dbQuery = (firebaseDatabase as any).query;
-const dbLimitToLast = (firebaseDatabase as any).limitToLast;
 
 interface ChatMessage {
   id: string;
@@ -88,9 +90,7 @@ const Play: React.FC = () => {
 
     // Set up Firebase onDisconnect - this will automatically run on the server
     // when the client disconnects, even if they close the tab abruptly
-    const onDisconnectRef = (firebaseDatabase as any).onDisconnect(
-      playerStatusRef,
-    );
+    const onDisconnectRef = onDisconnect(playerStatusRef);
     onDisconnectRef.set("disconnected");
     console.log("[Play] onDisconnect hook set up for player:", user.uid);
 
@@ -448,7 +448,7 @@ const Play: React.FC = () => {
           updates["gameState/winnerId"] = winner.id;
           updates["gameState/winnerName"] = winner.name;
           // Award win
-          (firebaseDatabase as any).runTransaction(
+          runTransaction(
             dbRef(db, `users/${winner.id}/wins`),
             (current: any) => (current || 0) + 1,
           );
@@ -627,7 +627,7 @@ const Play: React.FC = () => {
         updates["gameState/winnerId"] = winner.id;
         updates["gameState/winnerName"] = winner.name;
         // Award win
-        (firebaseDatabase as any).runTransaction(
+        runTransaction(
           dbRef(db, `users/${winner.id}/wins`),
           (current: any) => (current || 0) + 1,
         );
@@ -1111,7 +1111,7 @@ const Play: React.FC = () => {
         updates["gameState/winnerName"] = winner.name;
 
         // Award win (Global User Profile)
-        (firebaseDatabase as any).runTransaction(
+        runTransaction(
           dbRef(db, `users/${winner.id}/wins`),
           (current: any) => (current || 0) + 1,
         );
@@ -1121,7 +1121,7 @@ const Play: React.FC = () => {
           db,
           `rooms/${roomId}/players/${winner.id}/wins`,
         );
-        (firebaseDatabase as any).runTransaction(
+        runTransaction(
           roomPlayerRef,
           (current: any) => (current || 0) + 1,
         );
@@ -1168,10 +1168,10 @@ const Play: React.FC = () => {
     }
     passingTurnRef.current = false;
 
-    // PERFORM LIFETIME CORRECTS + STARS UPDATE (if correct answer)
+    // PERFORM LIFETIME CORRECTS + NECTAR UPDATE (if correct answer)
     if (!wasEliminated && user?.uid) {
-      // Calculate stars based on difficulty
-      const difficultyStars: Record<string, number> = {
+      // Calculate nectar reward based on difficulty
+      const nectarRewards: Record<string, number> = {
         baby: 6,
         cakewalk: 8,
         learner: 10,
@@ -1184,7 +1184,7 @@ const Play: React.FC = () => {
       let difficulty =
         currentRoom.settings?.difficulty?.toLowerCase() || "baby";
 
-      // For Omniscient mode, determine stars based on the word's original difficulty
+      // For Omniscient mode, determine nectar based on the word's original difficulty
       if (difficulty === "omniscient") {
         const wordOriginalDifficulty = getWordDifficulty(currentWord);
         difficulty = wordOriginalDifficulty;
@@ -1193,26 +1193,26 @@ const Play: React.FC = () => {
         );
       }
 
-      const starsToAdd = difficultyStars[difficulty] || 6;
+      const nectarToAdd = nectarRewards[difficulty] || 6;
 
       console.log(
-        `[Stats] Adding ${starsToAdd} stars for difficulty: ${difficulty}`,
+        `[Stats] Adding ${nectarToAdd} nectar for difficulty: ${difficulty}`,
       );
 
-      // Use namespace import for transaction
+      // Update user stats via transaction
       (
-        (firebaseDatabase as any).runTransaction(
+        runTransaction(
           dbRef(db, `users/${user.uid}`),
           (userDoc: any) => {
             if (userDoc) {
               userDoc.corrects = (userDoc.corrects || 0) + 1;
-              userDoc.stars = (userDoc.stars || 0) + starsToAdd;
+              userDoc.stars = (userDoc.stars || 0) + nectarToAdd;
               userDoc.title = getTitle(userDoc.corrects, userDoc.wins || 0);
             } else {
               return {
                 corrects: 1,
                 wins: 0,
-                stars: starsToAdd,
+                stars: nectarToAdd,
                 title: getTitle(1, 0),
                 username: user.displayName || "Player",
               };
@@ -1299,7 +1299,7 @@ const Play: React.FC = () => {
             db,
             `rooms/${currentRoom.id}/players/${user.uid}`,
           );
-          await (firebaseDatabase as any).runTransaction(
+          await runTransaction(
             playerRef,
             (player: any) => {
               if (player) {

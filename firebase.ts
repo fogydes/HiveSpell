@@ -1,7 +1,6 @@
-import * as firebaseApp from "firebase/app";
-// Firebase Imports
-import * as firebaseAuth from "firebase/auth";
-import * as firebaseDatabase from "firebase/database";
+import { initializeApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
+import { getDatabase } from "firebase/database";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -11,16 +10,9 @@ const firebaseConfig = {
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
-  // Database Configuration
   databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
 };
 
-// Initialize Firebase App
-const app = (firebaseApp as any).initializeApp(firebaseConfig);
-// Initialize Auth
-const { getAuth } = firebaseAuth as any;
+const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-
-// Initialize Realtime Database
-const { getDatabase } = firebaseDatabase as any;
 export const db = getDatabase(app);

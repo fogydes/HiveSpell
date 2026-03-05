@@ -1,14 +1,8 @@
 import React, { useState } from 'react';
-// Firebase Namespace Imports
-import * as firebaseAuth from 'firebase/auth';
-import * as firebaseDatabase from 'firebase/database';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { ref, set, get } from 'firebase/database';
 import { auth, db } from '../firebase';
 import { useNavigate } from 'react-router-dom';
-
-// Auth Methods
-const { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } = firebaseAuth as any;
-// Database Methods
-const { ref, set, get } = firebaseDatabase as any;
 
 const Auth: React.FC = () => {
   const [emailOrUser, setEmailOrUser] = useState('');

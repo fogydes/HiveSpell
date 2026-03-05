@@ -1,28 +1,18 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-// Firebase Imports
-import * as firebaseAuth from "firebase/auth";
-import * as firebaseDatabase from "firebase/database";
+import { onAuthStateChanged, type User } from "firebase/auth";
+import { ref, onValue, off, update } from "firebase/database";
 import { auth, db } from "../firebase";
 
 import { supabase } from "../services/supabase";
 
-// Auth Listener
-const { onAuthStateChanged } = firebaseAuth as any;
-type User = any;
-
-// Database References
-const { ref, onValue, off, update } = firebaseDatabase as any;
-
-// User Profile Data Interface
 export interface UserData {
-  stars: number; // Deprecated: mapped to nectar
-  nectar?: number; // New field
-  lifetimeNectar?: number; // New field
+  nectar: number;
+  lifetimeNectar: number;
   title: string;
   corrects: number;
   wins: number;
-  username: string; // Added username
-  avatarUrl?: string; // Added avatarUrl
+  username: string;
+  avatarUrl?: string;
 }
 
 interface AuthContextType {
@@ -63,7 +53,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       lifetimeNectar = profile.lifetime_nectar;
       setUserData((prev) => ({
         ...prev!,
-        stars: currentNectar,
         nectar: currentNectar,
         username: profile.username || finalUsername,
         title: profile.title || "Newbee",
@@ -89,11 +78,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           prev
             ? {
                 ...prev,
-                stars: profile.current_nectar,
                 nectar: profile.current_nectar,
                 lifetimeNectar: profile.lifetime_nectar,
                 avatarUrl: profile.avatar_url,
-                // We might want to sync inventory here too if we verify it in UI later
               }
             : null,
         );
@@ -191,7 +178,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                   }
 
                   setUserData({
-                    stars: currentNectar, // Map Nectar to Stars for backward compatibility
                     nectar: currentNectar,
                     lifetimeNectar: lifetimeNectar,
                     title: data.title || profile?.title || "Newbee",
@@ -222,7 +208,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                 .then(() => console.log("New user initialized in Supabase"));
 
               setUserData({
-                stars: 0,
                 nectar: 0,
                 lifetimeNectar: 0,
                 title: "Newbee",
@@ -236,7 +221,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             console.warn("Auth Data Fetch Error:", error);
             // Fallback
             setUserData({
-              stars: 0,
               nectar: 0,
               lifetimeNectar: 0,
               title: "Newbee",

@@ -8,16 +8,10 @@ import NotificationBell from "./NotificationBell";
 import FriendsPanel from "./FriendsPanel";
 import ChatPanel from "./ChatPanel";
 import { auth, db } from "../firebase";
-// Fix: Use namespace import for Auth and cast to any to resolve signOut export error
-import * as firebaseAuth from "firebase/auth";
-import * as firebaseDatabase from "firebase/database";
+import { signOut } from "firebase/auth";
+import { ref, get, query, orderByChild, limitToLast } from "firebase/database";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../services/supabase";
-
-// Fix: Destructure signOut from namespace
-const { signOut } = firebaseAuth as any;
-// Cast firebaseDatabase to any to resolve TS errors
-const { ref, get, query, orderByChild, limitToLast } = firebaseDatabase as any;
 
 const Header: React.FC = () => {
   const { userData, user } = useAuth();
@@ -103,7 +97,7 @@ const Header: React.FC = () => {
             className="text-primary-dim text-opacity-100 placeholder-opacity-100 text-emerald-100 font-bold font-mono text-lg"
             style={{ color: "var(--primary)" }}
           >
-            {userData?.nectar ?? userData?.stars ?? 0}
+            {userData?.nectar ?? 0}
           </span>
           <div className="w-px h-5 bg-primary-dim mx-1"></div>
           <span className="text-accent font-medium text-sm tracking-wide uppercase">
