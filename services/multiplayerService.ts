@@ -191,6 +191,14 @@ export const findPublicRoom = async (
       (!room.players ||
         Object.keys(room.players).length < (room.settings.maxPlayers || 10))
     ) {
+      // Skip rooms where all players are disconnected (zombie rooms)
+      if (room.players) {
+        const playerList = Object.values(room.players) as any[];
+        const hasActivePlayer = playerList.some(
+          (p) => p.status !== "disconnected",
+        );
+        if (playerList.length > 0 && !hasActivePlayer) continue;
+      }
       return id;
     }
   }

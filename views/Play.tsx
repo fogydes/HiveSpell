@@ -57,6 +57,8 @@ const Play: React.FC = () => {
   // If no room context (user refreshed page or direct link without join), kick back to lobby
   // Use a ref to avoid redirecting immediately on first mount before context syncs
   const hasAttemptedLoadRef = useRef(false);
+  const currentRoomRef = useRef(currentRoom);
+  currentRoomRef.current = currentRoom;
   useEffect(() => {
     // Don't check on first mount, give context time to sync
     if (!hasAttemptedLoadRef.current) {
@@ -67,7 +69,7 @@ const Play: React.FC = () => {
     // Wait a beat before deciding to redirect (context might be updating)
     if (!contextLoading && !currentRoom) {
       const timer = setTimeout(() => {
-        if (!currentRoom) {
+        if (!currentRoomRef.current) {
           console.warn(
             "No Room Context found after delay, redirecting to lobby...",
           );
