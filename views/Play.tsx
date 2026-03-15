@@ -43,6 +43,31 @@ interface WordStat {
   wpm: number;
 }
 
+const WIN_AWARD_STORAGE_KEY = "hive_awarded_wins";
+
+const getAwardedWins = (): string[] => {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const raw = sessionStorage.getItem(WIN_AWARD_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const hasAwardedWin = (awardKey: string): boolean => {
+  return getAwardedWins().includes(awardKey);
+};
+
+const rememberAwardedWin = (awardKey: string) => {
+  if (typeof window === "undefined") return;
+
+  const nextAwards = [...getAwardedWins(), awardKey].slice(-20);
+  sessionStorage.setItem(WIN_AWARD_STORAGE_KEY, JSON.stringify(nextAwards));
+};
+
 const Play: React.FC = () => {
   const { mode: paramMode } = useParams<{ mode: string }>();
   const navigate = useNavigate();
@@ -303,6 +328,56 @@ const Play: React.FC = () => {
 
   const amIActivePlayer = myStatus === "alive" || myStatus === "connected";
 
+  useEffect(() => {
+    const winnerId = currentRoom?.gameState?.winnerId;
+    const intermissionEndsAt = currentRoom?.intermissionEndsAt;
+
+    if (!user?.uid || !currentRoom?.id || !winnerId || !intermissionEndsAt) {
+      return;
+    }
+
+    if (winnerId !== user.uid) {
+      return;
+    }
+
+    const awardKey = `${currentRoom.id}:${intermissionEndsAt}:${winnerId}`;
+    if (hasAwardedWin(awardKey)) {
+      return;
+    }
+
+    rememberAwardedWin(awardKey);
+
+    runTransaction(dbRef(db, `users/${user.uid}`), (userDoc: any) => {
+      if (userDoc) {
+        const nextWins = (userDoc.wins || 0) + 1;
+        userDoc.wins = nextWins;
+        userDoc.title = getTitle(userDoc.corrects || 0, nextWins);
+        return userDoc;
+      }
+
+      return {
+        corrects: 0,
+        wins: 1,
+        stars: 0,
+        title: getTitle(0, 1),
+        username: user.displayName || "Player",
+      };
+    }).catch((err: any) => console.error("Win award transaction failed:", err));
+
+    runTransaction(
+      dbRef(db, `rooms/${currentRoom.id}/players/${user.uid}/wins`),
+      (current: any) => (current || 0) + 1,
+    ).catch((err: any) =>
+      console.error("Room win award transaction failed:", err),
+    );
+  }, [
+    currentRoom?.gameState?.winnerId,
+    currentRoom?.id,
+    currentRoom?.intermissionEndsAt,
+    user?.displayName,
+    user?.uid,
+  ]);
+
   // --- AUDIO & INPUT SYNC ---
   useEffect(() => {
     if (!currentRoom?.gameState?.currentWord) return;
@@ -449,11 +524,6 @@ const Play: React.FC = () => {
           const winner = alivePlayers[0];
           updates["gameState/winnerId"] = winner.id;
           updates["gameState/winnerName"] = winner.name;
-          // Award win
-          runTransaction(
-            dbRef(db, `users/${winner.id}/wins`),
-            (current: any) => (current || 0) + 1,
-          );
         }
 
         dbUpdate(dbRef(db, `rooms/${roomId}`), updates)
@@ -628,11 +698,6 @@ const Play: React.FC = () => {
         const winner = alivePlayers[0];
         updates["gameState/winnerId"] = winner.id;
         updates["gameState/winnerName"] = winner.name;
-        // Award win
-        runTransaction(
-          dbRef(db, `users/${winner.id}/wins`),
-          (current: any) => (current || 0) + 1,
-        );
       }
 
       dbUpdate(dbRef(db, `rooms/${roomId}`), updates)
@@ -1111,22 +1176,6 @@ const Play: React.FC = () => {
         console.log("[PassTurn] Winner:", winner.name);
         updates["gameState/winnerId"] = winner.id;
         updates["gameState/winnerName"] = winner.name;
-
-        // Award win (Global User Profile)
-        runTransaction(
-          dbRef(db, `users/${winner.id}/wins`),
-          (current: any) => (current || 0) + 1,
-        );
-
-        // Award win (Room Player Stats - Fix for Player List)
-        const roomPlayerRef = dbRef(
-          db,
-          `rooms/${roomId}/players/${winner.id}/wins`,
-        );
-        runTransaction(
-          roomPlayerRef,
-          (current: any) => (current || 0) + 1,
-        );
       }
     } else {
       // Find next player in turn order who is still alive

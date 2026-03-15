@@ -22,16 +22,23 @@ export interface GameState {
   currentTurnPlayerId?: string; // Who's turn it is
   turnOrder?: string[]; // Array of player IDs in turn order
   currentInput?: string; // Synced typing from current player
+  currentPlayerWpm?: number;
+  streak?: number;
+  winnerId?: string | null;
+  winnerName?: string | null;
+  frozenTimeLeft?: number | null;
+  recentWords?: string[];
 }
 
 export interface Room {
   id: string;
   hostId: string;
   type: "public" | "private";
-  status: "waiting" | "playing" | "finished";
+  status: "waiting" | "playing" | "intermission" | "finished";
   createdAt: number;
   code?: string; // Optional for public rooms
   settings: GameSettings;
   players: Record<string, Player>;
   gameState?: GameState;
+  intermissionEndsAt?: number | null;
 }

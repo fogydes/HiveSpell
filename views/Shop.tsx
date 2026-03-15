@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../services/supabase";
 
@@ -53,7 +53,14 @@ export const Shop: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   return (
     <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-hidden animate-fade-in">
       {/* Background Ambience */}
-      <div className="absolute inset-0 bg-[url('/assets/hex-pattern.png')] opacity-10 pointer-events-none"></div>
+      <div
+        className="absolute inset-0 opacity-10 pointer-events-none"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle at 25% 25%, rgba(245, 158, 11, 0.18) 2px, transparent 2px), radial-gradient(circle at 75% 75%, rgba(245, 158, 11, 0.14) 2px, transparent 2px)",
+          backgroundSize: "36px 36px",
+        }}
+      ></div>
 
       <div className="relative w-full max-w-5xl h-[85vh] bg-[#1a1d21] border border-amber-900/50 rounded-3xl shadow-[0_0_50px_rgba(245,158,11,0.2)] flex overflow-hidden">
         {/* Left: THe Shopkeeper */}
