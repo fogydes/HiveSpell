@@ -8,6 +8,7 @@ This folder contains the project documentation for HiveSpell.
 - [`development.md`](./development.md) - local setup, workflow, and codebase conventions
 - [`gameplay.md`](./gameplay.md) - gameplay concepts and round flow
 - [`backend.md`](./backend.md) - Firebase and Supabase responsibilities
+- [`data-ownership.md`](./data-ownership.md) - canonical source-of-truth plan for profile and gameplay data
 - [`supabase.md`](./supabase.md) - internal Supabase table, storage, and RPC expectations
 - [`deployment.md`](./deployment.md) - hosting and CI/CD overview
 - [`roadmap.md`](./roadmap.md) - staged improvement plan for architecture, gameplay safety, and maintainability
@@ -17,10 +18,11 @@ This folder contains the project documentation for HiveSpell.
 1. [`architecture.md`](./architecture.md)
 2. [`development.md`](./development.md)
 3. [`backend.md`](./backend.md)
-4. [`supabase.md`](./supabase.md)
-5. [`roadmap.md`](./roadmap.md)
-6. [`gameplay.md`](./gameplay.md)
-7. [`deployment.md`](./deployment.md)
+4. [`data-ownership.md`](./data-ownership.md)
+5. [`supabase.md`](./supabase.md)
+6. [`roadmap.md`](./roadmap.md)
+7. [`gameplay.md`](./gameplay.md)
+8. [`deployment.md`](./deployment.md)
 
 ## Audience
 

@@ -27,11 +27,18 @@ Expected usage in the app suggests these fields:
 - `current_nectar`
 - `lifetime_nectar`
 - `inventory`
+- `equipped_theme`
+- `equipped_cursor`
+- `equipped_badge`
 - `corrects`
 - `wins`
 - `title`
 - `avatar_url`
 - `avatar_seed`
+
+Schema helper:
+
+- [`docs/sql/add-equipped-theme.sql`](./sql/add-equipped-theme.sql) adds the equipped customization columns used by the settings and stash flow
 
 ### `friendships`
 

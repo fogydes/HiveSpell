@@ -67,10 +67,6 @@ const Auth: React.FC = () => {
         await set(ref(db, `users/${user.uid}`), {
           username: username.trim(),
           email: emailOrUser,
-          stars: 0,
-          title: 'Newbee',
-          corrects: 0,
-          wins: 0
         });
 
         // Link Username to UID

@@ -230,12 +230,16 @@ Exit criteria:
 - changing profile ownership without tracing every consumer
 - treating room-local stats and global stats as the same thing
 
+## Known Issues To Investigate Later
+
+- audio playback reliability: local word audio sometimes fails to start and falls back to TTS more often than expected; investigate Supabase storage delivery, audio loading behavior, and the current client timeout threshold
+
 ## Practical Next Step
 
 The next best concrete task is:
 
-1. write the canonical field ownership plan
-2. map every current reader and writer of wins, corrects, title, and nectar
-3. implement the ownership change in small steps
+1. add the missing Supabase customization columns to the live project
+2. manually verify cross-device persistence for themes, cursor, and badge state
+3. decide whether to keep expanding customization or move to the `Play.tsx` refactor slice
 
 That gives the best balance of safety, clarity, and forward progress.

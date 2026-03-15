@@ -1,56 +1,31 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { supabase } from "../services/supabase";
-import { useSettings, THEMES, ThemeId } from "../context/SettingsContext";
-
-// Map of item IDs to their display properties
-const ITEM_CATALOG: Record<
-  string,
-  { name: string; category: string; icon: string }
-> = {
-  theme_honey: { name: "Honey Glaze", category: "Theme", icon: "🎨" },
-  theme_night: { name: "Nightshade", category: "Theme", icon: "🎨" },
-  cursor_pollen: { name: "Pollen Trail", category: "Cursor", icon: "✨" },
-  badge_lexicon: { name: "Lexicon Badge", category: "Badge", icon: "🎖️" },
-};
+import { useSettings, THEMES } from "../context/SettingsContext";
+import {
+  ITEM_CATALOG,
+  THEME_OPTIONS,
+  isThemeUnlocked,
+} from "../data/customizationCatalog";
 
 interface StashProps {
   onClose: () => void;
 }
 
 export const Stash: React.FC<StashProps> = ({ onClose }) => {
-  const { user } = useAuth();
-  const { theme, setTheme } = useSettings();
-  const [inventory, setInventory] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { userData } = useAuth();
+  const {
+    theme,
+    setTheme,
+    equippedCursor,
+    setEquippedCursor,
+    equippedBadge,
+    setEquippedBadge,
+  } = useSettings();
   const [activeTab, setActiveTab] = useState<"themes" | "items">("themes");
-
-  useEffect(() => {
-    const fetchInventory = async () => {
-      if (!user) return;
-      setLoading(true);
-      setError(null);
-
-      try {
-        const { data, error: fetchError } = await supabase
-          .from("profiles")
-          .select("inventory")
-          .eq("id", user.uid)
-          .single();
-
-        if (fetchError) throw fetchError;
-        setInventory(data?.inventory || []);
-      } catch (err: any) {
-        console.error("Failed to fetch inventory:", err);
-        setError("Could not load your stash.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchInventory();
-  }, [user]);
+  const inventory = userData?.inventory ?? [];
+  const ownedItems = inventory
+    .map((itemId) => ITEM_CATALOG[itemId])
+    .filter(Boolean);
 
   return (
     <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-hidden animate-fade-in">
@@ -95,15 +70,18 @@ export const Stash: React.FC<StashProps> = ({ onClose }) => {
         <div className="p-6 overflow-y-auto custom-scrollbar flex-1 bg-app/50">
           {activeTab === "themes" && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {Object.keys(THEMES).map((tId) => {
-                const isActive = theme === tId;
-                const modeColors = THEMES[tId as ThemeId];
+              {THEME_OPTIONS.map((themeOption) => {
+                const isActive = theme === themeOption.id;
+                const unlocked =
+                  isThemeUnlocked(themeOption.id, inventory) || isActive;
+                const modeColors = THEMES[themeOption.id];
 
                 return (
                   <button
-                    key={tId}
-                    onClick={() => setTheme(tId as ThemeId)}
-                    className={`relative p-4 rounded-xl border-2 transition-all group text-left flex items-center gap-4 ${isActive ? "border-primary bg-primary-dim/20 shadow-[0_0_20px_rgba(var(--primary-rgb),0.2)]" : "border-surface bg-panel hover:border-text-muted"}`}
+                    key={themeOption.id}
+                    onClick={() => unlocked && setTheme(themeOption.id)}
+                    disabled={!unlocked}
+                    className={`relative p-4 rounded-xl border-2 transition-all group text-left flex items-center gap-4 ${isActive ? "border-primary bg-primary-dim/20 shadow-[0_0_20px_rgba(var(--primary-rgb),0.2)]" : unlocked ? "border-surface bg-panel hover:border-text-muted" : "border-surface bg-panel/60 opacity-70 cursor-not-allowed"}`}
                   >
                     {/* Theme Preview Circle */}
                     <div
@@ -122,8 +100,11 @@ export const Stash: React.FC<StashProps> = ({ onClose }) => {
                       <h4
                         className={`font-bold uppercase tracking-wider ${isActive ? "text-primary" : "text-text-main"}`}
                       >
-                        {tId}
+                        {themeOption.name}
                       </h4>
+                      <p className="mt-1 text-xs text-text-muted">
+                        {themeOption.description}
+                      </p>
                       <div className="flex gap-1 mt-2">
                         {/* Color Swatches */}
                         <div
@@ -140,6 +121,12 @@ export const Stash: React.FC<StashProps> = ({ onClose }) => {
                         ></div>
                       </div>
                     </div>
+
+                    {!unlocked && (
+                      <div className="absolute top-4 right-4 rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-300">
+                        Locked
+                      </div>
+                    )}
 
                     {isActive && (
                       <div className="absolute top-4 right-4 text-primary">
@@ -165,16 +152,7 @@ export const Stash: React.FC<StashProps> = ({ onClose }) => {
 
           {activeTab === "items" && (
             <>
-              {loading ? (
-                <div className="text-center py-12">
-                  <div className="animate-spin text-4xl mb-4">🐝</div>
-                  <p className="text-text-muted">Checking your hive...</p>
-                </div>
-              ) : error ? (
-                <div className="text-center py-12">
-                  <p className="text-red-400">{error}</p>
-                </div>
-              ) : inventory.length === 0 ? (
+              {ownedItems.length === 0 ? (
                 <div className="text-center py-12 bg-panel/30 rounded-2xl border border-dashed border-surface">
                   <div className="text-5xl mb-4 opacity-50">📦</div>
                   <p className="text-text-muted mb-2">
@@ -186,13 +164,21 @@ export const Stash: React.FC<StashProps> = ({ onClose }) => {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  {inventory.map((itemId) => {
-                    const item = ITEM_CATALOG[itemId];
-                    if (!item) return null; // Unknown item
+                  {ownedItems.map((item) => {
+                    const isEquipped =
+                      (item.category === "cursor" &&
+                        equippedCursor === item.id) ||
+                      (item.category === "badge" && equippedBadge === item.id);
+                    const buttonLabel =
+                      item.category === "theme"
+                        ? "View Theme"
+                        : isEquipped
+                          ? "Unequip"
+                          : "Equip";
 
                     return (
                       <div
-                        key={itemId}
+                        key={item.id}
                         className="bg-panel border border-surface rounded-xl p-4 flex flex-col items-center text-center hover:border-primary transition-all group cursor-pointer"
                       >
                         <div className="text-3xl mb-2 group-hover:scale-110 transition-transform">
@@ -204,8 +190,29 @@ export const Stash: React.FC<StashProps> = ({ onClose }) => {
                         <span className="text-xs text-text-muted uppercase tracking-wider mt-1">
                           {item.category}
                         </span>
-                        <button className="mt-3 text-xs bg-primary hover:bg-primary-dim text-app px-3 py-1 rounded-full transition-colors font-bold">
-                          Equip
+                        <button
+                          onClick={() => {
+                            if (item.category === "theme") {
+                              setActiveTab("themes");
+                              return;
+                            }
+
+                            if (item.category === "cursor") {
+                              setEquippedCursor(
+                                equippedCursor === item.id ? null : item.id,
+                              );
+                              return;
+                            }
+
+                            if (item.category === "badge") {
+                              setEquippedBadge(
+                                equippedBadge === item.id ? null : item.id,
+                              );
+                            }
+                          }}
+                          className={`mt-3 text-xs px-3 py-1 rounded-full transition-colors font-bold ${item.category === "theme" ? "bg-primary hover:bg-primary-dim text-app" : isEquipped ? "bg-amber-400/20 text-amber-200 border border-amber-400/30" : "bg-surface hover:bg-primary-dim text-text-main"}`}
+                        >
+                          {buttonLabel}
                         </button>
                       </div>
                     );
@@ -220,8 +227,8 @@ export const Stash: React.FC<StashProps> = ({ onClose }) => {
         <div className="bg-panel p-4 border-t border-surface text-center shrink-0">
           <p className="text-text-muted text-xs">
             {activeTab === "items"
-              ? `${inventory.length} item${inventory.length !== 1 ? "s" : ""} in your collection`
-              : "Basic themes are unlocked by default"}
+              ? `${ownedItems.length} item${ownedItems.length !== 1 ? "s" : ""} in your collection`
+              : "Core themes are free, shop themes unlock after purchase"}
           </p>
         </div>
       </div>

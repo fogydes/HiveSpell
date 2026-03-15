@@ -1,54 +1,18 @@
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../services/supabase";
-
-interface ShopItem {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  category: "theme" | "cursor" | "badge";
-  image?: string;
-  locked?: boolean;
-}
-
-const SAMPLE_ITEMS: ShopItem[] = [
-  {
-    id: "theme_honey",
-    name: "Honey Glaze",
-    description: "Golden hues and serif fonts.",
-    price: 500,
-    category: "theme",
-  },
-  {
-    id: "theme_night",
-    name: "Nightshade",
-    description: "Deep purple neon aesthetic.",
-    price: 1000,
-    category: "theme",
-  },
-  {
-    id: "cursor_pollen",
-    name: "Pollen Trail",
-    description: "Leave valuable dust behind.",
-    price: 300,
-    category: "cursor",
-  },
-  {
-    id: "badge_lexicon",
-    name: "Lexicon Badge",
-    description: "Show off your vocabulary.",
-    price: 200,
-    category: "badge",
-  },
-];
+import {
+  SHOP_ITEMS,
+  type CustomizationItem,
+  isItemOwned,
+} from "../data/customizationCatalog";
 
 export const Shop: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const { userData } = useAuth();
-  const [selectedItem, setSelectedItem] = useState<ShopItem | null>(null);
-
-  // Hexagon Generator
-  // We'll use a CSS Grid approach with clip-path for hexagons
+  const [selectedItem, setSelectedItem] = useState<CustomizationItem | null>(
+    null,
+  );
+  const inventory = userData?.inventory ?? [];
 
   return (
     <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-hidden animate-fade-in">
@@ -113,32 +77,35 @@ export const Shop: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
           {/* HEX GRID LAYOUT */}
           <div className="grid grid-cols-3 gap-4 pb-20">
-            {SAMPLE_ITEMS.map((item) => (
-              <div
-                key={item.id}
-                onClick={() => setSelectedItem(item)}
-                className={`
-                   relative aspect-square bg-slate-800 border-2 ${selectedItem?.id === item.id ? "border-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.5)]" : "border-slate-700 hover:border-amber-500/50"}
-                   rounded-2xl flex flex-col items-center justify-center p-4 cursor-pointer transition-all group overflow-hidden
-                 `}
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            {SHOP_ITEMS.map((item) => {
+              const owned = isItemOwned(inventory, item.id);
 
-                <div className="text-4xl mb-3 group-hover:scale-110 transition-transform duration-300">
-                  {item.category === "theme"
-                    ? "🎨"
-                    : item.category === "cursor"
-                      ? "✨"
-                      : "🎖️"}
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => setSelectedItem(item)}
+                  className={`
+                    relative aspect-square bg-slate-800 border-2 ${selectedItem?.id === item.id ? "border-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.5)]" : owned ? "border-emerald-400/60" : "border-slate-700 hover:border-amber-500/50"}
+                    rounded-2xl flex flex-col items-center justify-center p-4 cursor-pointer transition-all group overflow-hidden
+                  `}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+
+                  <div className="text-4xl mb-3 group-hover:scale-110 transition-transform duration-300">
+                    {item.icon}
+                  </div>
+                  <h4 className="text-emerald-100 font-bold text-center text-sm">
+                    {item.name}
+                  </h4>
+                  <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-slate-400">
+                    {item.category}
+                  </div>
+                  <div className="mt-2 bg-slate-900/80 px-3 py-1 rounded-full text-amber-400 text-xs font-mono border border-slate-700">
+                    {owned ? "Owned" : `${item.price} 🍯`}
+                  </div>
                 </div>
-                <h4 className="text-emerald-100 font-bold text-center text-sm">
-                  {item.name}
-                </h4>
-                <div className="mt-2 bg-slate-900/80 px-3 py-1 rounded-full text-amber-400 text-xs font-mono border border-slate-700">
-                  {item.price} 🍯
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -156,6 +123,7 @@ export const Shop: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             </div>
             <PurchaseButton
               item={selectedItem}
+              owned={isItemOwned(inventory, selectedItem.id)}
               onClose={() => setSelectedItem(null)}
             />
           </div>
@@ -166,15 +134,17 @@ export const Shop: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 };
 
 // Extracted for cleaner state management
-const PurchaseButton: React.FC<{ item: ShopItem; onClose: () => void }> = ({
-  item,
-  onClose,
-}) => {
-  const { refreshUser, user } = useAuth();
+const PurchaseButton: React.FC<{
+  item: CustomizationItem;
+  owned: boolean;
+  onClose: () => void;
+}> = ({ item, owned, onClose }) => {
+  const { refreshUser, user, userData } = useAuth();
   const [buying, setBuying] = useState(false);
+  const canAfford = (userData?.nectar ?? 0) >= item.price;
 
   const handleBuy = async () => {
-    if (buying || !user) return;
+    if (buying || !user || owned || !canAfford) return;
     setBuying(true);
 
     try {
@@ -205,15 +175,19 @@ const PurchaseButton: React.FC<{ item: ShopItem; onClose: () => void }> = ({
   return (
     <button
       onClick={handleBuy}
-      disabled={buying}
+      disabled={buying || owned || !canAfford}
       className={`
         bg-amber-500 hover:bg-amber-400 text-black font-bold px-8 py-3 rounded-xl 
         shadow-[0_0_20px_rgba(245,158,11,0.4)] transition-all transform 
-        ${buying ? "opacity-50 cursor-not-allowed scale-100" : "hover:scale-105 active:scale-95"}
+        ${buying || owned || !canAfford ? "opacity-50 cursor-not-allowed scale-100" : "hover:scale-105 active:scale-95"}
         flex items-center gap-2
       `}
     >
-      {buying ? (
+      {owned ? (
+        <span>Already Owned</span>
+      ) : !canAfford ? (
+        <span>Not Enough Nectar</span>
+      ) : buying ? (
         <span>Processing...</span>
       ) : (
         <>

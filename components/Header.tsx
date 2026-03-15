@@ -4,6 +4,7 @@ import { useSettings } from "../context/SettingsContext";
 import { Shop } from "../views/Shop";
 import { Stash } from "../views/Stash";
 import { ProfileModal } from "./ProfileModal";
+import CustomizationEffects from "./CustomizationEffects";
 import NotificationBell from "./NotificationBell";
 import FriendsPanel from "./FriendsPanel";
 import ChatPanel from "./ChatPanel";
@@ -12,11 +13,17 @@ import { signOut } from "firebase/auth";
 import { ref, get, query, orderByChild, limitToLast } from "firebase/database";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../services/supabase";
+import { ITEM_CATALOG } from "../data/customizationCatalog";
 
 const Header: React.FC = () => {
   const { userData, user } = useAuth();
-  const { ttsVolume, setTtsVolume, sfxVolume, setSfxVolume, theme, setTheme } =
-    useSettings();
+  const {
+    ttsVolume,
+    setTtsVolume,
+    sfxVolume,
+    setSfxVolume,
+    equippedBadge,
+  } = useSettings();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -39,6 +46,7 @@ const Header: React.FC = () => {
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
 
   const isPlayMode = location.pathname.startsWith("/play");
+  const equippedBadgeItem = equippedBadge ? ITEM_CATALOG[equippedBadge] : null;
 
   if (!user) return null;
 
@@ -88,6 +96,7 @@ const Header: React.FC = () => {
 
   return (
     <>
+      <CustomizationEffects />
       {/* Top Header: Stats & Profile Only */}
       <header className="fixed top-0 left-0 w-full p-4 flex justify-between items-start z-50 pointer-events-none">
         {/* Left: Stats */}
@@ -103,6 +112,15 @@ const Header: React.FC = () => {
           <span className="text-accent font-medium text-sm tracking-wide uppercase">
             {userData?.title || "Newbee"}
           </span>
+          {equippedBadgeItem && (
+            <>
+              <div className="w-px h-5 bg-primary-dim mx-1"></div>
+              <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/25 bg-amber-400/10 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-amber-200">
+                <span>{equippedBadgeItem.icon}</span>
+                <span>{equippedBadgeItem.name}</span>
+              </span>
+            </>
+          )}
         </div>
 
         {/* Right: Profile Dropdown */}

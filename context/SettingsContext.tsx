@@ -5,8 +5,19 @@ import React, {
   useEffect,
   useRef,
 } from "react";
+import { useAuth } from "./AuthContext";
+import {
+  setProfileTheme,
+  setProfileCustomizationSlot,
+} from "../services/profileService";
 
-export type ThemeId = "hive" | "royal" | "ice" | "forest";
+export type ThemeId =
+  | "hive"
+  | "royal"
+  | "ice"
+  | "forest"
+  | "theme_honey"
+  | "theme_night";
 
 interface ThemeColors {
   app: string;
@@ -65,6 +76,28 @@ export const THEMES: Record<ThemeId, ThemeColors> = {
     textMain: "#ecfccb", // lime-100
     textMuted: "#86efac",
   },
+  theme_honey: {
+    app: "#24160a",
+    panel: "#4b2e12",
+    surface: "#6b4115",
+    primary: "#fbbf24",
+    primaryRgb: "251, 191, 36",
+    primaryDim: "rgba(251, 191, 36, 0.2)",
+    accent: "#fde68a",
+    textMain: "#fff7ed",
+    textMuted: "#fcd34d",
+  },
+  theme_night: {
+    app: "#0f172a",
+    panel: "#172554",
+    surface: "#1d4ed8",
+    primary: "#22d3ee",
+    primaryRgb: "34, 211, 238",
+    primaryDim: "rgba(34, 211, 238, 0.2)",
+    accent: "#a5f3fc",
+    textMain: "#ecfeff",
+    textMuted: "#67e8f9",
+  },
 };
 
 interface SettingsContextType {
@@ -75,6 +108,10 @@ interface SettingsContextType {
   playTypingSound: () => void;
   theme: ThemeId;
   setTheme: (t: ThemeId) => void;
+  equippedCursor: string | null;
+  setEquippedCursor: (cursorId: string | null) => void;
+  equippedBadge: string | null;
+  setEquippedBadge: (badgeId: string | null) => void;
 }
 
 const SettingsContext = createContext<SettingsContextType>({
@@ -85,6 +122,10 @@ const SettingsContext = createContext<SettingsContextType>({
   playTypingSound: () => {},
   theme: "hive",
   setTheme: () => {},
+  equippedCursor: null,
+  setEquippedCursor: () => {},
+  equippedBadge: null,
+  setEquippedBadge: () => {},
 });
 
 export const useSettings = () => useContext(SettingsContext);
@@ -92,6 +133,7 @@ export const useSettings = () => useContext(SettingsContext);
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
+  const { user, userData, refreshUser } = useAuth();
   const [ttsVolume, setTtsVolume] = useState(() => {
     const saved = localStorage.getItem("hive_tts_vol");
     return saved ? parseFloat(saved) : 1.0;
@@ -102,9 +144,39 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     return saved ? parseFloat(saved) : 0.5;
   });
 
-  const [theme, setTheme] = useState<ThemeId>(() => {
+  const [theme, setThemeState] = useState<ThemeId>(() => {
     return (localStorage.getItem("hive_theme") as ThemeId) || "hive";
   });
+  const [equippedCursor, setEquippedCursorState] = useState<string | null>(
+    () => localStorage.getItem("hive_equipped_cursor") || null,
+  );
+  const [equippedBadge, setEquippedBadgeState] = useState<string | null>(
+    () => localStorage.getItem("hive_equipped_badge") || null,
+  );
+
+  useEffect(() => {
+    if (userData?.equippedTheme && userData.equippedTheme !== theme) {
+      setThemeState(userData.equippedTheme);
+    }
+  }, [userData?.equippedTheme]);
+
+  useEffect(() => {
+    if (
+      userData?.equippedCursor !== undefined &&
+      userData.equippedCursor !== equippedCursor
+    ) {
+      setEquippedCursorState(userData.equippedCursor);
+    }
+  }, [userData?.equippedCursor]);
+
+  useEffect(() => {
+    if (
+      userData?.equippedBadge !== undefined &&
+      userData.equippedBadge !== equippedBadge
+    ) {
+      setEquippedBadgeState(userData.equippedBadge);
+    }
+  }, [userData?.equippedBadge]);
 
   // Apply Theme CSS Variables
   useEffect(() => {
@@ -151,6 +223,22 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     localStorage.setItem("hive_sfx_vol", sfxVolume.toString());
   }, [sfxVolume]);
 
+  useEffect(() => {
+    if (equippedCursor) {
+      localStorage.setItem("hive_equipped_cursor", equippedCursor);
+    } else {
+      localStorage.removeItem("hive_equipped_cursor");
+    }
+  }, [equippedCursor]);
+
+  useEffect(() => {
+    if (equippedBadge) {
+      localStorage.setItem("hive_equipped_badge", equippedBadge);
+    } else {
+      localStorage.removeItem("hive_equipped_badge");
+    }
+  }, [equippedBadge]);
+
   const playTypingSound = () => {
     if (sfxVolume === 0 || !audioCtxRef.current) return;
 
@@ -182,6 +270,60 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const updateTheme = (nextTheme: ThemeId) => {
+    setThemeState(nextTheme);
+
+    if (!user) {
+      return;
+    }
+
+    void (async () => {
+      try {
+        const persisted = await setProfileTheme(
+          user.uid,
+          userData?.username || user.displayName || "Player",
+          nextTheme,
+        );
+        if (persisted) {
+          await refreshUser();
+        }
+      } catch (error) {
+        console.error("Failed to persist equipped theme", error);
+      }
+    })();
+  };
+
+  const updateCustomizationSlot = (
+    slot: "equipped_cursor" | "equipped_badge",
+    value: string | null,
+  ) => {
+    const setLocalState =
+      slot === "equipped_cursor" ? setEquippedCursorState : setEquippedBadgeState;
+
+    setLocalState(value);
+
+    if (!user) {
+      return;
+    }
+
+    void (async () => {
+      try {
+        const persisted = await setProfileCustomizationSlot(
+          user.uid,
+          userData?.username || user.displayName || "Player",
+          slot,
+          value,
+        );
+
+        if (persisted) {
+          await refreshUser();
+        }
+      } catch (error) {
+        console.error(`Failed to persist ${slot}`, error);
+      }
+    })();
+  };
+
   return (
     <SettingsContext.Provider
       value={{
@@ -191,7 +333,13 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
         setSfxVolume,
         playTypingSound,
         theme,
-        setTheme,
+        setTheme: updateTheme,
+        equippedCursor,
+        setEquippedCursor: (cursorId) =>
+          updateCustomizationSlot("equipped_cursor", cursorId),
+        equippedBadge,
+        setEquippedBadge: (badgeId) =>
+          updateCustomizationSlot("equipped_badge", badgeId),
       }}
     >
       {children}

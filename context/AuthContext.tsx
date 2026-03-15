@@ -4,6 +4,7 @@ import { ref, onValue, off, update } from "firebase/database";
 import { auth, db } from "../firebase";
 
 import { supabase } from "../services/supabase";
+import type { ThemeId } from "./SettingsContext";
 
 export interface UserData {
   nectar: number;
@@ -11,6 +12,10 @@ export interface UserData {
   title: string;
   corrects: number;
   wins: number;
+  inventory: string[];
+  equippedTheme?: ThemeId;
+  equippedCursor?: string | null;
+  equippedBadge?: string | null;
   username: string;
   avatarUrl?: string;
 }
@@ -37,36 +42,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchSupabaseProfile = async (uid: string, firebaseData: any) => {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", uid)
-      .single();
+  const buildUserData = ({
+    profile,
+    firebaseData,
+    fallbackUsername,
+  }: {
+    profile?: any;
+    firebaseData?: any;
+    fallbackUsername: string;
+  }): UserData => {
+    const hasEquippedTheme = Object.prototype.hasOwnProperty.call(
+      profile ?? {},
+      "equipped_theme",
+    );
+    const hasEquippedCursor = Object.prototype.hasOwnProperty.call(
+      profile ?? {},
+      "equipped_cursor",
+    );
+    const hasEquippedBadge = Object.prototype.hasOwnProperty.call(
+      profile ?? {},
+      "equipped_badge",
+    );
 
-    let currentNectar = 0;
-    let lifetimeNectar = 0;
-    let finalUsername = firebaseData.username || "Player"; // Fallback
-
-    if (profile) {
-      currentNectar = profile.current_nectar;
-      lifetimeNectar = profile.lifetime_nectar;
-      setUserData((prev) => ({
-        ...prev!,
-        nectar: currentNectar,
-        username: profile.username || finalUsername,
-        title: profile.title || "Newbee",
-        corrects: profile.corrects || 0,
-        wins: profile.wins || 0,
-        lifetimeNectar: lifetimeNectar,
-        avatarUrl: profile.avatar_url,
-      }));
-    }
+    return {
+      nectar: profile?.current_nectar ?? 0,
+      lifetimeNectar: profile?.lifetime_nectar ?? 0,
+      title: profile?.title ?? "Newbee",
+      corrects: profile?.corrects ?? 0,
+      wins: profile?.wins ?? 0,
+      inventory: profile?.inventory ?? [],
+      equippedTheme: hasEquippedTheme ? profile?.equipped_theme : undefined,
+      equippedCursor: hasEquippedCursor ? profile?.equipped_cursor : undefined,
+      equippedBadge: hasEquippedBadge ? profile?.equipped_badge : undefined,
+      username: profile?.username ?? firebaseData?.username ?? fallbackUsername,
+      avatarUrl: profile?.avatar_url,
+    };
   };
 
   const refreshUser = async () => {
     if (user) {
-      // We need latest supabase data, we can keep firebase parts as is from state
       const { data: profile } = await supabase
         .from("profiles")
         .select("*")
@@ -78,8 +92,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           prev
             ? {
                 ...prev,
+                username: profile.username ?? prev.username,
                 nectar: profile.current_nectar,
                 lifetimeNectar: profile.lifetime_nectar,
+                title: profile.title ?? prev.title,
+                corrects: profile.corrects ?? prev.corrects,
+                wins: profile.wins ?? prev.wins,
+                inventory: profile.inventory ?? prev.inventory,
+                equippedTheme: profile.equipped_theme ?? prev.equippedTheme,
+                equippedCursor:
+                  Object.prototype.hasOwnProperty.call(
+                    profile,
+                    "equipped_cursor",
+                  )
+                    ? profile.equipped_cursor
+                    : prev.equippedCursor,
+                equippedBadge: Object.prototype.hasOwnProperty.call(
+                  profile,
+                  "equipped_badge",
+                )
+                  ? profile.equipped_badge
+                  : prev.equippedBadge,
                 avatarUrl: profile.avatar_url,
               }
             : null,
@@ -121,113 +154,134 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                 .select("*")
                 .eq("id", currentUser.uid)
                 .single()
-                .then(async ({ data: profile, error }) => {
-                  let currentNectar = 0;
-                  let lifetimeNectar = 0;
+                .then(async ({ data: profile }) => {
+                  let effectiveProfile = profile;
 
                   if (profile) {
-                    // User exists in Supabase - use that data
-                    currentNectar = profile.current_nectar;
-                    lifetimeNectar = profile.lifetime_nectar;
+                    // Transitional backfill only: populate missing profile fields from Firebase legacy data.
+                    const profileUpdates: Record<string, unknown> = {};
 
-                    // Force sync latest stats from Firebase to Supabase (if they differ significantly)
-                    // This ensures the leaderboard stays up to date with gameplay
+                    if (profile.corrects == null && data.corrects != null) {
+                      profileUpdates.corrects = data.corrects;
+                    }
+
+                    if (profile.wins == null && data.wins != null) {
+                      profileUpdates.wins = data.wins;
+                    }
+
+                    if (profile.current_nectar == null && data.stars != null) {
+                      profileUpdates.current_nectar = data.stars;
+                    }
+
                     if (
-                      profile.corrects !== data.corrects ||
-                      profile.wins !== data.wins
+                      profile.lifetime_nectar == null &&
+                      data.stars != null
                     ) {
-                      supabase
+                      profileUpdates.lifetime_nectar = data.stars;
+                    }
+
+                    if (!profile.title && data.title) {
+                      profileUpdates.title = data.title;
+                    }
+
+                    if (!profile.username && finalUsername) {
+                      profileUpdates.username = finalUsername;
+                    }
+
+                    if (Object.keys(profileUpdates).length > 0) {
+                      const { error: syncError } = await supabase
                         .from("profiles")
-                        .update({
-                          corrects: data.corrects || 0,
-                          wins: data.wins || 0,
-                        })
-                        .eq("id", currentUser.uid)
-                        .then(({ error }) => {
-                          if (error)
-                            console.error("Failed to sync stats", error);
-                          else console.log("Synced stats to Supabase");
-                        });
+                        .update(profileUpdates)
+                        .eq("id", currentUser.uid);
+
+                      if (syncError) {
+                        console.error("Failed to sync profile stats", syncError);
+                      } else {
+                        effectiveProfile = {
+                          ...profile,
+                          ...profileUpdates,
+                        };
+                      }
                     }
                   } else {
-                    // Start Migration
+                    // Start migration from Firebase legacy profile data.
                     console.log("Migrating user to Supabase...");
                     const oldStars = data.stars || 0;
+                    const newProfile = {
+                      id: currentUser.uid,
+                      username: finalUsername,
+                      current_nectar: oldStars,
+                      lifetime_nectar: oldStars,
+                      inventory: [],
+                      equipped_theme: "hive",
+                      equipped_cursor: null,
+                      equipped_badge: null,
+                      corrects: data.corrects || 0,
+                      wins: data.wins || 0,
+                      title: data.title || "Newbee",
+                    };
                     const { error: insertError } = await supabase
                       .from("profiles")
-                      .insert({
-                        id: currentUser.uid,
-                        username: finalUsername,
-                        current_nectar: oldStars,
-                        lifetime_nectar: oldStars,
-                        inventory: [],
-                        corrects: data.corrects || 0,
-                        wins: data.wins || 0,
-                      });
+                      .insert(newProfile);
 
                     if (!insertError) {
-                      currentNectar = oldStars;
-                      lifetimeNectar = oldStars;
+                      effectiveProfile = newProfile;
                       console.log("Migration successful!");
                     } else {
                       console.error("Migration failed:", insertError);
-                      // Fallback to local stars
-                      currentNectar = oldStars;
-                      lifetimeNectar = oldStars;
                     }
                   }
 
-                  setUserData({
-                    nectar: currentNectar,
-                    lifetimeNectar: lifetimeNectar,
-                    title: data.title || profile?.title || "Newbee",
-                    corrects: data.corrects || 0,
-                    wins: data.wins || 0,
-                    username: profile?.username || finalUsername,
-                    avatarUrl: profile?.avatar_url,
-                  });
+                  setUserData(
+                    buildUserData({
+                      profile: effectiveProfile,
+                      firebaseData: data,
+                      fallbackUsername: finalUsername,
+                    }),
+                  );
                 });
             } else {
-              // Initialize New User Data
+              // Initialize a new profile if Firebase has no legacy user document.
               const newName =
                 currentUser.displayName ||
                 (currentUser.email
                   ? currentUser.email.split("@")[0]
                   : "Player");
 
-              // Create Supabase Profile for new user
-              supabase
-                .from("profiles")
-                .insert({
-                  id: currentUser.uid,
-                  username: newName,
-                  current_nectar: 0,
-                  lifetime_nectar: 0,
-                  inventory: [],
-                })
-                .then(() => console.log("New user initialized in Supabase"));
-
-              setUserData({
-                nectar: 0,
-                lifetimeNectar: 0,
-                title: "Newbee",
+              const newProfile = {
+                id: currentUser.uid,
+                username: newName,
+                current_nectar: 0,
+                lifetime_nectar: 0,
+                inventory: [],
+                equipped_theme: "hive",
+                equipped_cursor: null,
+                equipped_badge: null,
                 corrects: 0,
                 wins: 0,
-                username: newName,
-              });
+                title: "Newbee",
+              };
+
+              supabase
+                .from("profiles")
+                .insert(newProfile)
+                .then(() => console.log("New user initialized in Supabase"));
+
+              setUserData(
+                buildUserData({
+                  profile: newProfile,
+                  fallbackUsername: newName,
+                }),
+              );
             }
           },
           (error: any) => {
             console.warn("Auth Data Fetch Error:", error);
-            // Fallback
-            setUserData({
-              nectar: 0,
-              lifetimeNectar: 0,
-              title: "Newbee",
-              corrects: 0,
-              wins: 0,
-              username: currentUser.displayName || "Player",
-            });
+            setUserData(
+              buildUserData({
+                fallbackUsername: currentUser.displayName || "Player",
+              }),
+            );
           },
         );
 

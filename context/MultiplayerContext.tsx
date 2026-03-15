@@ -8,8 +8,6 @@ import {
   findPublicRoom,
 } from "../services/multiplayerService";
 import { useAuth } from "./AuthContext";
-import { db } from "../firebase";
-import { ref, get } from "firebase/database";
 
 interface MultiplayerContextType {
   currentRoom: Room | null;
@@ -45,6 +43,11 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
   const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const getProfileSnapshotStats = () => ({
+    corrects: userData?.corrects ?? 0,
+    wins: userData?.wins ?? 0,
+  });
 
   // Subscribe to room updates when currentRoom changes
   useEffect(() => {
@@ -86,36 +89,17 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
     setError(null);
     const hostName = userData?.username || "Player";
     try {
-      // Fetch FRESH user stats FIRST (fixes mobile timing issues)
-      let freshCorrects = userData?.corrects || 0;
-      let freshWins = userData?.wins || 0;
-      try {
-        const userRef = ref(db, `users/${user.uid}`);
-        const snapshot = await get(userRef);
-        if (snapshot.exists()) {
-          const freshData = snapshot.val();
-          freshCorrects = freshData.corrects || 0;
-          freshWins = freshData.wins || 0;
-          console.log("[CreateRoom] Fetched fresh stats from Firebase:", {
-            corrects: freshCorrects,
-            wins: freshWins,
-          });
-        }
-      } catch (fetchErr) {
-        console.warn(
-          "[CreateRoom] Failed to fetch fresh stats, using cached:",
-          fetchErr,
-        );
-      }
+      const { corrects: profileCorrects, wins: profileWins } =
+        getProfileSnapshotStats();
 
-      // Create room with fresh stats
+      // Create room with the current persistent profile snapshot.
       const roomId = await createRoom(
         user.uid,
         hostName,
         settings,
         type,
-        freshCorrects,
-        freshWins,
+        profileCorrects,
+        profileWins,
       );
 
       setCurrentRoom({
@@ -129,8 +113,8 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
             name: hostName,
             isHost: true,
             score: 0,
-            corrects: freshCorrects,
-            wins: freshWins,
+            corrects: profileCorrects,
+            wins: profileWins,
             status: "connected",
           },
         },
@@ -161,31 +145,12 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
         await leaveRoom(currentRoom.id, user.uid);
       }
 
-      // Fetch FRESH user stats directly from Firebase (fixes mobile timing issues)
-      let freshCorrects = userData?.corrects || 0;
-      let freshWins = userData?.wins || 0;
-      try {
-        const userRef = ref(db, `users/${user.uid}`);
-        const snapshot = await get(userRef);
-        if (snapshot.exists()) {
-          const freshData = snapshot.val();
-          freshCorrects = freshData.corrects || 0;
-          freshWins = freshData.wins || 0;
-          console.log("[JoinRoom] Fetched fresh stats from Firebase:", {
-            corrects: freshCorrects,
-            wins: freshWins,
-          });
-        }
-      } catch (fetchErr) {
-        console.warn(
-          "[JoinRoom] Failed to fetch fresh stats, using cached:",
-          fetchErr,
-        );
-      }
+      const { corrects: profileCorrects, wins: profileWins } =
+        getProfileSnapshotStats();
 
       console.log("[JoinRoom] Final stats:", {
-        corrects: freshCorrects,
-        wins: freshWins,
+        corrects: profileCorrects,
+        wins: profileWins,
         username: userData?.username,
       });
 
@@ -194,8 +159,8 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
         name: userData.username,
         isHost: false,
         score: 0,
-        corrects: freshCorrects,
-        wins: freshWins,
+        corrects: profileCorrects,
+        wins: profileWins,
         status: "connected",
       };
       console.log("[JoinRoom] Player object:", player);

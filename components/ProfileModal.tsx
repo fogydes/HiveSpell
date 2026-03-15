@@ -6,6 +6,7 @@ import {
   sendFriendRequest,
   Friendship,
 } from "../services/friendService";
+import { ITEM_CATALOG } from "../data/customizationCatalog";
 
 interface ProfileData {
   id: string;
@@ -286,7 +287,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                         key={itemId}
                         className="bg-panel px-2 py-1 rounded-md text-xs text-text-muted border border-surface"
                       >
-                        {itemId}
+                        {ITEM_CATALOG[itemId]?.name || itemId}
                       </span>
                     ))}
                     {profile.inventory.length > 6 && (

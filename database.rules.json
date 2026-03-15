@@ -5,7 +5,6 @@
     },
     "users": {
       ".read": true,
-      ".indexOn": ["corrects", "wins"],
       "$uid": {
         ".write": "auth != null && $uid === auth.uid",
         "username": {
@@ -14,17 +13,8 @@
         "email": {
           ".validate": "newData.isString() && newData.val().length <= 320 && (!data.exists() || newData.val() === data.val())"
         },
-        "wins": {
-          ".validate": "newData.isNumber() && newData.val() >= 0 && (!data.exists() ? newData.val() <= 1 : (newData.val() >= data.val() && newData.val() <= data.val() + 1))"
-        },
-        "corrects": {
-          ".validate": "newData.isNumber() && newData.val() >= 0 && (!data.exists() ? newData.val() <= 1 : (newData.val() >= data.val() && newData.val() <= data.val() + 1))"
-        },
-        "stars": {
-          ".validate": "newData.isNumber() && newData.val() >= 0 && (!data.exists() ? newData.val() <= 25 : (newData.val() >= data.val() && newData.val() <= data.val() + 25))"
-        },
-        "title": {
-          ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 40"
+        "$other": {
+          ".validate": false
         }
       }
     },
