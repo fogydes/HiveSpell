@@ -287,6 +287,14 @@ const Play: React.FC = () => {
     }
   };
 
+  const handleInputPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+  };
+
+  const handleInputDrop = (e: React.DragEvent<HTMLInputElement>) => {
+    e.preventDefault();
+  };
+
   // Subscribe to synced input from other players (when not my turn)
   const syncedInput = currentRoom?.gameState?.currentInput || "";
 
@@ -425,6 +433,8 @@ const Play: React.FC = () => {
         definition={definition}
         feedbackMessage={feedback?.msg}
         handleInputChange={handleInputChange}
+        handleInputDrop={handleInputDrop}
+        handleInputPaste={handleInputPaste}
         handleSubmit={handleSubmit}
         inputRef={inputRef}
         inputValue={inputValue}

@@ -10,6 +10,10 @@ describe("playTimerUtils", () => {
     expect(getRemainingTurnTime(10_000, 8, 14_000)).toBe(4);
   });
 
+  it("holds the full turn duration before the delayed start time", () => {
+    expect(getRemainingTurnTime(10_000, 8, 9_500)).toBe(8);
+  });
+
   it("clamps expired turn time to zero", () => {
     expect(getRemainingTurnTime(10_000, 5, 16_500)).toBe(0);
   });

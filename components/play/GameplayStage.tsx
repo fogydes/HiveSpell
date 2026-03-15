@@ -7,6 +7,8 @@ interface GameplayStageProps {
   definition: string;
   feedbackMessage?: string;
   handleInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handleInputDrop: (e: React.DragEvent<HTMLInputElement>) => void;
+  handleInputPaste: (e: React.ClipboardEvent<HTMLInputElement>) => void;
   handleSubmit: (e: React.FormEvent) => void;
   inputRef: React.RefObject<HTMLInputElement | null>;
   inputValue: string;
@@ -32,6 +34,8 @@ const GameplayStage: React.FC<GameplayStageProps> = ({
   definition,
   feedbackMessage,
   handleInputChange,
+  handleInputDrop,
+  handleInputPaste,
   handleSubmit,
   inputRef,
   inputValue,
@@ -173,9 +177,14 @@ const GameplayStage: React.FC<GameplayStageProps> = ({
             id="spelling-input"
             type="text"
             autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="none"
             autoFocus
+            spellCheck={false}
             value={isMyTurn ? inputValue : syncedInput}
             onChange={handleInputChange}
+            onDrop={handleInputDrop}
+            onPaste={handleInputPaste}
             disabled={
               !isMyTurn ||
               !isInputEnabled ||
