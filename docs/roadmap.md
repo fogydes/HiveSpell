@@ -238,8 +238,8 @@ Exit criteria:
 
 The next best concrete task is:
 
-1. add the missing Supabase customization columns to the live project
-2. manually verify cross-device persistence for themes, cursor, and badge state
-3. decide whether to keep expanding customization or move to the `Play.tsx` refactor slice
+1. add tests around profile reward and title progression behavior
+2. verify the new Supabase progression RPCs are present in every environment
+3. decide whether the next `Play.tsx` extraction should become a hook or stop at helper-level refactors
 
 That gives the best balance of safety, clarity, and forward progress.

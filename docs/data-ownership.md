@@ -253,6 +253,6 @@ The migration is complete when:
 
 The next code step should be:
 
-1. decide how cursor and badge inventory items should affect the live UI
-2. persist any future non-theme equipped state in Supabase alongside `equipped_theme`
-3. keep local storage only as a cache and offline fallback
+1. add tests around the Supabase-backed progression path
+2. keep Firebase room state separate from profile progression logic during future `Play.tsx` refactors
+3. remove the client-side fallback once every environment has the required RPCs

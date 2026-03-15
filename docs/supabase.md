@@ -93,6 +93,41 @@ Used for pre-recorded spelling word playback before falling back to browser TTS.
 
 ## Expected RPC
 
+### `award_profile_win`
+
+Gameplay progression now prefers a Supabase RPC named `award_profile_win` with:
+
+- `p_user_id`
+- `p_username`
+
+Expected behavior:
+
+- create a profile row if one does not exist
+- increment `wins`
+- recalculate `title`
+- return the updated progression payload
+
+The frontend currently falls back to a direct profile upsert only if this RPC is missing, so keeping the RPC present in every environment is recommended.
+
+### `apply_correct_answer_reward`
+
+Gameplay progression now prefers a Supabase RPC named `apply_correct_answer_reward` with:
+
+- `p_user_id`
+- `p_username`
+- `p_nectar_to_add`
+
+Expected behavior:
+
+- create a profile row if one does not exist
+- increment `corrects`
+- increment `current_nectar`
+- increment `lifetime_nectar`
+- recalculate `title`
+- return the updated progression payload
+
+The frontend currently falls back to a direct profile upsert only if this RPC is missing, so keeping the RPC present in every environment is recommended.
+
 ### `purchase_item`
 
 The shop calls a Supabase RPC named `purchase_item` with:
@@ -125,4 +160,5 @@ The notification and direct-message panels subscribe to realtime changes. If tho
 ## Important Notes
 
 - The frontend assumes Firebase authentication identity maps cleanly onto Supabase profile ownership through the same UID
+- Persistent progression writes now prefer backend-owned RPCs instead of direct client-managed stat math
 - Schema changes to these resources should be reflected in the docs and tested in the affected user flows

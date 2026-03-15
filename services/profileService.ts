@@ -61,10 +61,26 @@ const saveProfile = async (
   }
 };
 
+const isMissingRpcError = (error: any) =>
+  error?.code === "PGRST202" || error?.code === "42883";
+
 export const awardProfileWin = async (
   userId: string,
   fallbackUsername: string,
 ) => {
+  const { error } = await supabase.rpc("award_profile_win", {
+    p_user_id: userId,
+    p_username: fallbackUsername,
+  });
+
+  if (!error) {
+    return;
+  }
+
+  if (!isMissingRpcError(error)) {
+    throw error;
+  }
+
   const profile = await loadProfile(userId);
   const nextWins = (profile?.wins ?? 0) + 1;
   const nextCorrects = profile?.corrects ?? 0;
@@ -80,6 +96,20 @@ export const applyCorrectAnswerReward = async (
   fallbackUsername: string,
   nectarToAdd: number,
 ) => {
+  const { error } = await supabase.rpc("apply_correct_answer_reward", {
+    p_user_id: userId,
+    p_username: fallbackUsername,
+    p_nectar_to_add: nectarToAdd,
+  });
+
+  if (!error) {
+    return;
+  }
+
+  if (!isMissingRpcError(error)) {
+    throw error;
+  }
+
   const profile = await loadProfile(userId);
   const nextCorrects = (profile?.corrects ?? 0) + 1;
   const nextWins = profile?.wins ?? 0;
