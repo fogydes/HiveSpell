@@ -8,6 +8,7 @@ import {
   speak,
   checkAnswer,
   fetchDefinition,
+  primeWordAudio,
   stopAudio,
 } from "../services/gameService";
 import { db } from "../firebase";
@@ -246,6 +247,7 @@ const Play: React.FC = () => {
       console.log(`[Audio] New word detected, will speak: "${syncedWord}"`);
       lastSpokenWordRef.current = syncedWord;
       setCurrentWord(syncedWord);
+      primeWordAudio(syncedWord);
 
       setInputValue("");
       setFeedback(null);

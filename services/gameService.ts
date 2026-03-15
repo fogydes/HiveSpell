@@ -147,7 +147,8 @@ export const fetchDefinition = async (word: string): Promise<string> => {
 
 let speakId = 0;
 const AUDIO_DEBUG_STORAGE_KEY = "hivespell_debug_audio";
-const AUDIO_LOAD_TIMEOUT_MS = 1000;
+const AUDIO_LOAD_TIMEOUT_MS = 1500;
+const AUDIO_BLOB_CACHE_LIMIT = 40;
 
 const isAudioDebugEnabled = () =>
   typeof window !== "undefined" &&
@@ -177,6 +178,27 @@ export const getTitle = (corrects: number, wins: number): string => {
 /** Audio State Management */
 let currentAudio: HTMLAudioElement | null = null;
 let activeUtterance: SpeechSynthesisUtterance | null = null;
+const audioBlobUrlCache = new Map<string, string>();
+const audioBlobFetchCache = new Map<string, Promise<string | null>>();
+
+const cacheAudioBlobUrl = (fileName: string, objectUrl: string) => {
+  if (audioBlobUrlCache.has(fileName)) {
+    return;
+  }
+
+  if (audioBlobUrlCache.size >= AUDIO_BLOB_CACHE_LIMIT) {
+    const oldestKey = audioBlobUrlCache.keys().next().value;
+    if (oldestKey) {
+      const oldestUrl = audioBlobUrlCache.get(oldestKey);
+      if (oldestUrl) {
+        URL.revokeObjectURL(oldestUrl);
+      }
+      audioBlobUrlCache.delete(oldestKey);
+    }
+  }
+
+  audioBlobUrlCache.set(fileName, objectUrl);
+};
 
 export const stopAudio = () => {
   speakId++; // Invalidate any pending async audio
@@ -211,6 +233,70 @@ const getAlternateAudioName = (word: string): string | null => {
     return lower.replace(/our$/, "or");
   }
   return null;
+};
+
+const resolveAudioSourceUrl = async (
+  fileName: string,
+): Promise<string | null> => {
+  const cachedUrl = audioBlobUrlCache.get(fileName);
+  if (cachedUrl) {
+    logAudioDebug("audio-blob-cache-hit", { fileName });
+    return cachedUrl;
+  }
+
+  const existingFetch = audioBlobFetchCache.get(fileName);
+  if (existingFetch) {
+    return existingFetch;
+  }
+
+  const { data } = supabase.storage
+    .from("word-audios")
+    .getPublicUrl(`${fileName}.mp3`);
+
+  const fetchPromise = fetch(data.publicUrl)
+    .then(async (response) => {
+      if (!response.ok) {
+        logAudioDebug("audio-blob-fetch-http-error", {
+          fileName,
+          status: response.status,
+        });
+        return null;
+      }
+
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      cacheAudioBlobUrl(fileName, objectUrl);
+      logAudioDebug("audio-blob-fetch-success", {
+        fileName,
+        bytes: blob.size,
+        mimeType: blob.type,
+      });
+      return objectUrl;
+    })
+    .catch((error) => {
+      logAudioDebug("audio-blob-fetch-failed", {
+        fileName,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    })
+    .finally(() => {
+      audioBlobFetchCache.delete(fileName);
+    });
+
+  audioBlobFetchCache.set(fileName, fetchPromise);
+  logAudioDebug("audio-blob-fetch-start", { fileName, publicUrl: data.publicUrl });
+  return fetchPromise;
+};
+
+export const primeWordAudio = (word: string) => {
+  const lowerWord = word.toLowerCase();
+  void resolveAudioSourceUrl(lowerWord);
+
+  const alternate = getAlternateAudioName(word);
+  if (alternate) {
+    void resolveAudioSourceUrl(alternate);
+  }
 };
 
 // Audio Deduplication State
@@ -288,26 +374,10 @@ export const speak = async (
       // Local closure flag for this specific audio attempt
       let isCancelled = false;
 
-      // Use Supabase Storage (Public Bucket)
-      const { data } = supabase.storage
-        .from("word-audios")
-        .getPublicUrl(`${fileName}.mp3`);
-      const audio = new Audio(data.publicUrl);
       const startedAt = Date.now();
       let settled = false;
-      logAudioDebug("audio-file-attempt", {
-        fileName,
-        publicUrl: data.publicUrl,
-      });
-
-      // Force stop previous
-      if (currentAudio) {
-        currentAudio.pause();
-        currentAudio = null;
-      }
-      currentAudio = audio;
-      audio.volume = volume;
-      audio.preload = "auto";
+      let audio: HTMLAudioElement | null = null;
+      logAudioDebug("audio-file-attempt", { fileName });
 
       const settle = (result: boolean) => {
         if (settled) return;
@@ -316,6 +386,7 @@ export const speak = async (
       };
 
       const cleanupListeners = () => {
+        if (!audio) return;
         audio.onloadedmetadata = null;
         audio.onloadeddata = null;
         audio.oncanplay = null;
@@ -324,6 +395,7 @@ export const speak = async (
       };
 
       const startPlayback = (trigger: string) => {
+        if (!audio) return;
         if (isCancelled || settled) return;
 
         clearTimeout(timeout);
@@ -385,89 +457,115 @@ export const speak = async (
         isCancelled = true; // Mark as dead
 
         cleanupListeners();
-        audio.pause();
-        audio.src = ""; // Stop loading
-        try {
-          audio.load();
-        } catch (e) {
-          /* ignore */
-        }
+        if (audio) {
+          const timeoutNetworkState = audio.networkState;
+          const timeoutReadyState = audio.readyState;
+          audio.pause();
+          audio.src = ""; // Stop loading
+          try {
+            audio.load();
+          } catch (e) {
+            /* ignore */
+          }
 
-        if (currentAudio === audio && speakId === myId) {
-          currentAudio = null;
+          if (currentAudio === audio && speakId === myId) {
+            currentAudio = null;
+          }
+          logAudioDebug("audio-file-timeout", {
+            networkState: timeoutNetworkState,
+            readyState: timeoutReadyState,
+            elapsedMs: Date.now() - startedAt,
+            fileName,
+          });
+        } else {
+          logAudioDebug("audio-file-timeout", {
+            elapsedMs: Date.now() - startedAt,
+            fileName,
+            stage: "before-audio-created",
+          });
         }
-        logAudioDebug("audio-file-timeout", {
-          networkState: audio.networkState,
-          readyState: audio.readyState,
-          elapsedMs: Date.now() - startedAt,
-          fileName,
-        });
         settle(false);
       }, AUDIO_LOAD_TIMEOUT_MS);
 
-      audio.onloadedmetadata = () => {
-        logAudioDebug("audio-file-loadedmetadata", {
-          elapsedMs: Date.now() - startedAt,
-          fileName,
-          networkState: audio.networkState,
-          readyState: audio.readyState,
-        });
-      };
-
-      audio.onloadeddata = () => {
-        logAudioDebug("audio-file-loadeddata", {
-          elapsedMs: Date.now() - startedAt,
-          fileName,
-          networkState: audio.networkState,
-          readyState: audio.readyState,
-        });
-
-        if (audio.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-          startPlayback("loadeddata");
+      resolveAudioSourceUrl(fileName).then((sourceUrl) => {
+        if (isCancelled || settled || !sourceUrl) {
+          return;
         }
-      };
 
-      audio.oncanplay = () => {
-        logAudioDebug("audio-file-canplay", {
-          elapsedMs: Date.now() - startedAt,
-          fileName,
-          networkState: audio.networkState,
-          readyState: audio.readyState,
-        });
-        startPlayback("canplay");
-      };
+        audio = new Audio(sourceUrl);
 
-      audio.oncanplaythrough = () => {
-        logAudioDebug("audio-file-canplaythrough", {
-          elapsedMs: Date.now() - startedAt,
-          fileName,
-          networkState: audio.networkState,
-          readyState: audio.readyState,
-        });
-      };
+        if (currentAudio) {
+          currentAudio.pause();
+          currentAudio = null;
+        }
+        currentAudio = audio;
+        audio.volume = volume;
+        audio.preload = "auto";
 
-      audio.onerror = () => {
-        if (isCancelled) return;
-        clearTimeout(timeout);
-        logAudioDebug("audio-file-error", {
-          elapsedMs: Date.now() - startedAt,
-          fileName,
-          mediaErrorCode: audio.error?.code,
-          networkState: audio.networkState,
-          readyState: audio.readyState,
-        });
-        cleanupListeners();
-        settle(false);
-      };
+        audio.onloadedmetadata = () => {
+          logAudioDebug("audio-file-loadedmetadata", {
+            elapsedMs: Date.now() - startedAt,
+            fileName,
+            networkState: audio?.networkState,
+            readyState: audio?.readyState,
+          });
+        };
 
-      try {
-        audio.load();
-      } catch (error) {
-        logAudioDebug("audio-file-load-throw", {
-          fileName,
-          message: error instanceof Error ? error.message : String(error),
-        });
-      }
+        audio.onloadeddata = () => {
+          logAudioDebug("audio-file-loadeddata", {
+            elapsedMs: Date.now() - startedAt,
+            fileName,
+            networkState: audio?.networkState,
+            readyState: audio?.readyState,
+          });
+
+          if (audio && audio.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+            startPlayback("loadeddata");
+          }
+        };
+
+        audio.oncanplay = () => {
+          logAudioDebug("audio-file-canplay", {
+            elapsedMs: Date.now() - startedAt,
+            fileName,
+            networkState: audio?.networkState,
+            readyState: audio?.readyState,
+          });
+          startPlayback("canplay");
+        };
+
+        audio.oncanplaythrough = () => {
+          logAudioDebug("audio-file-canplaythrough", {
+            elapsedMs: Date.now() - startedAt,
+            fileName,
+            networkState: audio?.networkState,
+            readyState: audio?.readyState,
+          });
+        };
+
+        audio.onerror = () => {
+          if (isCancelled) return;
+          clearTimeout(timeout);
+          logAudioDebug("audio-file-error", {
+            elapsedMs: Date.now() - startedAt,
+            fileName,
+            mediaErrorCode: audio?.error?.code,
+            networkState: audio?.networkState,
+            readyState: audio?.readyState,
+          });
+          cleanupListeners();
+          settle(false);
+        };
+
+        try {
+          audio.load();
+        } catch (error) {
+          logAudioDebug("audio-file-load-throw", {
+            fileName,
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+      });
     });
   };
 
