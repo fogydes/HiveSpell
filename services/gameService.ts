@@ -147,6 +147,7 @@ export const fetchDefinition = async (word: string): Promise<string> => {
 
 let speakId = 0;
 const AUDIO_DEBUG_STORAGE_KEY = "hivespell_debug_audio";
+const AUDIO_LOAD_TIMEOUT_MS = 1000;
 
 const isAudioDebugEnabled = () =>
   typeof window !== "undefined" &&
@@ -293,6 +294,7 @@ export const speak = async (
         .getPublicUrl(`${fileName}.mp3`);
       const audio = new Audio(data.publicUrl);
       const startedAt = Date.now();
+      let settled = false;
       logAudioDebug("audio-file-attempt", {
         fileName,
         publicUrl: data.publicUrl,
@@ -305,14 +307,84 @@ export const speak = async (
       }
       currentAudio = audio;
       audio.volume = volume;
+      audio.preload = "auto";
+
+      const settle = (result: boolean) => {
+        if (settled) return;
+        settled = true;
+        resolve(result);
+      };
+
+      const cleanupListeners = () => {
+        audio.onloadedmetadata = null;
+        audio.onloadeddata = null;
+        audio.oncanplay = null;
+        audio.oncanplaythrough = null;
+        audio.onerror = null;
+      };
+
+      const startPlayback = (trigger: string) => {
+        if (isCancelled || settled) return;
+
+        clearTimeout(timeout);
+
+        if (currentAudio !== audio || speakId !== myId) {
+          logAudioDebug("audio-file-stale", {
+            elapsedMs: Date.now() - startedAt,
+            fileName,
+            trigger,
+          });
+          cleanupListeners();
+          settle(false);
+          return;
+        }
+
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              logAudioDebug("audio-file-playing", {
+                elapsedMs: Date.now() - startedAt,
+                fileName,
+                networkState: audio.networkState,
+                readyState: audio.readyState,
+                trigger,
+              });
+              cleanupListeners();
+              settle(true);
+            })
+            .catch((error) => {
+              logAudioDebug("audio-file-play-failed", {
+                elapsedMs: Date.now() - startedAt,
+                fileName,
+                message:
+                  error instanceof Error ? error.message : String(error),
+                networkState: audio.networkState,
+                readyState: audio.readyState,
+                trigger,
+              });
+              cleanupListeners();
+              settle(false);
+            });
+        } else {
+          logAudioDebug("audio-file-playing", {
+            elapsedMs: Date.now() - startedAt,
+            fileName,
+            networkState: audio.networkState,
+            readyState: audio.readyState,
+            trigger,
+          });
+          cleanupListeners();
+          settle(true);
+        }
+      };
 
       // Use a timeout to detect if metadata fails or file is missing
       const timeout = setTimeout(() => {
         // TIMEOUT: strictly kill this attempt
         isCancelled = true; // Mark as dead
 
-        audio.oncanplaythrough = null;
-        audio.onerror = null;
+        cleanupListeners();
         audio.pause();
         audio.src = ""; // Stop loading
         try {
@@ -325,54 +397,53 @@ export const speak = async (
           currentAudio = null;
         }
         logAudioDebug("audio-file-timeout", {
+          networkState: audio.networkState,
+          readyState: audio.readyState,
           elapsedMs: Date.now() - startedAt,
           fileName,
         });
-        resolve(false);
-      }, 1000);
+        settle(false);
+      }, AUDIO_LOAD_TIMEOUT_MS);
+
+      audio.onloadedmetadata = () => {
+        logAudioDebug("audio-file-loadedmetadata", {
+          elapsedMs: Date.now() - startedAt,
+          fileName,
+          networkState: audio.networkState,
+          readyState: audio.readyState,
+        });
+      };
+
+      audio.onloadeddata = () => {
+        logAudioDebug("audio-file-loadeddata", {
+          elapsedMs: Date.now() - startedAt,
+          fileName,
+          networkState: audio.networkState,
+          readyState: audio.readyState,
+        });
+
+        if (audio.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+          startPlayback("loadeddata");
+        }
+      };
+
+      audio.oncanplay = () => {
+        logAudioDebug("audio-file-canplay", {
+          elapsedMs: Date.now() - startedAt,
+          fileName,
+          networkState: audio.networkState,
+          readyState: audio.readyState,
+        });
+        startPlayback("canplay");
+      };
 
       audio.oncanplaythrough = () => {
-        // If timeout killed us, stop immediately
-        if (isCancelled) return;
-
-        clearTimeout(timeout);
-
-        // CRITICAL: Only play if this is still the active audio AND ID matches
-        if (currentAudio === audio && speakId === myId) {
-          const playPromise = audio.play();
-          if (playPromise !== undefined) {
-            playPromise
-              .then(() => {
-                logAudioDebug("audio-file-playing", {
-                  elapsedMs: Date.now() - startedAt,
-                  fileName,
-                });
-                resolve(true);
-              })
-              .catch((error) => {
-                logAudioDebug("audio-file-play-failed", {
-                  elapsedMs: Date.now() - startedAt,
-                  fileName,
-                  message:
-                    error instanceof Error ? error.message : String(error),
-                });
-                resolve(false);
-              });
-          } else {
-            logAudioDebug("audio-file-playing", {
-              elapsedMs: Date.now() - startedAt,
-              fileName,
-            });
-            resolve(true);
-          }
-        } else {
-          // We were stopped/replaced/timed-out
-          logAudioDebug("audio-file-stale", {
-            elapsedMs: Date.now() - startedAt,
-            fileName,
-          });
-          resolve(false);
-        }
+        logAudioDebug("audio-file-canplaythrough", {
+          elapsedMs: Date.now() - startedAt,
+          fileName,
+          networkState: audio.networkState,
+          readyState: audio.readyState,
+        });
       };
 
       audio.onerror = () => {
@@ -381,9 +452,22 @@ export const speak = async (
         logAudioDebug("audio-file-error", {
           elapsedMs: Date.now() - startedAt,
           fileName,
+          mediaErrorCode: audio.error?.code,
+          networkState: audio.networkState,
+          readyState: audio.readyState,
         });
-        resolve(false);
+        cleanupListeners();
+        settle(false);
       };
+
+      try {
+        audio.load();
+      } catch (error) {
+        logAudioDebug("audio-file-load-throw", {
+          fileName,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
     });
   };
 
