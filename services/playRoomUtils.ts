@@ -6,6 +6,15 @@ export const isActiveTurnPlayer = (player: Player) =>
 export const getActiveTurnPlayers = (players: Player[]) =>
   players.filter(isActiveTurnPlayer);
 
+export const hasOtherConnectedRoomPlayer = (
+  players: Player[],
+  currentUserId?: string | null,
+) =>
+  players.some(
+    (player) =>
+      player.id !== currentUserId && player.status !== "disconnected",
+  );
+
 export const calculateTurnDuration = (word: string, streak: number) => {
   const reduction = Math.floor(streak / 10) * 0.3;
   const baseTime = 2 + word.length;

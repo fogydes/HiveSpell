@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   calculateTurnDuration,
   findNextActiveTurnPlayer,
+  hasOtherConnectedRoomPlayer,
   getPostTurnState,
   getRoundTurnOrder,
 } from "./playRoomUtils";
@@ -82,5 +83,25 @@ describe("playRoomUtils", () => {
       shouldTriggerIntermission: true,
       everyoneEliminated: true,
     });
+  });
+
+  it("only treats rooms with another non-disconnected player as multiplayer", () => {
+    expect(hasOtherConnectedRoomPlayer([makePlayer("p1", "alive")], "p1")).toBe(
+      false,
+    );
+
+    expect(
+      hasOtherConnectedRoomPlayer(
+        [makePlayer("p1", "alive"), makePlayer("p2", "disconnected")],
+        "p1",
+      ),
+    ).toBe(false);
+
+    expect(
+      hasOtherConnectedRoomPlayer(
+        [makePlayer("p1", "alive"), makePlayer("p2", "connected")],
+        "p1",
+      ),
+    ).toBe(true);
   });
 });

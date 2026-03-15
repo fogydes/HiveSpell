@@ -21,6 +21,7 @@ import {
   calculateTurnDuration,
   findNextActiveTurnPlayer,
   getActiveTurnPlayers,
+  hasOtherConnectedRoomPlayer,
   getPostTurnState,
   getRoundTurnOrder,
 } from "../services/playRoomUtils";
@@ -1043,8 +1044,13 @@ const Play: React.FC = () => {
     }
     passingTurnRef.current = false;
 
-    // PERFORM LIFETIME CORRECTS + NECTAR UPDATE (if correct answer)
-    if (!wasEliminated && user?.uid) {
+    const shouldAwardPersistentCorrects =
+      !wasEliminated &&
+      user?.uid &&
+      hasOtherConnectedRoomPlayer(playersList, user.uid);
+
+    // PERFORM LIFETIME CORRECTS + NECTAR UPDATE (competitive rooms only)
+    if (shouldAwardPersistentCorrects && user?.uid) {
       // Calculate nectar reward based on difficulty
       const nectarRewards: Record<string, number> = {
         baby: 6,
@@ -1146,8 +1152,13 @@ const Play: React.FC = () => {
         currentPlayerWpm: wpm,
       });
 
-      // UPDATE ROOM PLAYER STATS (Fix for Player List not updating)
-      if (user?.uid && currentRoom?.id) {
+      const isCompetitiveRoom = hasOtherConnectedRoomPlayer(
+        playersList,
+        user?.uid,
+      );
+
+      // UPDATE ROOM PLAYER STATS (competitive rooms only)
+      if (isCompetitiveRoom && user?.uid && currentRoom?.id) {
         try {
           const playerRef = dbRef(
             db,
