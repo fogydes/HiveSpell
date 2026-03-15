@@ -51,6 +51,8 @@ import RoomChatPanel from "../components/play/RoomChatPanel";
 import WordCorrectionModal from "../components/play/WordCorrectionModal";
 import { usePlayRoundTimers } from "../hooks/usePlayRoundTimers";
 import { useRoomChat } from "../hooks/useRoomChat";
+import { usePlayRoomLifecycle } from "../hooks/usePlayRoomLifecycle";
+import { useWinnerAward } from "../hooks/useWinnerAward";
 import {
   getChatPanelClasses,
   getPlayerPanelClasses,
@@ -61,31 +63,6 @@ interface WordStat {
   word: string;
   wpm: number;
 }
-
-const WIN_AWARD_STORAGE_KEY = "hive_awarded_wins";
-
-const getAwardedWins = (): string[] => {
-  if (typeof window === "undefined") return [];
-
-  try {
-    const raw = sessionStorage.getItem(WIN_AWARD_STORAGE_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-};
-
-const hasAwardedWin = (awardKey: string): boolean => {
-  return getAwardedWins().includes(awardKey);
-};
-
-const rememberAwardedWin = (awardKey: string) => {
-  if (typeof window === "undefined") return;
-
-  const nextAwards = [...getAwardedWins(), awardKey].slice(-20);
-  sessionStorage.setItem(WIN_AWARD_STORAGE_KEY, JSON.stringify(nextAwards));
-};
 
 const Play: React.FC = () => {
   const { mode: paramMode } = useParams<{ mode: string }>();
@@ -98,68 +75,12 @@ const Play: React.FC = () => {
     loading: contextLoading,
   } = useMultiplayer();
 
-  // If no room context (user refreshed page or direct link without join), kick back to lobby
-  // Use a ref to avoid redirecting immediately on first mount before context syncs
-  const hasAttemptedLoadRef = useRef(false);
-  const currentRoomRef = useRef(currentRoom);
-  currentRoomRef.current = currentRoom;
-  useEffect(() => {
-    // Don't check on first mount, give context time to sync
-    if (!hasAttemptedLoadRef.current) {
-      hasAttemptedLoadRef.current = true;
-      return;
-    }
-
-    // Wait a beat before deciding to redirect (context might be updating)
-    if (!contextLoading && !currentRoom) {
-      const timer = setTimeout(() => {
-        if (!currentRoomRef.current) {
-          console.warn(
-            "No Room Context found after delay, redirecting to lobby...",
-          );
-          navigate("/lobby");
-        }
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [currentRoom, contextLoading, navigate]);
-
-  // Handle page reload and back button - disconnect player
-  // Also use Firebase onDisconnect for reliable disconnect detection
-  useEffect(() => {
-    if (!currentRoom?.id || !user?.uid) return;
-
-    const playerStatusRef = dbRef(
-      db,
-      `rooms/${currentRoom.id}/players/${user.uid}/status`,
-    );
-
-    // Set up Firebase onDisconnect - this will automatically run on the server
-    // when the client disconnects, even if they close the tab abruptly
-    const onDisconnectRef = onDisconnect(playerStatusRef);
-    onDisconnectRef.set("disconnected");
-    console.log("[Play] onDisconnect hook set up for player:", user.uid);
-
-    const handleBeforeUnload = () => {
-      // Try synchronous leaveRoom for page reload/close (may not complete)
-      leaveRoom(currentRoom.id, user.uid);
-    };
-
-    const handlePopState = () => {
-      // Handle browser back button
-      leaveRoom(currentRoom.id, user.uid);
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    window.addEventListener("popstate", handlePopState);
-
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-      window.removeEventListener("popstate", handlePopState);
-      // Cancel the onDisconnect when component unmounts normally (e.g., navigate away)
-      onDisconnectRef.cancel();
-    };
-  }, [currentRoom?.id, user?.uid]);
+  usePlayRoomLifecycle({
+    contextLoading,
+    currentRoom,
+    onMissingRoom: () => navigate("/lobby"),
+    userId: user?.uid,
+  });
 
   // --- Gameplay State ---
   // Streak is now synced from room state, not local
@@ -306,42 +227,14 @@ const Play: React.FC = () => {
     onTurnExpired: handleTurnExpired,
   });
 
-  useEffect(() => {
-    const winnerId = currentRoom?.gameState?.winnerId;
-    const intermissionEndsAt = currentRoom?.intermissionEndsAt;
-
-    if (!user?.uid || !currentRoom?.id || !winnerId || !intermissionEndsAt) {
-      return;
-    }
-
-    if (winnerId !== user.uid) {
-      return;
-    }
-
-    const awardKey = `${currentRoom.id}:${intermissionEndsAt}:${winnerId}`;
-    if (hasAwardedWin(awardKey)) {
-      return;
-    }
-
-    rememberAwardedWin(awardKey);
-
-    awardProfileWin(user.uid, user.displayName || "Player")
-      .then(() => refreshUser())
-      .catch((err: any) => console.error("Win award transaction failed:", err));
-
-    runTransaction(
-      dbRef(db, `rooms/${currentRoom.id}/players/${user.uid}/wins`),
-      (current: any) => (current || 0) + 1,
-    ).catch((err: any) =>
-      console.error("Room win award transaction failed:", err),
-    );
-  }, [
-    currentRoom?.gameState?.winnerId,
-    currentRoom?.id,
-    currentRoom?.intermissionEndsAt,
-    user?.displayName,
-    user?.uid,
-  ]);
+  useWinnerAward({
+    intermissionEndsAt: currentRoom?.intermissionEndsAt,
+    refreshUser,
+    roomId: currentRoom?.id,
+    userDisplayName: user?.displayName,
+    userId: user?.uid,
+    winnerId: currentRoom?.gameState?.winnerId,
+  });
 
   // --- AUDIO & INPUT SYNC ---
   useEffect(() => {
