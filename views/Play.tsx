@@ -38,11 +38,6 @@ import { db } from "../firebase";
 import {
   ref as dbRef,
   update as dbUpdate,
-  onValue as dbOnValue,
-  push as dbPush,
-  serverTimestamp as dbServerTimestamp,
-  query as dbQuery,
-  limitToLast as dbLimitToLast,
   runTransaction,
   off as dbOff,
   onDisconnect,
@@ -55,14 +50,12 @@ import PlayerListPanel from "../components/play/PlayerListPanel";
 import RoomChatPanel from "../components/play/RoomChatPanel";
 import WordCorrectionModal from "../components/play/WordCorrectionModal";
 import { usePlayRoundTimers } from "../hooks/usePlayRoundTimers";
-
-interface ChatMessage {
-  id: string;
-  sender: string;
-  text: string;
-  timestamp: number;
-  type: "user" | "server";
-}
+import { useRoomChat } from "../hooks/useRoomChat";
+import {
+  getChatPanelClasses,
+  getPlayerPanelClasses,
+  PlayPanelTab,
+} from "../services/playPanelUtils";
 
 interface WordStat {
   word: string;
@@ -193,20 +186,22 @@ const Play: React.FC = () => {
   } | null>(null);
 
   // UI States
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [chatInput, setChatInput] = useState("");
-  const chatEndRef = useRef<HTMLDivElement>(null);
-
-  const joinTimeRef = useRef<number>(Date.now());
-  const [activeTab, setActiveTab] = useState<"none" | "chat" | "players">(
-    "none",
-  );
+  const [activeTab, setActiveTab] = useState<PlayPanelTab>("none");
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(
     null,
   );
 
   const lastSpokenWordRef = useRef<string>("");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const { chatEndRef, chatInput, messages, sendMessage, setChatInput } =
+    useRoomChat({
+      roomId: currentRoom?.id,
+      senderName:
+        userData?.username ||
+        (user?.email ? user.email.split("@")[0] : "Player"),
+      scrollSignal: activeTab,
+    });
 
   // Use currentRoom from context as the source of truth
   const processingRef = useRef(false);
@@ -243,62 +238,6 @@ const Play: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [isInputEnabled, status]);
-
-  // CHAT SYSTEM (Scoped to Room ID)
-  useEffect(() => {
-    if (!currentRoom?.id) return;
-
-    const chatRef = dbQuery(
-      dbRef(db, `rooms/${currentRoom.id}/chat`),
-      dbLimitToLast(50),
-    );
-    const unsubscribeChat = dbOnValue(chatRef, (snapshot: any) => {
-      const data = snapshot.val();
-      if (data) {
-        const msgList = Object.entries(data)
-          .map(([key, val]: [string, any]) => ({
-            id: key,
-            sender: val.sender,
-            text: val.text,
-            timestamp: val.timestamp,
-            type: val.type || "user",
-          }))
-          .filter(
-            (msg) => msg.timestamp && msg.timestamp >= joinTimeRef.current,
-          );
-
-        setMessages(msgList);
-      } else {
-        setMessages([]);
-      }
-    });
-
-    return () => unsubscribeChat();
-  }, [currentRoom?.id]);
-
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, activeTab]);
-
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!chatInput.trim() || !user || !currentRoom?.id) return;
-
-    const chatRef = dbRef(db, `rooms/${currentRoom.id}/chat`);
-    try {
-      await dbPush(chatRef, {
-        sender:
-          userData?.username ||
-          (user.email ? user.email.split("@")[0] : "Player"),
-        text: chatInput,
-        timestamp: dbServerTimestamp(),
-        type: "user",
-      });
-      setChatInput("");
-    } catch (e) {
-      console.error("Failed to send message:", e);
-    }
-  };
 
   // --- HELPER: Identify Roles ---
   const isGameDriver = React.useMemo(() => {
@@ -1208,34 +1147,6 @@ const Play: React.FC = () => {
     setActiveTab(activeTab === tab ? "none" : tab);
   };
 
-  const getChatClasses = () => {
-    const base =
-      "fixed z-40 bg-panel/95 backdrop-blur-xl border border-surface shadow-2xl flex flex-col overflow-hidden transition-all duration-300";
-    const mobilePos =
-      "right-4 top-1/2 -translate-y-1/2 w-[85vw] h-[50vh] rounded-2xl origin-right";
-    const mobileState =
-      activeTab === "chat"
-        ? "scale-100 opacity-100 pointer-events-auto"
-        : "scale-0 opacity-0 pointer-events-none";
-    const desktop =
-      "lg:right-auto lg:left-4 lg:top-1/2 lg:-translate-y-1/2 lg:w-72 lg:h-[60vh] lg:rounded-xl lg:origin-center lg:scale-100 lg:opacity-100 lg:pointer-events-auto";
-    return `${base} ${mobilePos} ${mobileState} ${desktop}`;
-  };
-
-  const getPlayerListClasses = () => {
-    const base =
-      "fixed z-40 bg-panel/95 backdrop-blur-xl border border-surface shadow-2xl flex flex-col overflow-hidden transition-all duration-300";
-    const mobilePos =
-      "right-4 top-1/2 -translate-y-1/2 w-[85vw] h-[50vh] rounded-2xl origin-right";
-    const mobileState =
-      activeTab === "players"
-        ? "scale-100 opacity-100 pointer-events-auto"
-        : "scale-0 opacity-0 pointer-events-none";
-    const desktop =
-      "lg:right-4 lg:top-1/2 lg:-translate-y-1/2 lg:w-64 lg:h-[60vh] lg:rounded-xl lg:origin-center lg:scale-100 lg:opacity-100 lg:pointer-events-auto";
-    return `${base} ${mobilePos} ${mobileState} ${desktop}`;
-  };
-
 
   if (!currentRoom)
     return (
@@ -1266,14 +1177,14 @@ const Play: React.FC = () => {
       <RoomChatPanel
         chatEndRef={chatEndRef}
         chatInput={chatInput}
-        className={getChatClasses()}
+        className={getChatPanelClasses(activeTab)}
         messages={messages}
         onChatInputChange={setChatInput}
-        onSubmit={handleSendMessage}
+        onSubmit={sendMessage}
       />
 
       <PlayerListPanel
-        className={getPlayerListClasses()}
+        className={getPlayerPanelClasses(activeTab)}
         currentTurnPlayerId={currentRoom?.gameState?.currentTurnPlayerId}
         players={playersList}
         userId={user?.uid}
