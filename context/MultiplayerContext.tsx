@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Room, GameSettings, Player } from "../types/multiplayer";
+import { ref as dbRef, update as dbUpdate } from "firebase/database";
 import {
   createRoom,
   joinRoom,
@@ -7,6 +8,7 @@ import {
   subscribeToRoom,
   findPublicRoom,
 } from "../services/multiplayerService";
+import { db } from "../firebase";
 import { useAuth } from "./AuthContext";
 
 interface MultiplayerContextType {
@@ -76,6 +78,47 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [currentRoom?.id, user?.uid]);
+
+  // Backfill the current room snapshot once profile hydration finishes.
+  useEffect(() => {
+    if (!currentRoom?.id || !user?.uid || !userData) return;
+
+    const roomPlayer = currentRoom.players?.[user.uid];
+    if (!roomPlayer) return;
+
+    const nextUsername = userData.username || roomPlayer.name || "Player";
+    const nextCorrects = userData.corrects ?? 0;
+    const nextWins = userData.wins ?? 0;
+
+    const updates: Record<string, string | number> = {};
+
+    if (roomPlayer.name !== nextUsername) {
+      updates[`players/${user.uid}/name`] = nextUsername;
+    }
+
+    if ((roomPlayer.corrects ?? 0) !== nextCorrects) {
+      updates[`players/${user.uid}/corrects`] = nextCorrects;
+    }
+
+    if ((roomPlayer.wins ?? 0) !== nextWins) {
+      updates[`players/${user.uid}/wins`] = nextWins;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return;
+    }
+
+    dbUpdate(dbRef(db, `rooms/${currentRoom.id}`), updates).catch((err: any) =>
+      console.error("[Multiplayer] Failed to sync room profile snapshot:", err),
+    );
+  }, [
+    currentRoom?.id,
+    currentRoom?.players,
+    user?.uid,
+    userData?.corrects,
+    userData?.username,
+    userData?.wins,
+  ]);
 
   const createGameRoom = async (
     settings: GameSettings,
