@@ -96,10 +96,11 @@ export const applyCorrectAnswerReward = async (
   fallbackUsername: string,
   nectarToAdd: number,
 ) => {
+  const safeNectarToAdd = Math.max(0, nectarToAdd);
   const { error } = await supabase.rpc("apply_correct_answer_reward", {
     p_user_id: userId,
     p_username: fallbackUsername,
-    p_nectar_to_add: nectarToAdd,
+    p_nectar_to_add: safeNectarToAdd,
   });
 
   if (!error) {
@@ -113,8 +114,8 @@ export const applyCorrectAnswerReward = async (
   const profile = await loadProfile(userId);
   const nextCorrects = (profile?.corrects ?? 0) + 1;
   const nextWins = profile?.wins ?? 0;
-  const nextCurrentNectar = (profile?.current_nectar ?? 0) + nectarToAdd;
-  const nextLifetimeNectar = (profile?.lifetime_nectar ?? 0) + nectarToAdd;
+  const nextCurrentNectar = (profile?.current_nectar ?? 0) + safeNectarToAdd;
+  const nextLifetimeNectar = (profile?.lifetime_nectar ?? 0) + safeNectarToAdd;
 
   await saveProfile(userId, fallbackUsername, {
     corrects: nextCorrects,

@@ -53,6 +53,7 @@ import MobilePlayActions from "../components/play/MobilePlayActions";
 import PlayerListPanel from "../components/play/PlayerListPanel";
 import RoomChatPanel from "../components/play/RoomChatPanel";
 import WordCorrectionModal from "../components/play/WordCorrectionModal";
+import { usePlayRoundTimers } from "../hooks/usePlayRoundTimers";
 
 interface ChatMessage {
   id: string;
@@ -167,8 +168,6 @@ const Play: React.FC = () => {
   }, [currentRoom?.id, user?.uid]);
 
   // --- Gameplay State ---
-  const [timeLeft, setTimeLeft] = useState(10);
-  const [totalTime, setTotalTime] = useState(10);
   // Streak is now synced from room state, not local
   const streak = currentRoom?.gameState?.streak || 0;
 
@@ -185,7 +184,6 @@ const Play: React.FC = () => {
   const [status, setStatus] = useState<"playing" | "intermission" | "speaking">(
     "playing",
   );
-  const [intermissionTime, setIntermissionTime] = useState(10);
   const [feedback, setFeedback] = useState<{
     type: "success" | "error";
     msg: string;
@@ -211,8 +209,6 @@ const Play: React.FC = () => {
 
   // Use currentRoom from context as the source of truth
   const processingRef = useRef(false);
-  const timerEndRef = useRef<number>(0);
-  const animationFrameRef = useRef<number>(0);
 
   // Sync Room State to Local State
   useEffect(() => {
@@ -350,7 +346,25 @@ const Play: React.FC = () => {
     return me ? me.status : "spectating";
   }, [playersList, user]);
 
-  const amIActivePlayer = myStatus === "alive" || myStatus === "connected";
+  const isMyTurn = currentRoom?.gameState?.currentTurnPlayerId === user?.uid;
+
+  const handleTurnExpired = useCallback(() => {
+    if (
+      currentRoom?.gameState?.currentWord &&
+      (myStatus === "alive" || myStatus === "connected")
+    ) {
+      console.log("[Timer] Time expired. Self-eliminating.");
+      void handleFail("Time's up!", "", currentRoom.gameState.currentWord);
+    }
+  }, [currentRoom?.gameState?.currentWord, myStatus]);
+
+  const { timeLeft, totalTime, intermissionTime } = usePlayRoundTimers({
+    currentRoom,
+    isMyTurn,
+    myStatus,
+    status,
+    onTurnExpired: handleTurnExpired,
+  });
 
   useEffect(() => {
     const winnerId = currentRoom?.gameState?.winnerId;
@@ -429,54 +443,6 @@ const Play: React.FC = () => {
     // Cleanup to prevent double audio on unmount/re-render
     return () => stopAudio();
   }, [currentRoom?.gameState?.currentWord]);
-
-  // --- SELF-ELIMINATION TIMER (only for current turn player) ---
-  const isMyTurn = currentRoom?.gameState?.currentTurnPlayerId === user?.uid;
-  useEffect(() => {
-    // Only the player whose turn it is should self-eliminate on timeout
-    if (!isMyTurn) return;
-
-    if (
-      status === "playing" &&
-      currentRoom?.gameState?.startTime &&
-      (currentRoom.gameState as any).timerDuration
-    ) {
-      const duration = (currentRoom.gameState as any).timerDuration;
-      const start = currentRoom.gameState.startTime;
-
-      const timer = setInterval(() => {
-        const now = Date.now();
-        const elapsed = (now - start) / 1000;
-        const remaining = duration - elapsed;
-
-        if (remaining <= 0) {
-          clearInterval(timer);
-          // Ensure we only kill alive/connected players
-          if (myStatus === "alive" || myStatus === "connected") {
-            console.log("[Timer] Time expired. Self-eliminating.");
-            handleFail("Time's up!", "", currentRoom.gameState.currentWord);
-          }
-        }
-      }, 100);
-      return () => clearInterval(timer);
-    }
-  }, [isMyTurn, status, currentRoom?.gameState?.startTime, myStatus]);
-
-  // --- INTERMISSION COUNTDOWN (UI) ---
-  useEffect(() => {
-    if (
-      currentRoom?.status === "intermission" &&
-      currentRoom.intermissionEndsAt
-    ) {
-      const interval = setInterval(() => {
-        const remaining = Math.ceil(
-          (currentRoom.intermissionEndsAt - Date.now()) / 1000,
-        );
-        setIntermissionTime(Math.max(0, remaining));
-      }, 1000);
-      return () => clearInterval(interval);
-    }
-  }, [currentRoom?.status, currentRoom?.intermissionEndsAt]);
 
   // --- DISCONNECTED PLAYER TURN HANDLER (Driver Only) ---
   // If the current turn player is disconnected, auto-eliminate them and pass turn
@@ -916,48 +882,6 @@ const Play: React.FC = () => {
     currentRoom?.intermissionEndsAt,
   ]);
 
-  // Visual Timer (UI Only)
-  // Visual Timer (UI Only)
-  useEffect(() => {
-    // If someone died, show frozen timer for everyone
-    const frozenTime = currentRoom?.gameState?.frozenTimeLeft;
-    if (
-      frozenTime !== undefined &&
-      frozenTime !== null &&
-      currentRoom?.status === "intermission"
-    ) {
-      setTimeLeft(frozenTime);
-      return; // Don't run the animation, just show frozen time
-    }
-
-    // Stop the timer if I am eliminated to show exact time of death
-    if (myStatus === "eliminated") return;
-
-    if (
-      currentRoom?.gameState?.startTime &&
-      (currentRoom.gameState as any).timerDuration
-    ) {
-      const duration = (currentRoom.gameState as any).timerDuration;
-      const start = currentRoom.gameState.startTime;
-
-      const update = () => {
-        const elapsed = (Date.now() - start) / 1000;
-        const remaining = Math.max(0, duration - elapsed);
-        setTimeLeft(remaining);
-        setTotalTime(duration);
-        if (remaining > 0)
-          animationFrameRef.current = requestAnimationFrame(update);
-      };
-      update();
-    }
-    return () => cancelAnimationFrame(animationFrameRef.current);
-  }, [
-    currentRoom?.gameState?.startTime,
-    currentRoom?.gameState?.frozenTimeLeft,
-    myStatus,
-    currentRoom?.status,
-  ]);
-
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setInputValue(val);
@@ -1250,13 +1174,16 @@ const Play: React.FC = () => {
     }
   };
 
-  const handleFail = async (msg: string, typed?: string, correct?: string) => {
-    // if (!amIActivePlayer) return; // Removed strict check for now to ensure fail logic runs
+  async function handleFail(
+    msg: string,
+    typed?: string,
+    correct?: string,
+  ) {
     console.log(`[Death] ${msg}`);
 
     setFeedback({ type: "error", msg, typed, correct });
     await passTurn(true);
-  };
+  }
 
   const exitArena = async () => {
     // Mark player as disconnected before leaving

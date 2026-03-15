@@ -27,6 +27,7 @@ describe("getTitle", () => {
 
   it("promotes players at the expected milestones", () => {
     expect(getTitle(1500, 150)).toBe("Busy Bee");
+    expect(getTitle(100, 1000)).toBe("Hive Champion");
     expect(getTitle(10000, 10)).toBe("Hive Master");
     expect(getTitle(50000, 500)).toBe("Queen Bee");
   });

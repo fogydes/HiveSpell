@@ -146,6 +146,24 @@ export const fetchDefinition = async (word: string): Promise<string> => {
 };
 
 let speakId = 0;
+const AUDIO_DEBUG_STORAGE_KEY = "hivespell_debug_audio";
+
+const isAudioDebugEnabled = () =>
+  typeof window !== "undefined" &&
+  window.localStorage.getItem(AUDIO_DEBUG_STORAGE_KEY) === "1";
+
+const logAudioDebug = (
+  stage: string,
+  details: Record<string, unknown> = {},
+) => {
+  if (!isAudioDebugEnabled()) return;
+
+  console.info("[AudioDebug]", stage, {
+    ...details,
+    online:
+      typeof navigator !== "undefined" ? navigator.onLine : "unknown",
+  });
+};
 
 export const getTitle = (corrects: number, wins: number): string => {
   if (corrects >= 50000) return "Queen Bee";
@@ -204,9 +222,14 @@ export const speak = async (
   force: boolean = false,
 ): Promise<void> => {
   const now = Date.now();
+  logAudioDebug("speak-requested", { force, volume, word });
   // Dedupe: If same word requested within 1s, and not forced, ignore
   if (!force && word === lastSpokenWord && now - lastSpokenTime < 1000) {
     console.log(`[Audio] Ignoring duplicate speak request for "${word}"`);
+    logAudioDebug("speak-deduped", {
+      elapsedMs: now - lastSpokenTime,
+      word,
+    });
     return;
   }
 
@@ -269,6 +292,11 @@ export const speak = async (
         .from("word-audios")
         .getPublicUrl(`${fileName}.mp3`);
       const audio = new Audio(data.publicUrl);
+      const startedAt = Date.now();
+      logAudioDebug("audio-file-attempt", {
+        fileName,
+        publicUrl: data.publicUrl,
+      });
 
       // Force stop previous
       if (currentAudio) {
@@ -296,6 +324,10 @@ export const speak = async (
         if (currentAudio === audio && speakId === myId) {
           currentAudio = null;
         }
+        logAudioDebug("audio-file-timeout", {
+          elapsedMs: Date.now() - startedAt,
+          fileName,
+        });
         resolve(false);
       }, 1000);
 
@@ -309,12 +341,36 @@ export const speak = async (
         if (currentAudio === audio && speakId === myId) {
           const playPromise = audio.play();
           if (playPromise !== undefined) {
-            playPromise.then(() => resolve(true)).catch(() => resolve(false));
+            playPromise
+              .then(() => {
+                logAudioDebug("audio-file-playing", {
+                  elapsedMs: Date.now() - startedAt,
+                  fileName,
+                });
+                resolve(true);
+              })
+              .catch((error) => {
+                logAudioDebug("audio-file-play-failed", {
+                  elapsedMs: Date.now() - startedAt,
+                  fileName,
+                  message:
+                    error instanceof Error ? error.message : String(error),
+                });
+                resolve(false);
+              });
           } else {
+            logAudioDebug("audio-file-playing", {
+              elapsedMs: Date.now() - startedAt,
+              fileName,
+            });
             resolve(true);
           }
         } else {
           // We were stopped/replaced/timed-out
+          logAudioDebug("audio-file-stale", {
+            elapsedMs: Date.now() - startedAt,
+            fileName,
+          });
           resolve(false);
         }
       };
@@ -322,6 +378,10 @@ export const speak = async (
       audio.onerror = () => {
         if (isCancelled) return;
         clearTimeout(timeout);
+        logAudioDebug("audio-file-error", {
+          elapsedMs: Date.now() - startedAt,
+          fileName,
+        });
         resolve(false);
       };
     });
@@ -342,10 +402,12 @@ export const speak = async (
     // Check one last time if we haven't been stopped
     if (activeUtterance === null && speakId === myId) {
       console.warn(`Local audio failed for "${word}". Playing TTS.`);
+      logAudioDebug("tts-fallback", { word });
       await playBrowserTTS();
     }
   } else {
     // Audio file played successfully
     console.log(`Playing local audio for "${word}"`);
+    logAudioDebug("audio-file-success", { word });
   }
 };

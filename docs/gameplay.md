@@ -57,6 +57,8 @@ The audio system tries to play a pre-recorded word first. If that is unavailable
 
 This behavior is implemented in [`services/gameService.ts`](../services/gameService.ts).
 
+For debugging flaky audio loads in the browser, set `localStorage.hivespell_debug_audio = "1"` and reproduce the issue. The client will log timing and fallback details for each audio attempt.
+
 ## Definitions
 
 The game can show a definition during play. Definitions come from:
