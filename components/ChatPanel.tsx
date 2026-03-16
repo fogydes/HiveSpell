@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 import {
   Message,
   Conversation,
@@ -39,6 +40,7 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -119,7 +121,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
     const file = e.target.files[0];
 
     if (file.size > MAX_FILE_SIZE) {
-      alert("File too large. Maximum size is 5MB.");
+      showToast({
+        title: "Upload too large",
+        message: "Maximum file size is 5MB.",
+        variant: "error",
+      });
       return;
     }
 
@@ -133,7 +139,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
       file.name.endsWith(".csv");
 
     if (!isAllowed) {
-      alert("Only images (PNG, JPG, WEBP, GIF) and text files are allowed.");
+      showToast({
+        title: "Unsupported file",
+        message: "Only images and text files are allowed.",
+        variant: "error",
+      });
       return;
     }
 
@@ -150,7 +160,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
         loadConversations();
       }
     } else {
-      alert("Failed to upload file.");
+      showToast({
+        title: "Upload failed",
+        message: "Failed to upload file.",
+        variant: "error",
+      });
     }
     setUploading(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -171,7 +185,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
         const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
 
         if (blob.size > MAX_FILE_SIZE) {
-          alert("Recording too large. Maximum size is 5MB.");
+          showToast({
+            title: "Recording too large",
+            message: "Maximum file size is 5MB.",
+            variant: "error",
+          });
           return;
         }
 
@@ -201,7 +219,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
       setIsRecording(true);
     } catch (err) {
       console.error("Failed to start recording:", err);
-      alert("Microphone access denied.");
+      showToast({
+        title: "Microphone access denied",
+        message: "Allow microphone access to record a voice message.",
+        variant: "error",
+      });
     }
   };
 

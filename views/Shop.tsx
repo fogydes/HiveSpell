@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 import { supabase } from "../services/supabase";
 import {
   SHOP_ITEMS,
@@ -140,6 +141,7 @@ const PurchaseButton: React.FC<{
   onClose: () => void;
 }> = ({ item, owned, onClose }) => {
   const { refreshUser, user, userData } = useAuth();
+  const { showToast } = useToast();
   const [buying, setBuying] = useState(false);
   const canAfford = (userData?.nectar ?? 0) >= item.price;
 
@@ -158,15 +160,27 @@ const PurchaseButton: React.FC<{
       if (error) throw error;
 
       if (data && data.success) {
-        alert(`Bzz! You acquired ${item.name}!`); // TODO: Better UI feedback
+        showToast({
+          title: "Purchase complete",
+          message: `${item.name} is now in your stash.`,
+          variant: "success",
+        });
         await refreshUser(); // Update balance
         onClose();
       } else {
-        alert(data?.message || "Purchase failed.");
+        showToast({
+          title: "Purchase failed",
+          message: data?.message || "Your transaction could not be completed.",
+          variant: "error",
+        });
       }
     } catch (err: any) {
       console.error("Purchase error details:", JSON.stringify(err, null, 2));
-      alert(`Transaction failed: ${err.message || "Unknown error"}`);
+      showToast({
+        title: "Transaction failed",
+        message: err.message || "Unknown error",
+        variant: "error",
+      });
     } finally {
       setBuying(false);
     }

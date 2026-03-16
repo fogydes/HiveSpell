@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase, isSupabaseConfigured } from "../services/supabase";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 import {
   getFriendshipStatus,
   sendFriendRequest,
@@ -31,6 +32,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   onClose,
 }) => {
   const { user, userData, refreshUser } = useAuth();
+  const { showToast } = useToast();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -134,7 +136,11 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       // window.location.reload();
     } catch (error: any) {
       console.error("Error uploading avatar:", error);
-      alert(error.message || "Error uploading avatar!");
+      showToast({
+        title: "Avatar upload failed",
+        message: error.message || "Error uploading avatar!",
+        variant: "error",
+      });
     } finally {
       setUploading(false);
     }
@@ -234,7 +240,11 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                         if (result.success) {
                           setFriendshipStatus("pending");
                         } else {
-                          alert(result.error || "Failed to send request");
+                          showToast({
+                            title: "Friend request failed",
+                            message: result.error || "Failed to send request",
+                            variant: "error",
+                          });
                         }
                         setFriendActionLoading(false);
                       }}

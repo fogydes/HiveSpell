@@ -2,12 +2,14 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { wordBank } from "../services/gameService";
 import { useMultiplayer } from "../context/MultiplayerContext";
+import { useToast } from "../context/ToastContext";
 import { db } from "../firebase";
 import { ref, get, query, orderByChild, equalTo } from "firebase/database";
 
 const Lobby: React.FC = () => {
   const modes = Object.keys(wordBank);
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [joinCode, setJoinCode] = useState("");
   const { createGameRoom, joinGameRoom, joinPublicGame, loading } =
     useMultiplayer();
@@ -19,7 +21,11 @@ const Lobby: React.FC = () => {
       navigate(`/play/${mode}`);
     } catch (err) {
       console.error("Matchmaking failed:", err);
-      alert("Failed to join. Please try again.");
+      showToast({
+        title: "Matchmaking failed",
+        message: "Failed to join. Please try again.",
+        variant: "error",
+      });
     }
   };
 
@@ -35,7 +41,11 @@ const Lobby: React.FC = () => {
       }
     } catch (err) {
       console.error("Private creation failed:", err);
-      alert("Failed to create private room.");
+      showToast({
+        title: "Room creation failed",
+        message: "Failed to create private room.",
+        variant: "error",
+      });
     }
   };
 
@@ -77,11 +87,19 @@ const Lobby: React.FC = () => {
         await joinGameRoom(foundRoomId);
         navigate(`/play/${foundDifficulty}`);
       } else {
-        alert("Room not found. Check the code and try again.");
+        showToast({
+          title: "Room not found",
+          message: "Check the code and try again.",
+          variant: "error",
+        });
       }
     } catch (err) {
       console.error("Join failed", err);
-      alert("Error joining room.");
+      showToast({
+        title: "Join failed",
+        message: "There was an error joining that room.",
+        variant: "error",
+      });
     }
   };
 

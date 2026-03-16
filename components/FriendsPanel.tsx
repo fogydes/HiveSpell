@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 import {
   getFriends,
   getIncomingRequests,
@@ -25,6 +26,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({
   onViewProfile,
 }) => {
   const { user, userData } = useAuth();
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<Tab>("friends");
   const [friends, setFriends] = useState<FriendWithProfile[]>([]);
   const [incoming, setIncoming] = useState<FriendWithProfile[]>([]);
@@ -99,7 +101,11 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({
       const out = await getOutgoingRequests(user.uid);
       setOutgoing(out);
     } else {
-      alert(result.error || "Failed to send request");
+      showToast({
+        title: "Friend request failed",
+        message: result.error || "Failed to send request",
+        variant: "error",
+      });
     }
     setActionLoading(null);
   };
