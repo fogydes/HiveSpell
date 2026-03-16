@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { useSettings, THEMES } from "../context/SettingsContext";
+import { useSettings } from "../context/SettingsContext";
 import {
   ITEM_CATALOG,
   THEME_OPTIONS,
   isThemeUnlocked,
 } from "../data/customizationCatalog";
+import { THEME_PACKAGES } from "../data/themePackages";
 
 interface StashProps {
   onClose: () => void;
@@ -74,7 +75,7 @@ export const Stash: React.FC<StashProps> = ({ onClose }) => {
                 const isActive = theme === themeOption.id;
                 const unlocked =
                   isThemeUnlocked(themeOption.id, inventory) || isActive;
-                const modeColors = THEMES[themeOption.id];
+                const modeColors = THEME_PACKAGES[themeOption.id].colors;
 
                 return (
                   <button

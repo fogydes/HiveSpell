@@ -11,12 +11,12 @@ const POLLEN_TTL_MS = 500;
 const MAX_POINTS = 10;
 
 const CustomizationEffects: React.FC = () => {
-  const { equippedCursor } = useSettings();
+  const { activeCursorId } = useSettings();
   const [trail, setTrail] = useState<TrailPoint[]>([]);
   const nextIdRef = useRef(0);
 
   useEffect(() => {
-    if (equippedCursor !== "cursor_pollen") {
+    if (activeCursorId !== "cursor_pollen") {
       setTrail([]);
       return;
     }
@@ -42,9 +42,9 @@ const CustomizationEffects: React.FC = () => {
     return () => {
       window.removeEventListener("pointermove", handlePointerMove);
     };
-  }, [equippedCursor]);
+  }, [activeCursorId]);
 
-  if (equippedCursor !== "cursor_pollen") {
+  if (activeCursorId !== "cursor_pollen") {
     return null;
   }
 
@@ -57,12 +57,14 @@ const CustomizationEffects: React.FC = () => {
         return (
           <span
             key={point.id}
-            className="absolute block rounded-full bg-amber-300 shadow-[0_0_14px_rgba(251,191,36,0.75)]"
+            className="absolute block rounded-full"
             style={{
               left: point.x,
               top: point.y,
               width: `${8 * scale}px`,
               height: `${8 * scale}px`,
+              backgroundColor: "var(--cursor-trail-color)",
+              boxShadow: `0 0 14px var(--cursor-trail-glow)`,
               opacity,
               transform: "translate(-50%, -50%)",
               transition: "opacity 180ms ease-out, transform 180ms ease-out",

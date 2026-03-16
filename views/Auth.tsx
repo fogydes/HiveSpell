@@ -87,27 +87,39 @@ const Auth: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#050914] p-4">
-      <div className="bg-[#0f172a] p-8 rounded-3xl shadow-2xl w-full max-w-[400px] border border-slate-800 relative overflow-hidden">
-        
-        {/* Subtle glow effect */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-1 bg-gradient-to-r from-transparent via-emerald-500 to-transparent opacity-50"></div>
+    <div className="theme-scene min-h-screen flex items-center justify-center bg-app p-4">
+      <div className="theme-panel-shell relative w-full max-w-[430px] overflow-hidden rounded-[2rem] border bg-panel/55 p-8 backdrop-blur-xl">
+        <div
+          className="absolute top-0 left-1/2 h-1 w-full -translate-x-1/2 opacity-70"
+          style={{
+            background:
+              "linear-gradient(90deg, transparent 0%, var(--primary) 50%, transparent 100%)",
+          }}
+        ></div>
 
-        <h2 className="text-3xl font-bold mb-8 text-center">
-          <span className="text-emerald-500">{isLogin ? 'Log in' : 'Sign up'}</span>
-          <span className="text-white"> or </span>
-          <span className="text-emerald-500">{!isLogin ? 'Log in' : 'Sign up'}</span>
-        </h2>
+        <div className="mb-8 text-center">
+          <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.28em] text-text-muted">
+            Enter The Hive
+          </p>
+          <h2 data-display="true" className="text-3xl font-black text-text-main">
+            <span className="text-primary">{isLogin ? 'Log in' : 'Sign up'}</span>
+            <span className="text-text-main"> or </span>
+            <span className="text-primary">{!isLogin ? 'Log in' : 'Sign up'}</span>
+          </h2>
+          <p className="mt-3 text-sm leading-relaxed text-text-muted">
+            Your profile, inventory, and arena progress follow you across the hive.
+          </p>
+        </div>
 
-        {error && <div className="mb-4 text-red-500 text-sm text-center bg-red-500/10 py-2 rounded">{error}</div>}
+        {error && <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 py-2 text-center text-sm text-red-400">{error}</div>}
 
         <form onSubmit={handleAuth} className="space-y-4">
           
           {!isLogin && (
             <div>
-              <label className="block text-slate-400 text-xs font-bold mb-2 ml-1">Username</label>
+              <label className="mb-2 ml-1 block text-xs font-bold text-text-muted">Username</label>
               <input 
-                className="w-full p-4 rounded-xl bg-[#1e293b] border border-slate-700 text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all placeholder:text-slate-600"
+                className="w-full rounded-xl border border-surface bg-surface/40 p-4 text-text-main transition-all placeholder:text-text-muted/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 type="text" 
                 placeholder="Pick a username" 
                 value={username} 
@@ -120,11 +132,11 @@ const Auth: React.FC = () => {
           )}
 
           <div>
-            <label className="block text-slate-400 text-xs font-bold mb-2 ml-1">
+            <label className="mb-2 ml-1 block text-xs font-bold text-text-muted">
               {isLogin ? 'Email or Username' : 'Email'}
             </label>
             <input 
-              className="w-full p-4 rounded-xl bg-[#1e293b] border border-slate-700 text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all placeholder:text-slate-600"
+              className="w-full rounded-xl border border-surface bg-surface/40 p-4 text-text-main transition-all placeholder:text-text-muted/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               type={isLogin ? "text" : "email"}
               placeholder={isLogin ? "Enter email or username" : "Enter your email"}
               value={emailOrUser} 
@@ -134,9 +146,9 @@ const Auth: React.FC = () => {
           </div>
           
           <div>
-             <label className="block text-slate-400 text-xs font-bold mb-2 ml-1">Password</label>
+             <label className="mb-2 ml-1 block text-xs font-bold text-text-muted">Password</label>
              <input 
-              className="w-full p-4 rounded-xl bg-[#1e293b] border border-slate-700 text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all placeholder:text-slate-600"
+              className="w-full rounded-xl border border-surface bg-surface/40 p-4 text-text-main transition-all placeholder:text-text-muted/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               type="password" 
               placeholder="Enter your password" 
               value={password} 
@@ -147,24 +159,24 @@ const Auth: React.FC = () => {
 
           <button 
             disabled={loading}
-            className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold py-4 rounded-xl mt-4 transition-all transform hover:scale-[1.02] shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="mt-4 w-full rounded-xl bg-primary py-4 font-black tracking-[0.16em] text-app transition-all hover:scale-[var(--hover-scale)] disabled:cursor-not-allowed disabled:opacity-50"
+            style={{ boxShadow: "var(--theme-shadow-glow)" }}
           >
-            {loading ? 'Processing...' : (isLogin ? 'Login' : 'Sign Up')}
+            {loading ? 'Processing...' : (isLogin ? 'LOGIN' : 'SIGN UP')}
           </button>
         </form>
 
         <div className="mt-8 text-center">
-          <p className="text-slate-400 text-sm">
+          <p className="text-sm text-text-muted">
             {isLogin ? 'Need an account?' : 'Already have an account?'}
             <button 
-              className="ml-2 text-emerald-400 hover:text-emerald-300 font-bold hover:underline" 
+              className="ml-2 font-bold text-primary hover:underline" 
               onClick={() => { setIsLogin(!isLogin); setError(''); }}
             >
               {isLogin ? 'Sign Up' : 'Log In'}
             </button>
           </p>
         </div>
-
       </div>
     </div>
   );

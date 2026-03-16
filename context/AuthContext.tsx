@@ -4,7 +4,7 @@ import { ref, onValue, off, update } from "firebase/database";
 import { auth, db } from "../firebase";
 
 import { supabase } from "../services/supabase";
-import type { ThemeId } from "./SettingsContext";
+import type { ThemeId } from "../data/themePackages";
 
 export interface UserData {
   nectar: number;

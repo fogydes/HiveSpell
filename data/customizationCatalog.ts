@@ -1,4 +1,4 @@
-import type { ThemeId } from "../context/SettingsContext";
+import type { ThemeId } from "./themePackages";
 
 export type CustomizationCategory = "theme" | "cursor" | "badge";
 
