@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import { getFriends, FriendWithProfile } from "../services/friendService";
 import {
   Message,
   Conversation,
@@ -54,6 +55,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const [showNewChat, setShowNewChat] = useState(false);
+  const [friends, setFriends] = useState<FriendWithProfile[]>([]);
+  const [friendSearch, setFriendSearch] = useState("");
+  const [loadingFriends, setLoadingFriends] = useState(false);
 
   // Load conversations
   useEffect(() => {
@@ -242,6 +247,24 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
     (c) => c.friendId === selectedFriendId,
   );
 
+  // For new conversations (friend picked but no messages yet), fall back to friends data
+  const selectedFriendInfo = selectedConv
+    ? {
+        username: selectedConv.friendUsername,
+        avatarUrl: selectedConv.friendAvatarUrl,
+        avatarSeed: selectedConv.friendAvatarSeed,
+      }
+    : (() => {
+        const f = friends.find((fr) => fr.profile.id === selectedFriendId);
+        return f
+          ? {
+              username: f.profile.username,
+              avatarUrl: f.profile.avatar_url,
+              avatarSeed: f.profile.avatar_seed,
+            }
+          : { username: "User", avatarUrl: undefined, avatarSeed: selectedFriendId || undefined };
+      })();
+
   const filteredConversations = searchQuery
     ? conversations.filter((c) =>
         c.friendUsername.toLowerCase().includes(searchQuery.toLowerCase()),
@@ -265,12 +288,35 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
           {/* Header */}
           <div className="px-4 py-3 border-b border-surface flex items-center justify-between">
             <h2 className="text-base font-bold text-text-main">Messages</h2>
-            <button
-              onClick={onClose}
-              className="text-text-muted hover:text-text-main text-lg transition-colors"
-            >
-              ✕
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={async () => {
+                  if (showNewChat) {
+                    setShowNewChat(false);
+                    return;
+                  }
+                  setShowNewChat(true);
+                  setLoadingFriends(true);
+                  const f = await getFriends(user!.uid);
+                  setFriends(f);
+                  setLoadingFriends(false);
+                }}
+                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors text-sm ${
+                  showNewChat
+                    ? "bg-primary/20 border border-primary/40 text-primary"
+                    : "bg-surface/50 border border-surface hover:border-primary/30 text-text-muted hover:text-text-main"
+                }`}
+                title="New conversation"
+              >
+                ✏️
+              </button>
+              <button
+                onClick={onClose}
+                className="text-text-muted hover:text-text-main text-lg transition-colors"
+              >
+                ✕
+              </button>
+            </div>
           </div>
 
           {/* Search */}
@@ -284,6 +330,66 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
             />
           </div>
 
+          {/* Friend Picker (New Chat) */}
+          {showNewChat && (
+            <div className="border-b border-surface/50">
+              <div className="px-3 py-2">
+                <input
+                  type="text"
+                  value={friendSearch}
+                  onChange={(e) => setFriendSearch(e.target.value)}
+                  placeholder="Search friends..."
+                  className="w-full bg-surface/40 border border-surface/60 rounded-lg px-3 py-2 text-sm text-text-main placeholder-text-muted/50 focus:outline-none focus:border-primary/50 transition-colors"
+                  autoFocus
+                />
+              </div>
+              <div className="max-h-[200px] overflow-y-auto custom-scrollbar">
+                {loadingFriends ? (
+                  <div className="p-4 text-center">
+                    <div className="animate-spin text-xl">🐝</div>
+                  </div>
+                ) : friends.length === 0 ? (
+                  <div className="p-4 text-center">
+                    <p className="text-text-muted text-xs">No friends yet. Add friends first!</p>
+                  </div>
+                ) : (
+                  friends
+                    .filter((f) =>
+                      friendSearch
+                        ? f.profile.username.toLowerCase().includes(friendSearch.toLowerCase())
+                        : true
+                    )
+                    .map((f) => (
+                      <button
+                        key={f.profile.id}
+                        onClick={() => {
+                          selectConversation(f.profile.id);
+                          setShowNewChat(false);
+                          setFriendSearch("");
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-surface/30 transition-colors border-b border-surface/20"
+                      >
+                        <img
+                          src={
+                            f.profile.avatar_url ||
+                            `https://api.dicebear.com/7.x/avataaars/svg?seed=${f.profile.avatar_seed || f.profile.id}`
+                          }
+                          alt={f.profile.username}
+                          className="w-8 h-8 rounded-full object-cover border border-surface"
+                        />
+                        <div>
+                          <p className="text-sm font-semibold text-text-main">{f.profile.username}</p>
+                          {f.profile.title && (
+                            <p className="text-[10px] text-primary/60">{f.profile.title}</p>
+                          )}
+                        </div>
+                      </button>
+                    ))
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Conversation List */}
           <div className="flex-1 overflow-y-auto custom-scrollbar">
             {loading ? (
@@ -295,8 +401,22 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
                 <p className="text-text-muted text-sm">
                   {searchQuery
                     ? "No conversations found"
-                    : "No conversations yet. Send a message to a friend!"}
+                    : "No conversations yet."}
                 </p>
+                {!searchQuery && (
+                  <button
+                    onClick={async () => {
+                      setShowNewChat(true);
+                      setLoadingFriends(true);
+                      const f = await getFriends(user!.uid);
+                      setFriends(f);
+                      setLoadingFriends(false);
+                    }}
+                    className="mt-3 px-4 py-2 bg-primary/20 border border-primary/30 rounded-lg text-sm text-primary hover:bg-primary/30 transition-colors"
+                  >
+                    ✏️ Start a conversation
+                  </button>
+                )}
               </div>
             ) : (
               filteredConversations.map((conv) => (
@@ -343,30 +463,44 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
 
         {/* RIGHT AREA — Chat */}
         <div className="flex-1 flex flex-col">
-          {!selectedFriendId || !selectedConv ? (
+          {!selectedFriendId ? (
             /* Empty State */
             <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
               <span className="text-5xl mb-4 opacity-40">💬</span>
               <h3 className="text-lg font-bold text-text-main mb-2">
                 Start a conversation
               </h3>
-              <p className="text-sm text-text-muted max-w-xs">
-                Select a conversation from the sidebar or message a friend from
-                their profile.
+              <p className="text-sm text-text-muted max-w-xs mb-4">
+                Pick a friend from the ✏️ button to start chatting.
               </p>
+              <button
+                onClick={async () => {
+                  setShowNewChat(true);
+                  setLoadingFriends(true);
+                  const f = await getFriends(user!.uid);
+                  setFriends(f);
+                  setLoadingFriends(false);
+                }}
+                className="px-5 py-2.5 bg-primary/20 border border-primary/30 rounded-xl text-sm text-primary hover:bg-primary/30 transition-colors font-medium"
+              >
+                ✏️ New Conversation
+              </button>
             </div>
           ) : (
             <>
               {/* Chat Header */}
               <div className="px-5 py-3 border-b border-surface flex items-center gap-3">
                 <img
-                  src={getAvatarUrl(selectedConv)}
-                  alt={selectedConv.friendUsername}
+                  src={
+                    selectedFriendInfo.avatarUrl ||
+                    `https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedFriendInfo.avatarSeed || selectedFriendId}`
+                  }
+                  alt={selectedFriendInfo.username}
                   className="w-9 h-9 rounded-full object-cover border-2 border-primary/30"
                 />
                 <div>
                   <p className="text-sm font-bold text-text-main">
-                    {selectedConv.friendUsername}
+                    {selectedFriendInfo.username}
                   </p>
                 </div>
               </div>
