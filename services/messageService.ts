@@ -201,6 +201,49 @@ export async function uploadAttachment(
 }
 
 /**
+ * Delete a message (sender only)
+ */
+export async function deleteMessage(
+  messageId: string,
+  senderId: string,
+): Promise<boolean> {
+  const { error } = await supabase
+    .from("messages")
+    .delete()
+    .eq("id", messageId)
+    .eq("sender_id", senderId);
+
+  if (error) {
+    console.error("Failed to delete message:", error);
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Edit a message's content (sender only)
+ */
+export async function updateMessage(
+  messageId: string,
+  senderId: string,
+  newContent: string,
+): Promise<Message | null> {
+  const { data, error } = await supabase
+    .from("messages")
+    .update({ content: newContent })
+    .eq("id", messageId)
+    .eq("sender_id", senderId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Failed to update message:", error);
+    return null;
+  }
+  return data;
+}
+
+/**
  * Mark all messages from a friend as read
  */
 export async function markConversationAsRead(

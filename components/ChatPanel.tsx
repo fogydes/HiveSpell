@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { getFriends, FriendWithProfile } from "../services/friendService";
@@ -11,7 +11,10 @@ import {
   uploadAttachment,
   markConversationAsRead,
   subscribeToMessages,
+  deleteMessage,
+  updateMessage,
 } from "../services/messageService";
+import { ProfileModal } from "./ProfileModal";
 
 interface ChatPanelProps {
   onClose: () => void;
@@ -53,17 +56,39 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
   const [isRecording, setIsRecording] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const [showNewChat, setShowNewChat] = useState(false);
   const [friends, setFriends] = useState<FriendWithProfile[]>([]);
   const [friendSearch, setFriendSearch] = useState("");
   const [loadingFriends, setLoadingFriends] = useState(false);
+  // Message actions
+  const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+  // Profile modal
+  const [viewProfileId, setViewProfileId] = useState<string | null>(null);
+  // Track if initial load has occurred
+  const hasLoadedRef = useRef(false);
 
-  // Load conversations
+  // Load conversations (silent after first load)
+  const loadConversations = useCallback(
+    async (silent = false) => {
+      if (!user) return;
+      if (!silent) setLoading(true);
+      const convs = await getConversations(user.uid);
+      setConversations(convs);
+      if (!silent) setLoading(false);
+      hasLoadedRef.current = true;
+    },
+    [user],
+  );
+
+  // Initial load + realtime subscription
   useEffect(() => {
     if (!user) return;
-    loadConversations();
+    loadConversations(false);
 
     const channel = subscribeToMessages(user.uid, (newMsg) => {
       // If we're in the conversation, add to messages
@@ -72,29 +97,25 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
         (newMsg.sender_id === selectedFriendId ||
           newMsg.receiver_id === selectedFriendId)
       ) {
-        setMessages((prev) => [...prev, newMsg]);
+        setMessages((prev) => {
+          // Deduplicate (we might already have it from optimistic update)
+          if (prev.some((m) => m.id === newMsg.id)) return prev;
+          return [...prev, newMsg];
+        });
       }
-      // Refresh conversations
-      loadConversations();
+      // Refresh conversations silently (no spinner)
+      loadConversations(true);
     });
 
     return () => {
       channel.unsubscribe();
     };
-  }, [user, selectedFriendId]);
+  }, [user, selectedFriendId, loadConversations]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  const loadConversations = async () => {
-    if (!user) return;
-    setLoading(true);
-    const convs = await getConversations(user.uid);
-    setConversations(convs);
-    setLoading(false);
-  };
 
   const selectConversation = async (friendId: string) => {
     if (!user) return;
@@ -106,6 +127,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
     setConversations((prev) =>
       prev.map((c) => (c.friendId === friendId ? { ...c, unreadCount: 0 } : c)),
     );
+    // Focus input
+    setTimeout(() => inputRef.current?.focus(), 100);
   };
 
   const handleSend = async () => {
@@ -116,9 +139,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
     if (msg) {
       setMessages((prev) => [...prev, msg]);
       setMessageText("");
-      loadConversations();
+      loadConversations(true); // silent refresh
     }
     setSending(false);
+    // Re-focus input after sending
+    setTimeout(() => inputRef.current?.focus(), 50);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -162,7 +187,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
       });
       if (msg) {
         setMessages((prev) => [...prev, msg]);
-        loadConversations();
+        loadConversations(true);
       }
     } else {
       showToast({
@@ -213,7 +238,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
           });
           if (msg) {
             setMessages((prev) => [...prev, msg]);
-            loadConversations();
+            loadConversations(true);
           }
         }
         setUploading(false);
@@ -239,9 +264,36 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
     setIsRecording(false);
   };
 
-  const getAvatarUrl = (conv: Conversation) =>
-    conv.friendAvatarUrl ||
-    `https://api.dicebear.com/7.x/avataaars/svg?seed=${conv.friendAvatarSeed || conv.friendId}`;
+  // Delete message
+  const handleDelete = async (msgId: string) => {
+    if (!user) return;
+    const ok = await deleteMessage(msgId, user.uid);
+    if (ok) {
+      setMessages((prev) => prev.filter((m) => m.id !== msgId));
+      loadConversations(true);
+    }
+    setActiveMenu(null);
+  };
+
+  // Start editing
+  const startEdit = (msg: Message) => {
+    setEditingId(msg.id);
+    setEditText(msg.content);
+    setActiveMenu(null);
+  };
+
+  // Save edit
+  const handleSaveEdit = async () => {
+    if (!user || !editingId || !editText.trim()) return;
+    const updated = await updateMessage(editingId, user.uid, editText.trim());
+    if (updated) {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === editingId ? updated : m)),
+      );
+    }
+    setEditingId(null);
+    setEditText("");
+  };
 
   const selectedConv = conversations.find(
     (c) => c.friendId === selectedFriendId,
@@ -262,7 +314,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
               avatarUrl: f.profile.avatar_url,
               avatarSeed: f.profile.avatar_seed,
             }
-          : { username: "User", avatarUrl: undefined, avatarSeed: selectedFriendId || undefined };
+          : {
+              username: "User",
+              avatarUrl: undefined,
+              avatarSeed: selectedFriendId || undefined,
+            };
       })();
 
   const filteredConversations = searchQuery
@@ -283,40 +339,41 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
         style={{ width: "75vw", height: "75vh" }}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Panel close button — top-right corner */}
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center rounded-lg bg-surface/50 border border-surface hover:border-red-500/40 hover:bg-red-500/10 text-text-muted hover:text-red-400 transition-colors text-sm"
+          title="Close"
+        >
+          ✕
+        </button>
+
         {/* LEFT SIDEBAR — Conversations */}
         <div className="w-[300px] min-w-[280px] border-r border-surface flex flex-col">
           {/* Header */}
           <div className="px-4 py-3 border-b border-surface flex items-center justify-between">
             <h2 className="text-base font-bold text-text-main">Messages</h2>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={async () => {
-                  if (showNewChat) {
-                    setShowNewChat(false);
-                    return;
-                  }
-                  setShowNewChat(true);
-                  setLoadingFriends(true);
-                  const f = await getFriends(user!.uid);
-                  setFriends(f);
-                  setLoadingFriends(false);
-                }}
-                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors text-sm ${
-                  showNewChat
-                    ? "bg-primary/20 border border-primary/40 text-primary"
-                    : "bg-surface/50 border border-surface hover:border-primary/30 text-text-muted hover:text-text-main"
-                }`}
-                title="New conversation"
-              >
-                ✏️
-              </button>
-              <button
-                onClick={onClose}
-                className="text-text-muted hover:text-text-main text-lg transition-colors"
-              >
-                ✕
-              </button>
-            </div>
+            <button
+              onClick={async () => {
+                if (showNewChat) {
+                  setShowNewChat(false);
+                  return;
+                }
+                setShowNewChat(true);
+                setLoadingFriends(true);
+                const f = await getFriends(user!.uid);
+                setFriends(f);
+                setLoadingFriends(false);
+              }}
+              className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors text-sm ${
+                showNewChat
+                  ? "bg-primary/20 border border-primary/40 text-primary"
+                  : "bg-surface/50 border border-surface hover:border-primary/30 text-text-muted hover:text-text-main"
+              }`}
+              title="New conversation"
+            >
+              ✏️
+            </button>
           </div>
 
           {/* Search */}
@@ -350,14 +407,18 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
                   </div>
                 ) : friends.length === 0 ? (
                   <div className="p-4 text-center">
-                    <p className="text-text-muted text-xs">No friends yet. Add friends first!</p>
+                    <p className="text-text-muted text-xs">
+                      No friends yet. Add friends first!
+                    </p>
                   </div>
                 ) : (
                   friends
                     .filter((f) =>
                       friendSearch
-                        ? f.profile.username.toLowerCase().includes(friendSearch.toLowerCase())
-                        : true
+                        ? f.profile.username
+                            .toLowerCase()
+                            .includes(friendSearch.toLowerCase())
+                        : true,
                     )
                     .map((f) => (
                       <button
@@ -378,9 +439,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
                           className="w-8 h-8 rounded-full object-cover border border-surface"
                         />
                         <div>
-                          <p className="text-sm font-semibold text-text-main">{f.profile.username}</p>
+                          <p className="text-sm font-semibold text-text-main">
+                            {f.profile.username}
+                          </p>
                           {f.profile.title && (
-                            <p className="text-[10px] text-primary/60">{f.profile.title}</p>
+                            <p className="text-[10px] text-primary/60">
+                              {f.profile.title}
+                            </p>
                           )}
                         </div>
                       </button>
@@ -431,7 +496,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
                 >
                   <div className="relative flex-shrink-0">
                     <img
-                      src={getAvatarUrl(conv)}
+                      src={
+                        conv.friendAvatarUrl ||
+                        `https://api.dicebear.com/7.x/avataaars/svg?seed=${conv.friendAvatarSeed || conv.friendId}`
+                      }
                       alt={conv.friendUsername}
                       className="w-10 h-10 rounded-full object-cover border border-surface"
                     />
@@ -488,21 +556,29 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
             </div>
           ) : (
             <>
-              {/* Chat Header */}
-              <div className="px-5 py-3 border-b border-surface flex items-center gap-3">
-                <img
-                  src={
-                    selectedFriendInfo.avatarUrl ||
-                    `https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedFriendInfo.avatarSeed || selectedFriendId}`
+              {/* Chat Header — clickable to view profile */}
+              <div className="px-5 py-3 border-b border-surface flex items-center gap-3 pr-14">
+                <button
+                  onClick={() =>
+                    selectedFriendId && setViewProfileId(selectedFriendId)
                   }
-                  alt={selectedFriendInfo.username}
-                  className="w-9 h-9 rounded-full object-cover border-2 border-primary/30"
-                />
-                <div>
-                  <p className="text-sm font-bold text-text-main">
-                    {selectedFriendInfo.username}
-                  </p>
-                </div>
+                  className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+                  title="View profile"
+                >
+                  <img
+                    src={
+                      selectedFriendInfo.avatarUrl ||
+                      `https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedFriendInfo.avatarSeed || selectedFriendId}`
+                    }
+                    alt={selectedFriendInfo.username}
+                    className="w-9 h-9 rounded-full object-cover border-2 border-primary/30"
+                  />
+                  <div>
+                    <p className="text-sm font-bold text-text-main text-left">
+                      {selectedFriendInfo.username}
+                    </p>
+                  </div>
+                </button>
               </div>
 
               {/* Messages Area */}
@@ -519,69 +595,155 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
                     return (
                       <div
                         key={msg.id}
-                        className={`flex ${isOwn ? "justify-end" : "justify-start"}`}
+                        className={`flex ${isOwn ? "justify-end" : "justify-start"} group`}
                       >
-                        <div
-                          className={`max-w-[70%] rounded-2xl px-4 py-2.5 ${
-                            isOwn
-                              ? "bg-primary/20 border border-primary/30 rounded-br-md"
-                              : "bg-surface/60 border border-surface rounded-bl-md"
-                          }`}
-                        >
-                          {/* Attachment */}
-                          {msg.attachment_url && (
-                            <div className="mb-2">
-                              {msg.attachment_type === "image" ? (
-                                <img
-                                  src={msg.attachment_url}
-                                  alt="attachment"
-                                  className="max-w-full max-h-48 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                                  onClick={() =>
-                                    window.open(msg.attachment_url!, "_blank")
-                                  }
-                                />
-                              ) : msg.attachment_type === "voice" ? (
-                                <div className="flex items-center gap-2">
-                                  <span className="text-lg">🎤</span>
-                                  <audio
-                                    controls
+                        <div className="relative max-w-[70%]">
+                          {/* Message bubble */}
+                          <div
+                            className={`rounded-2xl px-4 py-2.5 ${
+                              isOwn
+                                ? "bg-primary/20 border border-primary/30 rounded-br-md"
+                                : "bg-surface/60 border border-surface rounded-bl-md"
+                            }`}
+                          >
+                            {/* Attachment */}
+                            {msg.attachment_url && (
+                              <div className="mb-2">
+                                {msg.attachment_type === "image" ? (
+                                  <img
                                     src={msg.attachment_url}
-                                    className="h-8 max-w-[200px]"
-                                    style={{ filter: "invert(1)" }}
+                                    alt="attachment"
+                                    className="max-w-full max-h-48 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                    onClick={() =>
+                                      window.open(msg.attachment_url!, "_blank")
+                                    }
                                   />
-                                </div>
-                              ) : (
-                                <a
-                                  href={msg.attachment_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-2 text-primary hover:underline text-sm"
+                                ) : msg.attachment_type === "voice" ? (
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-lg">🎤</span>
+                                    <audio
+                                      controls
+                                      src={msg.attachment_url}
+                                      className="h-8 max-w-[200px]"
+                                      style={{ filter: "invert(1)" }}
+                                    />
+                                  </div>
+                                ) : (
+                                  <a
+                                    href={msg.attachment_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-2 text-primary hover:underline text-sm"
+                                  >
+                                    <span>📎</span>
+                                    <span className="truncate">
+                                      {msg.attachment_name || "File"}
+                                    </span>
+                                  </a>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Text content (or edit mode) */}
+                            {editingId === msg.id ? (
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  value={editText}
+                                  onChange={(e) => setEditText(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") handleSaveEdit();
+                                    if (e.key === "Escape") {
+                                      setEditingId(null);
+                                      setEditText("");
+                                    }
+                                  }}
+                                  autoFocus
+                                  className="flex-1 bg-surface/40 border border-surface/60 rounded px-2 py-1 text-sm text-text-main focus:outline-none focus:border-primary/50"
+                                />
+                                <button
+                                  onClick={handleSaveEdit}
+                                  className="text-primary text-xs font-bold hover:underline"
                                 >
-                                  <span>📎</span>
-                                  <span className="truncate">
-                                    {msg.attachment_name || "File"}
-                                  </span>
-                                </a>
+                                  Save
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setEditingId(null);
+                                    setEditText("");
+                                  }}
+                                  className="text-text-muted text-xs hover:underline"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              msg.content && (
+                                <p className="text-sm text-text-main whitespace-pre-wrap break-words">
+                                  {msg.content}
+                                </p>
+                              )
+                            )}
+
+                            {/* Timestamp + read receipt */}
+                            <div
+                              className={`flex items-center gap-1 mt-1 ${
+                                isOwn ? "justify-end" : ""
+                              }`}
+                            >
+                              <p
+                                className={`text-[9px] ${
+                                  isOwn
+                                    ? "text-primary/50"
+                                    : "text-text-muted/50"
+                                }`}
+                              >
+                                {formatTime(msg.created_at)}
+                              </p>
+                              {isOwn && (
+                                <span
+                                  className={`text-[9px] ${msg.read ? "text-primary/70" : "text-text-muted/40"}`}
+                                  title={msg.read ? "Read" : "Sent"}
+                                >
+                                  {msg.read ? "✓✓" : "✓"}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Actions menu (own messages only) */}
+                          {isOwn && editingId !== msg.id && (
+                            <div className="absolute -left-7 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={() =>
+                                  setActiveMenu(
+                                    activeMenu === msg.id ? null : msg.id,
+                                  )
+                                }
+                                className="w-6 h-6 flex items-center justify-center rounded-full bg-surface/80 border border-surface hover:border-primary/30 text-text-muted text-xs transition-colors"
+                              >
+                                ⋮
+                              </button>
+                              {activeMenu === msg.id && (
+                                <div className="absolute right-full mr-1 top-0 bg-panel border border-surface rounded-lg shadow-xl overflow-hidden z-20 min-w-[100px]">
+                                  {msg.content && (
+                                    <button
+                                      onClick={() => startEdit(msg)}
+                                      className="w-full text-left px-3 py-2 text-xs text-text-muted hover:bg-surface/50 hover:text-text-main transition-colors"
+                                    >
+                                      ✏️ Edit
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => handleDelete(msg.id)}
+                                    className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 transition-colors"
+                                  >
+                                    🗑️ Delete
+                                  </button>
+                                </div>
                               )}
                             </div>
                           )}
-
-                          {/* Text content */}
-                          {msg.content && (
-                            <p className="text-sm text-text-main whitespace-pre-wrap break-words">
-                              {msg.content}
-                            </p>
-                          )}
-
-                          <p
-                            className={`text-[9px] mt-1 ${
-                              isOwn
-                                ? "text-primary/50 text-right"
-                                : "text-text-muted/50"
-                            }`}
-                          >
-                            {formatTime(msg.created_at)}
-                          </p>
                         </div>
                       </div>
                     );
@@ -615,6 +777,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
 
                 {/* Text Input */}
                 <input
+                  ref={inputRef}
                   type="text"
                   value={messageText}
                   onChange={(e) => setMessageText(e.target.value)}
@@ -661,6 +824,14 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
           )}
         </div>
       </div>
+
+      {/* Profile Modal */}
+      {viewProfileId && (
+        <ProfileModal
+          userId={viewProfileId}
+          onClose={() => setViewProfileId(null)}
+        />
+      )}
     </div>
   );
 };
