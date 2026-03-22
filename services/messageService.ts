@@ -18,6 +18,7 @@ export interface Conversation {
   friendUsername: string;
   friendAvatarUrl?: string;
   friendAvatarSeed?: string;
+  friendTitle?: string;
   lastMessage: string;
   lastMessageTime: string;
   unreadCount: number;
@@ -65,7 +66,7 @@ export async function getConversations(
   const friendIds = Array.from(convMap.keys());
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("id, username, avatar_url, avatar_seed")
+    .select("id, username, avatar_url, avatar_seed, title")
     .in("id", friendIds);
 
   const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
@@ -89,6 +90,7 @@ export async function getConversations(
       friendUsername: profile?.username || "Unknown",
       friendAvatarUrl: profile?.avatar_url,
       friendAvatarSeed: profile?.avatar_seed,
+      friendTitle: profile?.title,
       lastMessage: preview,
       lastMessageTime: lastMsg.created_at,
       unreadCount: unread,
