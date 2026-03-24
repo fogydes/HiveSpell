@@ -20,7 +20,144 @@ interface ChatPanelProps {
   onClose: () => void;
 }
 
-type InfoSection = "chatInfo" | "customise" | "media" | "privacy";
+type InfoSection = "customise" | "media" | "privacy";
+type MediaTab = "media" | "files";
+
+const iconClassName = "h-[18px] w-[18px]";
+
+const SearchIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" className={iconClassName}>
+    <circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="1.8" />
+    <path
+      d="M20 20L16.65 16.65"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+const PlusIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" className={iconClassName}>
+    <path
+      d="M12 5V19M5 12H19"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+const ComposeIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" className={iconClassName}>
+    <path
+      d="M4 20H8L18.5 9.5C19.33 8.67 19.33 7.33 18.5 6.5C17.67 5.67 16.33 5.67 15.5 6.5L5 17V20Z"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const BackIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" className={iconClassName}>
+    <path
+      d="M15 6L9 12L15 18"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const CloseIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" className={iconClassName}>
+    <path
+      d="M6 6L18 18M18 6L6 18"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+const ProfileIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" className={iconClassName}>
+    <circle cx="12" cy="8" r="3.2" stroke="currentColor" strokeWidth="1.8" />
+    <path
+      d="M6 19C6.9 15.95 9.05 14.5 12 14.5C14.95 14.5 17.1 15.95 18 19"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+const BellIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" className={iconClassName}>
+    <path
+      d="M7 10.5C7 7.74 9.24 5.5 12 5.5C14.76 5.5 17 7.74 17 10.5V14L18.5 16.5H5.5L7 14V10.5Z"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M10 18.2C10.55 19.07 11.2 19.5 12 19.5C12.8 19.5 13.45 19.07 14 18.2"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+const FileIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" className={iconClassName}>
+    <path
+      d="M8 4.5H13.5L18 9V19.5H8C6.9 19.5 6 18.6 6 17.5V6.5C6 5.4 6.9 4.5 8 4.5Z"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M13 4.5V9H17.5"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const MicIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" className={iconClassName}>
+    <rect
+      x="9"
+      y="4.2"
+      width="6"
+      height="10"
+      rx="3"
+      stroke="currentColor"
+      strokeWidth="1.7"
+    />
+    <path
+      d="M6.5 11.5C6.5 14.54 8.96 17 12 17C15.04 17 17.5 14.54 17.5 11.5M12 17V20M9.5 20H14.5"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+const SendIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" className={iconClassName}>
+    <path
+      d="M20 12L5 5L8 12L5 19L20 12Z"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
 
 function timeAgo(dateStr: string): string {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -94,16 +231,16 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [showNewChat, setShowNewChat] = useState(false);
   const [showThreadSearch, setShowThreadSearch] = useState(false);
-  const [showInfoPanel, setShowInfoPanel] = useState(true);
+  const [showInfoPanel, setShowInfoPanel] = useState(false);
+  const [mediaTab, setMediaTab] = useState<MediaTab>("media");
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [viewProfileId, setViewProfileId] = useState<string | null>(null);
   const [openSections, setOpenSections] = useState<Record<InfoSection, boolean>>(
     {
-      chatInfo: true,
       customise: false,
-      media: true,
+      media: false,
       privacy: false,
     },
   );
@@ -170,7 +307,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
     setSelectedFriendId(friendId);
     setShowThreadSearch(false);
     setThreadSearch("");
-    setShowInfoPanel(true);
+    setShowInfoPanel(false);
     const msgs = await getMessages(user.uid, friendId);
     setMessages(msgs);
     await markConversationAsRead(user.uid, friendId);
@@ -397,52 +534,46 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
     : messages;
 
   const attachmentMessages = messages.filter((message) => message.attachment_url);
+  const imageMessages = attachmentMessages.filter(
+    (message) => message.attachment_type === "image",
+  );
+  const fileMessages = attachmentMessages.filter(
+    (message) => message.attachment_type === "file",
+  );
 
   if (!user) return null;
 
   return (
     <div
-      className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md p-4 animate-fade-in"
+      className="fixed inset-0 z-[100] bg-black/88 backdrop-blur-md p-0 sm:p-4 animate-fade-in"
       onClick={onClose}
     >
       <div
-        className="relative mx-auto flex h-[88vh] w-[94vw] max-w-[1600px] overflow-hidden rounded-[28px] border border-surface/80 bg-panel shadow-[0_32px_120px_rgba(0,0,0,0.45)] animate-scale-in"
+        className="relative mx-auto flex h-full w-full overflow-hidden rounded-none border border-surface/80 bg-panel shadow-[0_32px_120px_rgba(0,0,0,0.45)] animate-scale-in sm:h-[88vh] sm:w-[94vw] sm:max-w-[1520px] sm:rounded-[28px]"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-surface/80 bg-black/20 text-base text-text-muted transition-colors hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-300"
+          className="absolute right-3 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-full border border-surface/80 bg-black/20 text-text-muted transition-colors hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-300 sm:right-4 sm:top-4"
           title="Close chat"
         >
-          ✕
+          <CloseIcon />
         </button>
 
-        <aside className="flex w-[340px] min-w-[320px] flex-col border-r border-surface/70 bg-black/10">
-          <div className="border-b border-surface/70 px-5 pb-4 pt-6">
+        <aside
+          className={`${selectedFriendId ? "hidden md:flex" : "flex"} w-full flex-col border-r border-surface/70 bg-black/10 md:w-[272px] md:min-w-[272px]`}
+        >
+          <div className="border-b border-surface/70 px-4 pb-4 pt-6 md:px-5">
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.35em] text-text-muted/55">
                   Direct Messages
                 </p>
-                <h2 className="mt-1 text-3xl font-black text-text-main">
+                <h2 className="mt-1 text-[2.1rem] font-black leading-none text-text-main">
                   Chats
                 </h2>
               </div>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() =>
-                    showToast({
-                      title: "Feeds not wired",
-                      message:
-                        "Inbox feeds are not separated yet. Use the conversation list for now.",
-                      variant: "info",
-                    })
-                  }
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-surface/80 bg-surface/40 text-text-main transition-colors hover:border-primary/40 hover:text-primary"
-                  title="Inbox feed"
-                >
-                  ◉
-                </button>
                 <button
                   onClick={async () => {
                     if (showNewChat) {
@@ -460,7 +591,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
                   }`}
                   title="Start new chat"
                 >
-                  ✎
+                  <ComposeIcon />
                 </button>
               </div>
             </div>
@@ -547,8 +678,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
               </div>
             ) : filteredConversations.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center px-5 text-center">
-                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-surface/70 bg-surface/35 text-3xl">
-                  💬
+                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-surface/70 bg-surface/35 text-text-main">
+                  <ComposeIcon />
                 </div>
                 <p className="text-base font-semibold text-text-main">
                   No conversations yet
@@ -607,9 +738,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
           </div>
         </aside>
 
-        <main className="flex min-w-0 flex-1 flex-col bg-black/5">
+        <main
+          className={`${selectedFriendId ? "flex" : "hidden md:flex"} min-w-0 flex-1 flex-col bg-black/5`}
+        >
           {!selectedFriendId ? (
-            <div className="flex h-full flex-col items-center justify-center px-10 text-center">
+            <div className="hidden h-full flex-col items-center justify-center px-10 text-center md:flex">
               <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-full border border-surface/70 bg-surface/30 text-4xl">
                 ✦
               </div>
@@ -624,63 +757,48 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
             </div>
           ) : (
             <>
-              <div className="border-b border-surface/70 px-6 pb-4 pt-6">
+              <div className="border-b border-surface/70 pl-3 pr-16 pb-3 pt-5 sm:pl-6 sm:pr-20 sm:pb-4 sm:pt-6">
                 <div className="flex items-center justify-between gap-4">
-                  <button
-                    onClick={() =>
-                      selectedFriendId && setViewProfileId(selectedFriendId)
-                    }
-                    className="flex min-w-0 items-center gap-3 text-left transition-opacity hover:opacity-85"
-                    title="View profile"
-                  >
-                    <img
-                      src={getAvatarUrl({
-                        id: selectedFriendInfo.id,
-                        avatarUrl: selectedFriendInfo.avatarUrl,
-                        avatarSeed: selectedFriendInfo.avatarSeed,
-                      })}
-                      alt={selectedFriendInfo.username}
-                      className="h-12 w-12 rounded-full border-2 border-primary/30 object-cover"
-                    />
-                    <div className="min-w-0">
-                      <p className="truncate text-lg font-black text-text-main">
-                        {selectedFriendInfo.username}
-                      </p>
-                      <p className="truncate text-[11px] uppercase tracking-[0.28em] text-primary/70">
-                        {selectedFriendInfo.title || "Hive contact"}
-                      </p>
-                    </div>
-                  </button>
+                  <div className="flex min-w-0 items-center gap-3">
+                    <button
+                      onClick={() => {
+                        setSelectedFriendId(null);
+                        setMessages([]);
+                        setShowInfoPanel(false);
+                        setShowThreadSearch(false);
+                        setThreadSearch("");
+                      }}
+                      className="flex h-10 w-10 items-center justify-center rounded-full border border-surface/70 bg-surface/30 text-text-main transition-colors hover:border-primary/30 hover:text-primary md:hidden"
+                      title="Back to chats"
+                    >
+                      <BackIcon />
+                    </button>
+                    <button
+                      onClick={() => setShowInfoPanel(true)}
+                      className="flex min-w-0 items-center gap-3 text-left transition-opacity hover:opacity-85"
+                      title="Open chat details"
+                    >
+                      <img
+                        src={getAvatarUrl({
+                          id: selectedFriendInfo.id,
+                          avatarUrl: selectedFriendInfo.avatarUrl,
+                          avatarSeed: selectedFriendInfo.avatarSeed,
+                        })}
+                        alt={selectedFriendInfo.username}
+                        className="h-12 w-12 rounded-full border-2 border-primary/30 object-cover"
+                      />
+                      <div className="min-w-0">
+                        <p className="truncate text-base font-black text-text-main sm:text-lg">
+                          {selectedFriendInfo.username}
+                        </p>
+                        <p className="truncate text-[11px] uppercase tracking-[0.28em] text-primary/70">
+                          {selectedFriendInfo.title || "Hive contact"}
+                        </p>
+                      </div>
+                    </button>
+                  </div>
 
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={() =>
-                        showToast({
-                          title: "Voice calling not available",
-                          message:
-                            "The UI is wired for Messenger-style actions, but voice calling is not implemented yet.",
-                          variant: "info",
-                        })
-                      }
-                      className="flex h-10 w-10 items-center justify-center rounded-full border border-surface/80 bg-surface/35 text-text-main transition-colors hover:border-primary/30 hover:text-primary"
-                      title="Voice call"
-                    >
-                      ☏
-                    </button>
-                    <button
-                      onClick={() =>
-                        showToast({
-                          title: "Video calling not available",
-                          message:
-                            "The UI is wired for Messenger-style actions, but video calling is not implemented yet.",
-                          variant: "info",
-                        })
-                      }
-                      className="flex h-10 w-10 items-center justify-center rounded-full border border-surface/80 bg-surface/35 text-text-main transition-colors hover:border-primary/30 hover:text-primary"
-                      title="Video call"
-                    >
-                      ◫
-                    </button>
                     <button
                       onClick={() => setShowThreadSearch((prev) => !prev)}
                       className={`flex h-10 w-10 items-center justify-center rounded-full border transition-colors ${
@@ -690,18 +808,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
                       }`}
                       title="Search conversation"
                     >
-                      ⌕
-                    </button>
-                    <button
-                      onClick={() => setShowInfoPanel((prev) => !prev)}
-                      className={`flex h-10 w-10 items-center justify-center rounded-full border transition-colors ${
-                        showInfoPanel
-                          ? "border-primary/40 bg-primary/12 text-primary"
-                          : "border-surface/80 bg-surface/35 text-text-main hover:border-primary/30 hover:text-primary"
-                      }`}
-                      title="Toggle chat info"
-                    >
-                      ⋯
+                      <SearchIcon />
                     </button>
                   </div>
                 </div>
@@ -719,9 +826,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
                 )}
               </div>
 
-              <div className="flex min-h-0 flex-1">
+              <div className="relative flex min-h-0 flex-1">
                 <div className="flex min-w-0 flex-1 flex-col">
-                  <div className="flex-1 overflow-y-auto px-6 py-5 custom-scrollbar">
+                  <div className="flex-1 overflow-y-auto px-3 py-4 custom-scrollbar sm:px-6 sm:py-5">
                     {filteredMessages.length === 0 ? (
                       <div className="flex h-full items-center justify-center text-center">
                         <div>
@@ -774,7 +881,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
                               )}
 
                               <div
-                                className={`relative max-w-[72%] ${
+                                className={`relative max-w-[86%] sm:max-w-[72%] ${
                                   isOwn ? "order-1" : ""
                                 }`}
                               >
@@ -924,15 +1031,15 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
                     <div ref={messagesEndRef} />
                   </div>
 
-                  <div className="border-t border-surface/70 px-5 py-4">
-                    <div className="flex items-end gap-3 rounded-[26px] border border-surface/70 bg-surface/25 px-4 py-3">
+                  <div className="border-t border-surface/70 px-3 py-3 sm:px-5 sm:py-4">
+                    <div className="flex items-end gap-2 rounded-[24px] border border-surface/70 bg-surface/25 px-3 py-3 sm:gap-3 sm:px-4">
                       <button
                         onClick={() => fileInputRef.current?.click()}
                         disabled={uploading}
                         className="flex h-10 w-10 items-center justify-center rounded-full border border-surface/80 bg-black/10 text-lg text-text-main transition-colors hover:border-primary/30 hover:text-primary disabled:opacity-50"
                         title="Upload image or file"
                       >
-                        {uploading ? "⏳" : "🖼"}
+                        {uploading ? "⏳" : <PlusIcon />}
                       </button>
                       <input
                         ref={fileInputRef}
@@ -955,7 +1062,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
                         }`}
                         title="Hold to record"
                       >
-                        🎤
+                        <MicIcon />
                       </button>
 
                       <input
@@ -971,7 +1078,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
                         }}
                         placeholder="Aa"
                         disabled={sending || isRecording}
-                        className="flex-1 bg-transparent px-2 py-2 text-sm text-text-main placeholder-text-muted/45 focus:outline-none disabled:opacity-50"
+                        className="min-w-0 flex-1 bg-transparent px-1 py-2 text-sm text-text-main placeholder-text-muted/45 focus:outline-none disabled:opacity-50 sm:px-2"
                       />
 
                       <button
@@ -980,16 +1087,28 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
                         className="flex h-11 w-11 items-center justify-center rounded-full border border-primary/35 bg-primary/15 text-lg text-primary transition-colors hover:bg-primary/25 disabled:opacity-45"
                         title="Send message"
                       >
-                        {sending ? "⏳" : "➤"}
+                        {sending ? "⏳" : <SendIcon />}
                       </button>
                     </div>
                   </div>
                 </div>
 
                 <aside
-                  className={`${showInfoPanel ? "flex" : "hidden"} w-[320px] min-w-[300px] flex-col border-l border-surface/70 bg-black/10 lg:flex`}
+                  className={`${showInfoPanel ? "flex" : "hidden"} absolute inset-y-0 right-0 z-20 min-h-0 w-full max-w-[320px] flex-col border-l border-surface/70 bg-panel/95 backdrop-blur-xl md:relative md:w-[280px] md:min-w-[280px]`}
                 >
-                  <div className="border-b border-surface/70 px-6 py-8 text-center">
+                  <div className="shrink-0 border-b border-surface/70 px-4 py-4 text-center md:px-5 md:py-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <p className="text-[11px] uppercase tracking-[0.28em] text-text-muted/55">
+                        Chat Details
+                      </p>
+                      <button
+                        onClick={() => setShowInfoPanel(false)}
+                        className="flex h-9 w-9 items-center justify-center rounded-full border border-surface/70 bg-surface/30 text-text-muted transition-colors hover:border-primary/30 hover:text-text-main"
+                        title="Close details"
+                      >
+                        <CloseIcon />
+                      </button>
+                    </div>
                     <img
                       src={getAvatarUrl({
                         id: selectedFriendInfo.id,
@@ -997,105 +1116,73 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
                         avatarSeed: selectedFriendInfo.avatarSeed,
                       })}
                       alt={selectedFriendInfo.username}
-                      className="mx-auto h-24 w-24 rounded-full border-4 border-primary/20 object-cover shadow-xl"
+                      className="mx-auto h-16 w-16 rounded-full border-4 border-primary/20 object-cover shadow-xl"
                     />
-                    <h3 className="mt-4 text-2xl font-black text-text-main">
+                    <h3 className="mt-3 text-[1.55rem] font-black leading-none text-text-main">
                       {selectedFriendInfo.username}
                     </h3>
-                    <p className="mt-1 text-sm text-primary/70">
+                    <p className="mt-2 text-sm text-primary/70">
                       {selectedFriendInfo.title || "Hive contact"}
                     </p>
-                    <div className="mt-4 inline-flex rounded-full border border-surface/80 bg-surface/35 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-text-muted">
+                    <div className="mt-3 inline-flex rounded-full border border-surface/80 bg-surface/35 px-4 py-1.5 text-[10px] font-semibold uppercase tracking-[0.24em] text-text-muted">
                       Direct chat
                     </div>
 
-                    <div className="mt-6 grid grid-cols-3 gap-3">
+                    <div className="mt-4 grid grid-cols-3 gap-2">
                       <button
                         onClick={() =>
                           selectedFriendId && setViewProfileId(selectedFriendId)
                         }
-                        className="rounded-2xl border border-surface/80 bg-surface/30 px-3 py-3 text-center transition-colors hover:border-primary/30"
+                        className="rounded-2xl border border-surface/80 bg-surface/30 px-2 py-3 text-center transition-colors hover:border-primary/30"
                       >
-                        <div className="mx-auto mb-1 flex h-11 w-11 items-center justify-center rounded-full bg-black/15 text-lg text-text-main">
-                          ☺
+                        <div className="mx-auto mb-1 flex h-10 w-10 items-center justify-center rounded-full bg-black/15 text-text-main">
+                          <ProfileIcon />
                         </div>
-                        <p className="text-xs font-medium text-text-main">Profile</p>
+                        <p className="text-[11px] font-medium text-text-main">
+                          Profile
+                        </p>
                       </button>
                       <button
-                        onClick={() => setShowThreadSearch(true)}
-                        className="rounded-2xl border border-surface/80 bg-surface/30 px-3 py-3 text-center transition-colors hover:border-primary/30"
+                        onClick={() => {
+                          setShowThreadSearch(true);
+                          setShowInfoPanel(false);
+                        }}
+                        className="rounded-2xl border border-surface/80 bg-surface/30 px-2 py-3 text-center transition-colors hover:border-primary/30"
                       >
-                        <div className="mx-auto mb-1 flex h-11 w-11 items-center justify-center rounded-full bg-black/15 text-lg text-text-main">
-                          ⌕
+                        <div className="mx-auto mb-1 flex h-10 w-10 items-center justify-center rounded-full bg-black/15 text-text-main">
+                          <SearchIcon />
                         </div>
-                        <p className="text-xs font-medium text-text-main">Search</p>
+                        <p className="text-[11px] font-medium text-text-main">
+                          Search
+                        </p>
                       </button>
                       <button
                         onClick={() =>
                           showToast({
                             title: "Mute not wired",
                             message:
-                              "Mute controls are not implemented yet. This is a UI placeholder matching the requested layout.",
+                              "Mute controls are not implemented yet. This is still a placeholder action.",
                             variant: "info",
                           })
                         }
-                        className="rounded-2xl border border-surface/80 bg-surface/30 px-3 py-3 text-center transition-colors hover:border-primary/30"
+                        className="rounded-2xl border border-surface/80 bg-surface/30 px-2 py-3 text-center transition-colors hover:border-primary/30"
                       >
-                        <div className="mx-auto mb-1 flex h-11 w-11 items-center justify-center rounded-full bg-black/15 text-lg text-text-main">
-                          🔔
+                        <div className="mx-auto mb-1 flex h-10 w-10 items-center justify-center rounded-full bg-black/15 text-text-main">
+                          <BellIcon />
                         </div>
-                        <p className="text-xs font-medium text-text-main">Mute</p>
+                        <p className="text-[11px] font-medium text-text-main">
+                          Mute
+                        </p>
                       </button>
                     </div>
                   </div>
 
-                  <div className="flex-1 overflow-y-auto px-4 py-4 custom-scrollbar">
-                    <div className="space-y-3">
-                      <div className="overflow-hidden rounded-2xl border border-surface/70 bg-surface/18">
-                        <button
-                          onClick={() => toggleSection("chatInfo")}
-                          className="flex w-full items-center justify-between px-4 py-4 text-left"
-                        >
-                          <span className="text-sm font-semibold text-text-main">
-                            Chat Info
-                          </span>
-                          <span className="text-text-muted">
-                            {openSections.chatInfo ? "−" : "+"}
-                          </span>
-                        </button>
-                        {openSections.chatInfo && (
-                          <div className="space-y-3 border-t border-surface/60 px-4 py-4 text-sm text-text-muted">
-                            <div className="flex items-center justify-between">
-                              <span>Messages</span>
-                              <span className="font-semibold text-text-main">
-                                {messages.length}
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span>Shared files</span>
-                              <span className="font-semibold text-text-main">
-                                {attachmentMessages.length}
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span>Unread badge</span>
-                              <span className="font-semibold text-text-main">
-                                {selectedConv?.unreadCount || 0}
-                              </span>
-                            </div>
-                            <div className="rounded-xl border border-surface/60 bg-black/10 px-3 py-3 text-xs leading-5">
-                              This pane is now the dedicated profile/info rail you
-                              asked for, instead of hiding profile access only in
-                              the center header.
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
+                  <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 custom-scrollbar sm:px-4">
+                    <div className="space-y-2.5">
                       <div className="overflow-hidden rounded-2xl border border-surface/70 bg-surface/18">
                         <button
                           onClick={() => toggleSection("customise")}
-                          className="flex w-full items-center justify-between px-4 py-4 text-left"
+                          className="flex w-full items-center justify-between px-4 py-3 text-left"
                         >
                           <span className="text-sm font-semibold text-text-main">
                             Customise chat
@@ -1120,7 +1207,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
                               </p>
                               <ul className="mt-2 space-y-2 text-xs leading-5">
                                 <li>Read receipts are enabled.</li>
-                                <li>Attachments and voice notes are enabled.</li>
+                                <li>Image uploads and files are enabled.</li>
                                 <li>Edit and delete are available on your messages.</li>
                               </ul>
                             </div>
@@ -1131,7 +1218,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
                       <div className="overflow-hidden rounded-2xl border border-surface/70 bg-surface/18">
                         <button
                           onClick={() => toggleSection("media")}
-                          className="flex w-full items-center justify-between px-4 py-4 text-left"
+                          className="flex w-full items-center justify-between px-4 py-3 text-left"
                         >
                           <span className="text-sm font-semibold text-text-main">
                             Media and files
@@ -1141,48 +1228,92 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
                           </span>
                         </button>
                         {openSections.media && (
-                          <div className="border-t border-surface/60 px-4 py-4">
-                            {attachmentMessages.length === 0 ? (
+                          <div className="space-y-3 border-t border-surface/60 px-4 py-4">
+                            <div className="grid grid-cols-2 rounded-full border border-surface/70 bg-black/10 p-1">
+                              <button
+                                onClick={() => setMediaTab("media")}
+                                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                                  mediaTab === "media"
+                                    ? "bg-surface text-text-main"
+                                    : "text-text-muted"
+                                }`}
+                              >
+                                Media
+                              </button>
+                              <button
+                                onClick={() => setMediaTab("files")}
+                                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                                  mediaTab === "files"
+                                    ? "bg-surface text-text-main"
+                                    : "text-text-muted"
+                                }`}
+                              >
+                                Files
+                              </button>
+                            </div>
+                            {(mediaTab === "media" ? imageMessages : fileMessages)
+                              .length === 0 ? (
                               <p className="text-sm text-text-muted">
-                                No shared attachments yet.
+                                No shared {mediaTab} yet.
                               </p>
-                            ) : (
-                              <div className="space-y-3">
-                                {attachmentMessages.slice(-6).reverse().map((message) => (
-                                  <button
-                                    key={message.id}
-                                    onClick={() =>
-                                      message.attachment_url &&
-                                      window.open(message.attachment_url, "_blank")
-                                    }
-                                    className="flex w-full items-center gap-3 rounded-2xl border border-surface/60 bg-black/10 px-3 py-3 text-left transition-colors hover:border-primary/30"
-                                  >
-                                    {message.attachment_type === "image" ? (
+                            ) : mediaTab === "media" ? (
+                              <div className="grid grid-cols-2 gap-2">
+                                {imageMessages
+                                  .slice(-6)
+                                  .reverse()
+                                  .map((message) => (
+                                    <button
+                                      key={message.id}
+                                      onClick={() =>
+                                        message.attachment_url &&
+                                        window.open(message.attachment_url, "_blank")
+                                      }
+                                      className="overflow-hidden rounded-2xl border border-surface/60 bg-black/10 text-left transition-colors hover:border-primary/30"
+                                    >
                                       <img
                                         src={message.attachment_url || ""}
                                         alt="attachment preview"
-                                        className="h-12 w-12 rounded-xl object-cover"
+                                        className="h-24 w-full object-cover"
                                       />
-                                    ) : (
-                                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-surface/45 text-lg text-text-main">
-                                        {message.attachment_type === "voice" ? "🎤" : "📎"}
+                                      <div className="px-2 py-2">
+                                        <p className="truncate text-xs font-medium text-text-main">
+                                          {message.attachment_name || "Image"}
+                                        </p>
+                                        <p className="text-[11px] text-text-muted">
+                                          {formatTime(message.created_at)}
+                                        </p>
                                       </div>
-                                    )}
-                                    <div className="min-w-0 flex-1">
-                                      <p className="truncate text-sm font-medium text-text-main">
-                                        {message.attachment_name ||
-                                          (message.attachment_type === "image"
-                                            ? "Image"
-                                            : message.attachment_type === "voice"
-                                              ? "Voice message"
-                                              : "File")}
-                                      </p>
-                                      <p className="text-xs text-text-muted">
-                                        {formatTime(message.created_at)}
-                                      </p>
-                                    </div>
-                                  </button>
-                                ))}
+                                    </button>
+                                  ))}
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                {fileMessages
+                                  .slice(-6)
+                                  .reverse()
+                                  .map((message) => (
+                                    <button
+                                      key={message.id}
+                                      onClick={() =>
+                                        message.attachment_url &&
+                                        window.open(message.attachment_url, "_blank")
+                                      }
+                                      className="flex w-full items-center gap-3 rounded-2xl border border-surface/60 bg-black/10 px-3 py-3 text-left transition-colors hover:border-primary/30"
+                                    >
+                                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-surface/45 text-lg text-text-main">
+                                        <FileIcon />
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <p className="truncate text-sm font-medium text-text-main">
+                                          {message.attachment_name ||
+                                            "File"}
+                                        </p>
+                                        <p className="text-xs text-text-muted">
+                                          {formatTime(message.created_at)}
+                                        </p>
+                                      </div>
+                                    </button>
+                                  ))}
                               </div>
                             )}
                           </div>
@@ -1192,7 +1323,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
                       <div className="overflow-hidden rounded-2xl border border-surface/70 bg-surface/18">
                         <button
                           onClick={() => toggleSection("privacy")}
-                          className="flex w-full items-center justify-between px-4 py-4 text-left"
+                          className="flex w-full items-center justify-between px-4 py-3 text-left"
                         >
                           <span className="text-sm font-semibold text-text-main">
                             Privacy &amp; support
@@ -1204,20 +1335,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
                         {openSections.privacy && (
                           <div className="space-y-3 border-t border-surface/60 px-4 py-4">
                             <button
-                              onClick={() =>
-                                selectedFriendId && setViewProfileId(selectedFriendId)
-                              }
-                              className="flex w-full items-center justify-between rounded-2xl border border-surface/60 bg-black/10 px-3 py-3 text-sm text-text-main transition-colors hover:border-primary/30"
-                            >
-                              <span>Open full profile</span>
-                              <span>›</span>
-                            </button>
-                            <button
                               onClick={() => {
                                 setSelectedFriendId(null);
                                 setMessages([]);
                                 setShowThreadSearch(false);
                                 setThreadSearch("");
+                                setShowInfoPanel(false);
                               }}
                               className="flex w-full items-center justify-between rounded-2xl border border-surface/60 bg-black/10 px-3 py-3 text-sm text-text-main transition-colors hover:border-primary/30"
                             >

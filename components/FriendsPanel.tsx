@@ -6,11 +6,13 @@ import {
   getIncomingRequests,
   getOutgoingRequests,
   acceptFriendRequest,
+  cancelFriendRequest,
   declineFriendRequest,
   removeFriend,
   searchUsers,
   sendFriendRequest,
   getFriendshipStatus,
+  Friendship,
   FriendWithProfile,
 } from "../services/friendService";
 
@@ -40,6 +42,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({
       avatar_seed?: string;
       title?: string;
       friendshipStatus?: string | null;
+      friendship?: Friendship | null;
     }>
   >([]);
   const [loading, setLoading] = useState(true);
@@ -74,7 +77,11 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({
     const resultsWithStatus = await Promise.all(
       results.map(async (r) => {
         const friendship = await getFriendshipStatus(user.uid, r.id);
-        return { ...r, friendshipStatus: friendship?.status || null };
+        return {
+          ...r,
+          friendshipStatus: friendship?.status || null,
+          friendship,
+        };
       }),
     );
 
@@ -91,10 +98,16 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({
       userData.username || "Someone",
     );
     if (result.success) {
-      // Update the search result to show "pending"
+      const friendship = await getFriendshipStatus(user.uid, toId);
       setSearchResults((prev) =>
         prev.map((r) =>
-          r.id === toId ? { ...r, friendshipStatus: "pending" } : r,
+          r.id === toId
+            ? {
+                ...r,
+                friendshipStatus: friendship?.status || "pending",
+                friendship,
+              }
+            : r,
         ),
       );
       // Refresh pending lists
@@ -128,6 +141,97 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({
     const result = await declineFriendRequest(friendshipId);
     if (result.success) {
       await loadData();
+    }
+    setActionLoading(null);
+  };
+
+  const handleCancelOutgoing = async (friendshipId: string) => {
+    if (!user) return;
+    setActionLoading(friendshipId);
+    const result = await cancelFriendRequest(friendshipId, user.uid);
+    if (result.success) {
+      await loadData();
+    } else {
+      showToast({
+        title: "Cancel failed",
+        message: result.error || "Failed to cancel friend request",
+        variant: "error",
+      });
+    }
+    setActionLoading(null);
+  };
+
+  const handleAcceptFromSearch = async (friendship: Friendship) => {
+    if (!userData) return;
+    setActionLoading(friendship.id);
+    const result = await acceptFriendRequest(
+      friendship.id,
+      userData.username || "Someone",
+    );
+    if (result.success) {
+      setSearchResults((prev) =>
+        prev.map((r) =>
+          r.id === friendship.requester_id
+            ? {
+                ...r,
+                friendshipStatus: "accepted",
+                friendship: { ...friendship, status: "accepted" },
+              }
+            : r,
+        ),
+      );
+      await loadData();
+    } else {
+      showToast({
+        title: "Accept failed",
+        message: result.error || "Failed to accept friend request",
+        variant: "error",
+      });
+    }
+    setActionLoading(null);
+  };
+
+  const handleDeclineFromSearch = async (friendship: Friendship) => {
+    setActionLoading(friendship.id);
+    const result = await declineFriendRequest(friendship.id);
+    if (result.success) {
+      setSearchResults((prev) =>
+        prev.map((r) =>
+          r.id === friendship.requester_id
+            ? { ...r, friendshipStatus: null, friendship: null }
+            : r,
+        ),
+      );
+      await loadData();
+    } else {
+      showToast({
+        title: "Decline failed",
+        message: result.error || "Failed to decline friend request",
+        variant: "error",
+      });
+    }
+    setActionLoading(null);
+  };
+
+  const handleCancelFromSearch = async (friendship: Friendship) => {
+    if (!user) return;
+    setActionLoading(friendship.id);
+    const result = await cancelFriendRequest(friendship.id, user.uid);
+    if (result.success) {
+      setSearchResults((prev) =>
+        prev.map((r) =>
+          r.id === friendship.addressee_id
+            ? { ...r, friendshipStatus: null, friendship: null }
+            : r,
+        ),
+      );
+      await loadData();
+    } else {
+      showToast({
+        title: "Cancel failed",
+        message: result.error || "Failed to cancel friend request",
+        variant: "error",
+      });
     }
     setActionLoading(null);
   };
@@ -166,7 +270,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-lg bg-panel border border-surface rounded-2xl shadow-2xl overflow-hidden animate-scale-in"
+        className="relative flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-surface bg-panel shadow-2xl animate-scale-in"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -206,7 +310,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto max-h-96 custom-scrollbar">
+        <div className="max-h-[75vh] flex-1 overflow-y-auto custom-scrollbar">
           {loading ? (
             <div className="p-12 text-center">
               <div className="animate-spin text-3xl mb-3">🐝</div>
@@ -342,9 +446,22 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({
                                   {f.profile.username}
                                 </p>
                               </div>
-                              <span className="text-[10px] text-accent font-medium px-2 py-1 border border-accent/20 rounded-lg">
-                                Pending...
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] text-accent font-medium px-2 py-1 border border-accent/20 rounded-lg">
+                                  Pending...
+                                </span>
+                                <button
+                                  onClick={() =>
+                                    handleCancelOutgoing(f.friendship.id)
+                                  }
+                                  disabled={actionLoading === f.friendship.id}
+                                  className="px-3 py-1 text-[10px] font-bold text-red-300 border border-red-500/25 rounded-lg hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                                >
+                                  {actionLoading === f.friendship.id
+                                    ? "..."
+                                    : "Cancel"}
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </>
@@ -408,10 +525,35 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({
                           <span className="text-xs text-primary font-medium px-2 py-1 border border-primary/20 rounded-lg">
                             Friends ✓
                           </span>
-                        ) : r.friendshipStatus === "pending" ? (
-                          <span className="text-xs text-accent font-medium px-2 py-1 border border-accent/20 rounded-lg">
-                            Pending...
-                          </span>
+                        ) : r.friendshipStatus === "pending" &&
+                          r.friendship?.requester_id === user?.uid ? (
+                          <button
+                            onClick={() => handleCancelFromSearch(r.friendship!)}
+                            disabled={actionLoading === r.friendship?.id}
+                            className="px-3 py-1 text-xs font-bold text-red-300 border border-red-500/25 rounded-lg hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                          >
+                            {actionLoading === r.friendship?.id
+                              ? "..."
+                              : "Cancel"}
+                          </button>
+                        ) : r.friendshipStatus === "pending" &&
+                          r.friendship?.addressee_id === user?.uid ? (
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => handleAcceptFromSearch(r.friendship!)}
+                              disabled={actionLoading === r.friendship?.id}
+                              className="px-2 py-1 text-[11px] font-bold bg-primary/20 text-primary border border-primary/30 rounded-lg hover:bg-primary/30 transition-colors disabled:opacity-50"
+                            >
+                              Accept
+                            </button>
+                            <button
+                              onClick={() => handleDeclineFromSearch(r.friendship!)}
+                              disabled={actionLoading === r.friendship?.id}
+                              className="px-2 py-1 text-[11px] font-bold text-red-300 border border-red-500/25 rounded-lg hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                            >
+                              Decline
+                            </button>
+                          </div>
                         ) : (
                           <button
                             onClick={() => handleSendRequest(r.id)}
