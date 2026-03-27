@@ -1,0 +1,15 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="hivePointerGlowHover" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.6"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#hivePointerGlowHover)" opacity="0.94">
+    <path d="M4 3L18.2 16.9L12.2 17.8L16 27L12.3 28.5L8.6 19.2L4.7 24L4 3Z" fill="#34D399"/>
+  </g>
+
+  <path d="M4 3L18.2 16.9L12.2 17.8L16 27L12.3 28.5L8.6 19.2L4.7 24L4 3Z" fill="#0F172A" stroke="#ECFDF5" stroke-width="1.45" stroke-linejoin="round"/>
+  <path d="M7.2 8L12.7 13.5L9.9 14.1" stroke="#A7F3D0" stroke-width="1.1" stroke-linecap="round"/>
+  <circle cx="13.8" cy="23.7" r="1.9" fill="#FBBF24"/>
+</svg>

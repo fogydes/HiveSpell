@@ -11,9 +11,13 @@ node_modules
 dist
 dist-ssr
 *.local
+output/
 
 # Firebase
 .firebase/
+
+# Supabase CLI local state
+supabase/.temp/
 
 # Environment variables
 .env
@@ -33,3 +37,4 @@ dist-ssr
 *.sln
 *.sw?
 .claude/settings.local.json
+tasks/

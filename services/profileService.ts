@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 import { getTitle } from "./gameService";
-import type { ThemeId } from "../context/SettingsContext";
+import type { ThemeId } from "../data/themePackages";
 
 interface ProfileRow {
   id: string;

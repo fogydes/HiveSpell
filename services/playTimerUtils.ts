@@ -7,6 +7,10 @@ export const getRemainingTurnTime = (
     return null;
   }
 
+  if (now < startTime) {
+    return timerDuration;
+  }
+
   const elapsed = (now - startTime) / 1000;
   return Math.max(0, timerDuration - elapsed);
 };

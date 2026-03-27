@@ -124,7 +124,29 @@ export async function declineFriendRequest(
 }
 
 /**
- * Remove a friend (delete the friendship)
+ * Cancel an outgoing pending friend request
+ */
+export async function cancelFriendRequest(
+  friendshipId: string,
+  requesterId: string,
+): Promise<{ success: boolean; error?: string }> {
+  const { error } = await supabase
+    .from("friendships")
+    .delete()
+    .eq("id", friendshipId)
+    .eq("requester_id", requesterId)
+    .eq("status", "pending");
+
+  if (error) {
+    console.error("Failed to cancel friend request:", error);
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Remove a friend
  */
 export async function removeFriend(
   friendshipId: string,

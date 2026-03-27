@@ -12,6 +12,7 @@ This folder contains the project documentation for HiveSpell.
 - [`supabase.md`](./supabase.md) - internal Supabase table, storage, and RPC expectations
 - [`deployment.md`](./deployment.md) - hosting and CI/CD overview
 - [`roadmap.md`](./roadmap.md) - staged improvement plan for architecture, gameplay safety, and maintainability
+- [`experience-roadmap.md`](./experience-roadmap.md) - next-phase plan for themes, motion, and product polish
 
 ## Suggested Reading Order
 
@@ -21,8 +22,9 @@ This folder contains the project documentation for HiveSpell.
 4. [`data-ownership.md`](./data-ownership.md)
 5. [`supabase.md`](./supabase.md)
 6. [`roadmap.md`](./roadmap.md)
-7. [`gameplay.md`](./gameplay.md)
-8. [`deployment.md`](./deployment.md)
+7. [`experience-roadmap.md`](./experience-roadmap.md)
+8. [`gameplay.md`](./gameplay.md)
+9. [`deployment.md`](./deployment.md)
 
 ## Audience
 

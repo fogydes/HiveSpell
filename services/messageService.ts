@@ -18,6 +18,7 @@ export interface Conversation {
   friendUsername: string;
   friendAvatarUrl?: string;
   friendAvatarSeed?: string;
+  friendTitle?: string;
   lastMessage: string;
   lastMessageTime: string;
   unreadCount: number;
@@ -65,7 +66,7 @@ export async function getConversations(
   const friendIds = Array.from(convMap.keys());
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("id, username, avatar_url, avatar_seed")
+    .select("id, username, avatar_url, avatar_seed, title")
     .in("id", friendIds);
 
   const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
@@ -89,6 +90,7 @@ export async function getConversations(
       friendUsername: profile?.username || "Unknown",
       friendAvatarUrl: profile?.avatar_url,
       friendAvatarSeed: profile?.avatar_seed,
+      friendTitle: profile?.title,
       lastMessage: preview,
       lastMessageTime: lastMsg.created_at,
       unreadCount: unread,
@@ -198,6 +200,49 @@ export async function uploadAttachment(
   } = supabase.storage.from("chat-attachments").getPublicUrl(uniqueName);
 
   return { url: publicUrl, name };
+}
+
+/**
+ * Delete a message (sender only)
+ */
+export async function deleteMessage(
+  messageId: string,
+  senderId: string,
+): Promise<boolean> {
+  const { error } = await supabase
+    .from("messages")
+    .delete()
+    .eq("id", messageId)
+    .eq("sender_id", senderId);
+
+  if (error) {
+    console.error("Failed to delete message:", error);
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Edit a message's content (sender only)
+ */
+export async function updateMessage(
+  messageId: string,
+  senderId: string,
+  newContent: string,
+): Promise<Message | null> {
+  const { data, error } = await supabase
+    .from("messages")
+    .update({ content: newContent })
+    .eq("id", messageId)
+    .eq("sender_id", senderId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Failed to update message:", error);
+    return null;
+  }
+  return data;
 }
 
 /**

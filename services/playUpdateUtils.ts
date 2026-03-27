@@ -12,6 +12,7 @@ interface WinnerSummary {
 }
 
 export const INTERMISSION_DURATION_MS = 10000;
+export const TURN_AUDIO_LEAD_MS = 1200;
 
 export const buildIntermissionRoomUpdate = ({
   eliminatedPlayerId,
@@ -59,7 +60,7 @@ export const buildNextTurnAfterEliminationUpdate = ({
 }) => ({
   [`players/${eliminatedPlayerId}/status`]: "eliminated",
   "gameState/currentWord": newWord,
-  "gameState/startTime": now,
+  "gameState/startTime": now + TURN_AUDIO_LEAD_MS,
   "gameState/timerDuration": calculateTurnDuration(newWord, currentStreak),
   "gameState/currentTurnPlayerId": nextPlayerId,
   "gameState/currentInput": "",
@@ -83,7 +84,7 @@ export const buildWordAssignmentUpdate = ({
   const turnOrder = getRoundTurnOrder(players);
   const updateData: Record<string, string | number | string[] | null> = {
     currentWord: newWord,
-    startTime: now,
+    startTime: now + TURN_AUDIO_LEAD_MS,
     timerDuration: calculateTurnDuration(newWord, currentStreak),
     turnOrder,
     currentInput: "",

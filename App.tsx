@@ -8,6 +8,7 @@ import {
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { SettingsProvider } from "./context/SettingsContext";
 import { MultiplayerProvider } from "./context/MultiplayerContext";
+import { ToastProvider } from "./context/ToastContext";
 import Header from "./components/Header";
 import Home from "./views/Home";
 import Auth from "./views/Auth";
@@ -66,11 +67,13 @@ const App: React.FC = () => {
     // 1. Wrap entire app in AuthProvider AND SettingsProvider
     <AuthProvider>
       <SettingsProvider>
-        <MultiplayerProvider>
-          <Router>
-            <AppRoutes />
-          </Router>
-        </MultiplayerProvider>
+        <ToastProvider>
+          <MultiplayerProvider>
+            <Router>
+              <AppRoutes />
+            </Router>
+          </MultiplayerProvider>
+        </ToastProvider>
       </SettingsProvider>
     </AuthProvider>
   );

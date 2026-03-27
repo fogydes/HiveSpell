@@ -6,6 +6,7 @@ import {
   buildRoundRestartUpdate,
   buildWordAssignmentUpdate,
   INTERMISSION_DURATION_MS,
+  TURN_AUDIO_LEAD_MS,
 } from "./playUpdateUtils";
 import type { Player } from "../types/multiplayer";
 
@@ -57,7 +58,7 @@ describe("playUpdateUtils", () => {
     ).toEqual({
       "players/p1/status": "eliminated",
       "gameState/currentWord": "honey",
-      "gameState/startTime": 2000,
+      "gameState/startTime": 2000 + TURN_AUDIO_LEAD_MS,
       "gameState/timerDuration": 6.4,
       "gameState/currentTurnPlayerId": "p2",
       "gameState/currentInput": "",
@@ -79,7 +80,7 @@ describe("playUpdateUtils", () => {
       }),
     ).toEqual({
       currentWord: "honey",
-      startTime: 3000,
+      startTime: 3000 + TURN_AUDIO_LEAD_MS,
       timerDuration: 6.7,
       turnOrder: ["p1", "p2"],
       currentInput: "",

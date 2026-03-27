@@ -1,4 +1,4 @@
-import type { ThemeId } from "../context/SettingsContext";
+import type { ThemeId } from "./themePackages";
 
 export type CustomizationCategory = "theme" | "cursor" | "badge";
 
@@ -23,15 +23,15 @@ export const SHOP_ITEMS: CustomizationItem[] = [
   {
     id: "theme_honey",
     name: "Honey Glaze",
-    description: "Golden amber tones for a warmer hive.",
+    description: "A cathedral-hive package with ember trails, hex sanctuaries, and a stained amber cursor.",
     price: 500,
     category: "theme",
     icon: "🎨",
   },
   {
     id: "theme_night",
-    name: "Nightshade",
-    description: "Midnight blues with neon cyan accents.",
+    name: "Astral Archive",
+    description: "A starlit observatory theme with celestial overlays and a custom cursor.",
     price: 1000,
     category: "theme",
     icon: "🎨",
@@ -67,32 +67,32 @@ export const THEME_OPTIONS: ThemeOption[] = [
   {
     id: "royal",
     name: "Royal Nectar",
-    description: "A bold high-contrast palette fit for the queen.",
+    description: "A regal retro-arcade package with scanlines, pixel trails, and cabinet glow.",
     unlock: "free",
   },
   {
     id: "ice",
     name: "Glacier Drift",
-    description: "Cool blue tones for a crisp competitive board.",
+    description: "A stormglass package with rain-swept overlays and lightning cursor flashes.",
     unlock: "free",
   },
   {
     id: "forest",
     name: "Forest Bloom",
-    description: "Leafy greens and bright pollen accents.",
+    description: "A bioluminescent forest package with drifting spores and fungal glow.",
     unlock: "free",
   },
   {
     id: "theme_honey",
     name: "Honey Glaze",
-    description: "Unlocks a rich amber storefront-inspired theme.",
+    description: "Unlocks the ember-lit cathedral hive package with a signature cursor trail.",
     unlock: "inventory",
     inventoryItemId: "theme_honey",
   },
   {
     id: "theme_night",
-    name: "Nightshade",
-    description: "Unlocks a moody neon-night hive theme.",
+    name: "Astral Archive",
+    description: "Unlocks a celestial observatory theme with a signature cursor package.",
     unlock: "inventory",
     inventoryItemId: "theme_night",
   },

@@ -8,6 +8,7 @@ import {
   speak,
   checkAnswer,
   fetchDefinition,
+  primeWordAudio,
   stopAudio,
 } from "../services/gameService";
 import { db } from "../firebase";
@@ -246,6 +247,7 @@ const Play: React.FC = () => {
       console.log(`[Audio] New word detected, will speak: "${syncedWord}"`);
       lastSpokenWordRef.current = syncedWord;
       setCurrentWord(syncedWord);
+      primeWordAudio(syncedWord);
 
       setInputValue("");
       setFeedback(null);
@@ -285,6 +287,14 @@ const Play: React.FC = () => {
         currentInput: val,
       }).catch(() => {}); // Silent fail for typing sync
     }
+  };
+
+  const handleInputPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+  };
+
+  const handleInputDrop = (e: React.DragEvent<HTMLInputElement>) => {
+    e.preventDefault();
   };
 
   // Subscribe to synced input from other players (when not my turn)
@@ -425,6 +435,8 @@ const Play: React.FC = () => {
         definition={definition}
         feedbackMessage={feedback?.msg}
         handleInputChange={handleInputChange}
+        handleInputDrop={handleInputDrop}
+        handleInputPaste={handleInputPaste}
         handleSubmit={handleSubmit}
         inputRef={inputRef}
         inputValue={inputValue}

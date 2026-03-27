@@ -10,95 +10,18 @@ import {
   setProfileTheme,
   setProfileCustomizationSlot,
 } from "../services/profileService";
+import {
+  DEFAULT_THEME_ID,
+  getThemePackage,
+  THEME_COLORS,
+  THEME_PACKAGES,
+  type ThemeId,
+  type ThemePackage,
+} from "../data/themePackages";
 
-export type ThemeId =
-  | "hive"
-  | "royal"
-  | "ice"
-  | "forest"
-  | "theme_honey"
-  | "theme_night";
-
-interface ThemeColors {
-  app: string;
-  panel: string;
-  surface: string;
-  primary: string;
-  primaryRgb: string; // "r, g, b"
-  primaryDim: string;
-  accent: string;
-  textMain: string;
-  textMuted: string;
-}
-
-export const THEMES: Record<ThemeId, ThemeColors> = {
-  hive: {
-    app: "#0f172a", // slate-900
-    panel: "#1e293b", // slate-800
-    surface: "#334155", // slate-700
-    primary: "#10b981", // emerald-500
-    primaryRgb: "16, 185, 129",
-    primaryDim: "rgba(16, 185, 129, 0.2)",
-    accent: "#f59e0b", // amber-500
-    textMain: "#ffffff",
-    textMuted: "#94a3b8",
-  },
-  royal: {
-    app: "#2e1065", // violet-950
-    panel: "#4c1d95", // violet-900
-    surface: "#5b21b6", // violet-800
-    primary: "#fbbf24", // amber-400 (Gold)
-    primaryRgb: "251, 191, 36",
-    primaryDim: "rgba(251, 191, 36, 0.2)",
-    accent: "#f472b6", // pink-400
-    textMain: "#fffbeb", // amber-50
-    textMuted: "#c4b5fd", // violet-300
-  },
-  ice: {
-    app: "#082f49", // sky-950
-    panel: "#0c4a6e", // sky-900
-    surface: "#075985", // sky-800
-    primary: "#38bdf8", // sky-400
-    primaryRgb: "56, 189, 248",
-    primaryDim: "rgba(56, 189, 248, 0.2)",
-    accent: "#e0f2fe", // sky-100
-    textMain: "#f0f9ff",
-    textMuted: "#7dd3fc",
-  },
-  forest: {
-    app: "#14532d", // green-900
-    panel: "#166534", // green-800
-    surface: "#15803d", // green-700
-    primary: "#bef264", // lime-400
-    primaryRgb: "190, 242, 100",
-    primaryDim: "rgba(190, 242, 100, 0.2)",
-    accent: "#facc15", // yellow-400
-    textMain: "#ecfccb", // lime-100
-    textMuted: "#86efac",
-  },
-  theme_honey: {
-    app: "#24160a",
-    panel: "#4b2e12",
-    surface: "#6b4115",
-    primary: "#fbbf24",
-    primaryRgb: "251, 191, 36",
-    primaryDim: "rgba(251, 191, 36, 0.2)",
-    accent: "#fde68a",
-    textMain: "#fff7ed",
-    textMuted: "#fcd34d",
-  },
-  theme_night: {
-    app: "#0f172a",
-    panel: "#172554",
-    surface: "#1d4ed8",
-    primary: "#22d3ee",
-    primaryRgb: "34, 211, 238",
-    primaryDim: "rgba(34, 211, 238, 0.2)",
-    accent: "#a5f3fc",
-    textMain: "#ecfeff",
-    textMuted: "#67e8f9",
-  },
-};
+export type { ThemeId, ThemePackage };
+export const THEMES = THEME_COLORS;
+export { THEME_PACKAGES, getThemePackage };
 
 interface SettingsContextType {
   ttsVolume: number;
@@ -107,7 +30,9 @@ interface SettingsContextType {
   setSfxVolume: (v: number) => void;
   playTypingSound: () => void;
   theme: ThemeId;
+  themePackage: ThemePackage;
   setTheme: (t: ThemeId) => void;
+  activeCursorId: string | null;
   equippedCursor: string | null;
   setEquippedCursor: (cursorId: string | null) => void;
   equippedBadge: string | null;
@@ -120,8 +45,10 @@ const SettingsContext = createContext<SettingsContextType>({
   sfxVolume: 0.5,
   setSfxVolume: () => {},
   playTypingSound: () => {},
-  theme: "hive",
+  theme: DEFAULT_THEME_ID,
+  themePackage: THEME_PACKAGES[DEFAULT_THEME_ID],
   setTheme: () => {},
+  activeCursorId: null,
   equippedCursor: null,
   setEquippedCursor: () => {},
   equippedBadge: null,
@@ -145,7 +72,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
   });
 
   const [theme, setThemeState] = useState<ThemeId>(() => {
-    return (localStorage.getItem("hive_theme") as ThemeId) || "hive";
+    return (localStorage.getItem("hive_theme") as ThemeId) || DEFAULT_THEME_ID;
   });
   const [equippedCursor, setEquippedCursorState] = useState<string | null>(
     () => localStorage.getItem("hive_equipped_cursor") || null,
@@ -158,7 +85,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     if (userData?.equippedTheme && userData.equippedTheme !== theme) {
       setThemeState(userData.equippedTheme);
     }
-  }, [userData?.equippedTheme]);
+  }, [theme, userData?.equippedTheme]);
 
   useEffect(() => {
     if (
@@ -178,10 +105,13 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, [userData?.equippedBadge]);
 
+  const themePackage = getThemePackage(theme);
+  const activeCursorId = equippedCursor ?? themePackage.cursor.defaultItemId;
+
   // Apply Theme CSS Variables
   useEffect(() => {
     const root = document.documentElement;
-    const colors = THEMES[theme] || THEMES.hive;
+    const { colors, cursor, motion, scene, typography } = themePackage;
 
     root.style.setProperty("--bg-app", colors.app);
     root.style.setProperty("--bg-panel", colors.panel);
@@ -192,9 +122,71 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     root.style.setProperty("--accent", colors.accent);
     root.style.setProperty("--text-main", colors.textMain);
     root.style.setProperty("--text-muted", colors.textMuted);
+    root.style.setProperty("--bg-app-gradient", scene.appGradient);
+    root.style.setProperty("--bg-panel-gradient", scene.panelGradient);
+    root.style.setProperty("--bg-surface-gradient", scene.surfaceGradient);
+     root.style.setProperty("--theme-ambient-glow", scene.ambientGlow);
+     root.style.setProperty("--theme-overlay-pattern", scene.overlayPattern);
+     root.style.setProperty("--theme-border-strong", scene.borderStrong);
+     root.style.setProperty("--theme-shadow-panel", scene.panelShadow);
+     root.style.setProperty("--theme-shadow-glow", scene.glowShadow);
+     root.style.setProperty(
+       "--theme-hero-pattern-url",
+       themePackage.assets.heroPatternSvg
+         ? `url("${themePackage.assets.heroPatternSvg}")`
+         : "none",
+     );
+     root.style.setProperty(
+       "--theme-overlay-asset-url",
+       themePackage.assets.overlayPatternSvg
+         ? `url("${themePackage.assets.overlayPatternSvg}")`
+         : "none",
+     );
+     root.style.setProperty(
+       "--theme-panel-frame-url",
+       themePackage.assets.panelFrameSvg
+         ? `url("${themePackage.assets.panelFrameSvg}")`
+         : "none",
+     );
+     root.style.setProperty("--motion-fast", motion.durationFast);
+     root.style.setProperty("--motion-base", motion.durationBase);
+     root.style.setProperty("--motion-slow", motion.durationSlow);
+    root.style.setProperty("--ease-standard", motion.easingStandard);
+    root.style.setProperty("--ease-emphasis", motion.easingEmphasis);
+    root.style.setProperty("--hover-scale", motion.hoverScale);
+    root.style.setProperty("--font-display", typography.displayFamily);
+    root.style.setProperty("--font-body", typography.bodyFamily);
+    root.style.setProperty("--heading-tracking", typography.headingTracking);
+    root.style.setProperty("--cursor-trail-color", cursor.trailColor);
+    root.style.setProperty("--cursor-trail-glow", cursor.trailGlow);
+    root.dataset.theme = themePackage.id;
+
+    const buildCursorCss = (assetPath: string | null) =>
+      assetPath
+        ? `url("${assetPath}") ${cursor.hotspotX} ${cursor.hotspotY}, ${cursor.fallbackCursor}`
+        : cursor.fallbackCursor;
+
+    const defaultCursorCss = buildCursorCss(cursor.assetPath);
+    const pointerCursorCss = buildCursorCss(
+      cursor.pointerAssetPath ?? cursor.assetPath,
+    );
+    const activeCursorCss = buildCursorCss(
+      cursor.activeAssetPath ?? cursor.pointerAssetPath ?? cursor.assetPath,
+    );
+
+    root.style.setProperty("--app-cursor-default", defaultCursorCss);
+    root.style.setProperty("--app-cursor-pointer", pointerCursorCss);
+    root.style.setProperty("--app-cursor-active", activeCursorCss);
+    document.body.style.cursor = defaultCursorCss;
 
     localStorage.setItem("hive_theme", theme);
-  }, [theme]);
+    return () => {
+      root.style.removeProperty("--app-cursor-default");
+      root.style.removeProperty("--app-cursor-pointer");
+      root.style.removeProperty("--app-cursor-active");
+      document.body.style.cursor = "";
+    };
+  }, [theme, themePackage]);
 
   // SINGLE AUDIO CONTEXT INSTANCE
   // Creating a new context per keypress causes freezing and spatial audio glitches ("corner of room" sound)
@@ -333,7 +325,9 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
         setSfxVolume,
         playTypingSound,
         theme,
+        themePackage,
         setTheme: updateTheme,
+        activeCursorId,
         equippedCursor,
         setEquippedCursor: (cursorId) =>
           updateCustomizationSlot("equipped_cursor", cursorId),
