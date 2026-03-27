@@ -44,14 +44,27 @@ export interface ThemeMotionTokens {
   hoverScale: string;
 }
 
+export type ThemeTrailStyle =
+  | "pollen"
+  | "mycelium"
+  | "astral"
+  | "cathedral"
+  | "storm"
+  | "arcade";
+
 export interface ThemeCursorTokens {
   defaultItemId: string | null;
   assetPath: string | null;
+  pointerAssetPath: string | null;
+  activeAssetPath: string | null;
   hotspotX: number;
   hotspotY: number;
+  trailOffsetX: number;
+  trailOffsetY: number;
   fallbackCursor: string;
   trailColor: string;
   trailGlow: string;
+  trailStyle: ThemeTrailStyle | null;
 }
 
 export interface ThemeAssetManifest {
@@ -120,13 +133,18 @@ export const THEME_PACKAGES: Record<ThemeId, ThemePackage> = {
     },
     motion: DEFAULT_MOTION,
     cursor: {
-      defaultItemId: null,
-      assetPath: null,
+      defaultItemId: "theme_hive_default",
+      assetPath: "/themes/hive/cursor-default.svg",
+      pointerAssetPath: "/themes/hive/cursor-pointer.svg",
+      activeAssetPath: "/themes/hive/cursor-active.svg",
       hotspotX: 8,
       hotspotY: 8,
+      trailOffsetX: 0,
+      trailOffsetY: 0,
       fallbackCursor: "auto",
       trailColor: "#fbbf24",
       trailGlow: "rgba(251, 191, 36, 0.72)",
+      trailStyle: "pollen",
     },
     assets: {
       heroPatternSvg: null,
@@ -139,15 +157,15 @@ export const THEME_PACKAGES: Record<ThemeId, ThemePackage> = {
     id: "royal",
     name: "Royal Nectar",
     colors: {
-      app: "#2e1065",
-      panel: "#4c1d95",
-      surface: "#5b21b6",
-      primary: "#fbbf24",
-      primaryRgb: "251, 191, 36",
-      primaryDim: "rgba(251, 191, 36, 0.2)",
-      accent: "#f472b6",
-      textMain: "#fffbeb",
-      textMuted: "#c4b5fd",
+      app: "#160d08",
+      panel: "#29170c",
+      surface: "#432212",
+      primary: "#f59e0b",
+      primaryRgb: "245, 158, 11",
+      primaryDim: "rgba(245, 158, 11, 0.2)",
+      accent: "#fcd34d",
+      textMain: "#fff7ed",
+      textMuted: "#fdba74",
     },
     typography: {
       ...DEFAULT_TYPOGRAPHY,
@@ -156,18 +174,18 @@ export const THEME_PACKAGES: Record<ThemeId, ThemePackage> = {
     },
     scene: {
       appGradient:
-        "radial-gradient(circle at top, rgba(251,191,36,0.16), transparent 24%), radial-gradient(circle at bottom right, rgba(244,114,182,0.12), transparent 30%), linear-gradient(180deg, #2e1065 0%, #1f0b49 100%)",
+        "radial-gradient(circle at top, rgba(245,158,11,0.16), transparent 24%), radial-gradient(circle at bottom right, rgba(251,191,36,0.12), transparent 30%), linear-gradient(180deg, #160d08 0%, #0d0704 100%)",
       panelGradient:
-        "linear-gradient(180deg, rgba(76,29,149,0.98) 0%, rgba(46,16,101,0.95) 100%)",
+        "linear-gradient(180deg, rgba(41,23,12,0.98) 0%, rgba(22,13,8,0.95) 100%)",
       surfaceGradient:
-        "linear-gradient(180deg, rgba(91,33,182,0.88) 0%, rgba(76,29,149,0.92) 100%)",
+        "linear-gradient(180deg, rgba(67,34,18,0.88) 0%, rgba(41,23,12,0.92) 100%)",
       ambientGlow:
-        "radial-gradient(circle, rgba(251,191,36,0.18) 0%, rgba(251,191,36,0) 72%)",
+        "radial-gradient(circle, rgba(249,115,22,0.18) 0%, rgba(249,115,22,0) 72%)",
       overlayPattern:
-        "linear-gradient(135deg, rgba(255,255,255,0.04) 25%, transparent 25%), linear-gradient(225deg, rgba(255,255,255,0.03) 25%, transparent 25%)",
+        "linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.04) 1px, transparent 1px, transparent 20px), linear-gradient(90deg, rgba(249,115,22,0.06) 0%, rgba(249,115,22,0.06) 1px, transparent 1px, transparent 20px)",
       borderStrong: "rgba(251, 191, 36, 0.32)",
-      panelShadow: "0 24px 54px rgba(24, 6, 54, 0.42)",
-      glowShadow: "0 0 40px rgba(251, 191, 36, 0.18)",
+      panelShadow: "0 24px 54px rgba(22, 10, 4, 0.46)",
+      glowShadow: "0 0 40px rgba(249, 115, 22, 0.18)",
     },
     motion: {
       ...DEFAULT_MOTION,
@@ -175,19 +193,24 @@ export const THEME_PACKAGES: Record<ThemeId, ThemePackage> = {
       easingEmphasis: "cubic-bezier(0.22, 1, 0.36, 1)",
     },
     cursor: {
-      defaultItemId: null,
-      assetPath: null,
-      hotspotX: 8,
-      hotspotY: 8,
-      fallbackCursor: "auto",
-      trailColor: "#fbbf24",
-      trailGlow: "rgba(251, 191, 36, 0.7)",
+      defaultItemId: "theme_royal_default",
+      assetPath: "/themes/royal/cursor-default.svg",
+      pointerAssetPath: "/themes/royal/cursor-pointer.svg",
+      activeAssetPath: "/themes/royal/cursor-active.svg",
+      hotspotX: 3,
+      hotspotY: 3,
+      trailOffsetX: 1,
+      trailOffsetY: 1,
+      fallbackCursor: "pointer",
+      trailColor: "#fb923c",
+      trailGlow: "rgba(249, 115, 22, 0.72)",
+      trailStyle: "arcade",
     },
     assets: {
       heroPatternSvg: null,
       overlayPatternSvg: null,
       panelFrameSvg: null,
-      cursorSvg: null,
+      cursorSvg: "/themes/royal/cursor.svg",
     },
   },
   ice: {
@@ -215,7 +238,7 @@ export const THEME_PACKAGES: Record<ThemeId, ThemePackage> = {
       ambientGlow:
         "radial-gradient(circle, rgba(56,189,248,0.16) 0%, rgba(56,189,248,0) 72%)",
       overlayPattern:
-        "linear-gradient(180deg, rgba(255,255,255,0.04) 0%, transparent 18%), radial-gradient(circle at 50% 0%, rgba(224,242,254,0.06) 0%, transparent 18%)",
+        "repeating-linear-gradient(165deg, rgba(125,211,252,0.11) 0px, rgba(125,211,252,0.11) 1px, transparent 1px, transparent 18px)",
       borderStrong: "rgba(56, 189, 248, 0.28)",
       panelShadow: "0 20px 44px rgba(3, 23, 34, 0.42)",
       glowShadow: "0 0 34px rgba(56, 189, 248, 0.18)",
@@ -226,19 +249,24 @@ export const THEME_PACKAGES: Record<ThemeId, ThemePackage> = {
       easingStandard: "cubic-bezier(0.16, 1, 0.3, 1)",
     },
     cursor: {
-      defaultItemId: null,
-      assetPath: null,
-      hotspotX: 8,
-      hotspotY: 8,
-      fallbackCursor: "auto",
+      defaultItemId: "theme_ice_default",
+      assetPath: "/themes/ice/cursor-default.svg",
+      pointerAssetPath: "/themes/ice/cursor-pointer.svg",
+      activeAssetPath: "/themes/ice/cursor-active.svg",
+      hotspotX: 3,
+      hotspotY: 3,
+      trailOffsetX: 2,
+      trailOffsetY: 1,
+      fallbackCursor: "pointer",
       trailColor: "#7dd3fc",
       trailGlow: "rgba(125, 211, 252, 0.68)",
+      trailStyle: "storm",
     },
     assets: {
       heroPatternSvg: null,
       overlayPatternSvg: null,
       panelFrameSvg: null,
-      cursorSvg: null,
+      cursorSvg: "/themes/ice/cursor.svg",
     },
   },
   forest: {
@@ -266,7 +294,7 @@ export const THEME_PACKAGES: Record<ThemeId, ThemePackage> = {
       ambientGlow:
         "radial-gradient(circle, rgba(190,242,100,0.16) 0%, rgba(190,242,100,0) 70%)",
       overlayPattern:
-        "radial-gradient(circle at 32% 32%, rgba(236,252,203,0.05) 1px, transparent 1px)",
+        "radial-gradient(circle at 20% 20%, rgba(236,252,203,0.08) 0 1.2px, transparent 1.2px), radial-gradient(circle at 72% 68%, rgba(190,242,100,0.07) 0 1.2px, transparent 1.2px)",
       borderStrong: "rgba(190, 242, 100, 0.24)",
       panelShadow: "0 22px 48px rgba(7, 30, 16, 0.4)",
       glowShadow: "0 0 32px rgba(190, 242, 100, 0.16)",
@@ -276,19 +304,24 @@ export const THEME_PACKAGES: Record<ThemeId, ThemePackage> = {
       durationSlow: "700ms",
     },
     cursor: {
-      defaultItemId: null,
-      assetPath: null,
-      hotspotX: 8,
-      hotspotY: 8,
-      fallbackCursor: "auto",
+      defaultItemId: "theme_forest_default",
+      assetPath: "/themes/forest/cursor-default.svg",
+      pointerAssetPath: "/themes/forest/cursor-pointer.svg",
+      activeAssetPath: "/themes/forest/cursor-active.svg",
+      hotspotX: 3,
+      hotspotY: 3,
+      trailOffsetX: 1,
+      trailOffsetY: 1,
+      fallbackCursor: "pointer",
       trailColor: "#bef264",
       trailGlow: "rgba(190, 242, 100, 0.64)",
+      trailStyle: "mycelium",
     },
     assets: {
       heroPatternSvg: null,
       overlayPatternSvg: null,
       panelFrameSvg: null,
-      cursorSvg: null,
+      cursorSvg: "/themes/forest/cursor.svg",
     },
   },
   theme_honey: {
@@ -320,7 +353,7 @@ export const THEME_PACKAGES: Record<ThemeId, ThemePackage> = {
       ambientGlow:
         "radial-gradient(circle, rgba(251,191,36,0.2) 0%, rgba(251,191,36,0) 72%)",
       overlayPattern:
-        "radial-gradient(circle at 20% 20%, rgba(255,247,237,0.06) 2px, transparent 2px), radial-gradient(circle at 70% 70%, rgba(255,247,237,0.04) 2px, transparent 2px)",
+        "linear-gradient(30deg, rgba(251,191,36,0.09) 12%, transparent 12.5%, transparent 87%, rgba(251,191,36,0.09) 87.5%, rgba(251,191,36,0.09)), linear-gradient(150deg, rgba(251,191,36,0.09) 12%, transparent 12.5%, transparent 87%, rgba(251,191,36,0.09) 87.5%, rgba(251,191,36,0.09)), linear-gradient(90deg, rgba(251,191,36,0.07) 2%, transparent 2.5%, transparent 97%, rgba(251,191,36,0.07) 97.5%, rgba(251,191,36,0.07))",
       borderStrong: "rgba(251, 191, 36, 0.34)",
       panelShadow: "0 24px 56px rgba(25, 11, 3, 0.46)",
       glowShadow: "0 0 40px rgba(251, 191, 36, 0.22)",
@@ -331,74 +364,86 @@ export const THEME_PACKAGES: Record<ThemeId, ThemePackage> = {
       hoverScale: "1.045",
     },
     cursor: {
-      defaultItemId: null,
-      assetPath: null,
-      hotspotX: 8,
-      hotspotY: 8,
-      fallbackCursor: "auto",
+      defaultItemId: "theme_honey_default",
+      assetPath: "/themes/theme_honey/cursor-default.svg",
+      pointerAssetPath: "/themes/theme_honey/cursor-pointer.svg",
+      activeAssetPath: "/themes/theme_honey/cursor-active.svg",
+      hotspotX: 3,
+      hotspotY: 3,
+      trailOffsetX: 1,
+      trailOffsetY: 1,
+      fallbackCursor: "pointer",
       trailColor: "#fbbf24",
       trailGlow: "rgba(251, 191, 36, 0.78)",
+      trailStyle: "cathedral",
     },
     assets: {
       heroPatternSvg: null,
       overlayPatternSvg: null,
       panelFrameSvg: null,
-      cursorSvg: null,
+      cursorSvg: "/themes/theme_honey/cursor.svg",
     },
   },
   theme_night: {
     id: "theme_night",
-    name: "Nightshade",
+    name: "Astral Archive",
     colors: {
-      app: "#0f172a",
-      panel: "#172554",
-      surface: "#1d4ed8",
-      primary: "#22d3ee",
-      primaryRgb: "34, 211, 238",
-      primaryDim: "rgba(34, 211, 238, 0.2)",
-      accent: "#a5f3fc",
-      textMain: "#ecfeff",
-      textMuted: "#67e8f9",
+      app: "#060a14",
+      panel: "#10172f",
+      surface: "#1d3b70",
+      primary: "#60a5fa",
+      primaryRgb: "96, 165, 250",
+      primaryDim: "rgba(96, 165, 250, 0.18)",
+      accent: "#bfdbfe",
+      textMain: "#eff6ff",
+      textMuted: "#93c5fd",
     },
     typography: {
       ...DEFAULT_TYPOGRAPHY,
       displayFamily: '"Sora", "Space Grotesk", sans-serif',
-      headingTracking: "0.18em",
+      headingTracking: "0.2em",
     },
     scene: {
       appGradient:
-        "radial-gradient(circle at top right, rgba(34,211,238,0.16), transparent 26%), radial-gradient(circle at bottom left, rgba(96,165,250,0.12), transparent 32%), linear-gradient(180deg, #0f172a 0%, #08101f 100%)",
+        "radial-gradient(circle at 78% 18%, rgba(96,165,250,0.18), transparent 20%), radial-gradient(circle at 18% 78%, rgba(59,130,246,0.14), transparent 24%), linear-gradient(180deg, #060a14 0%, #03060d 100%)",
       panelGradient:
-        "linear-gradient(180deg, rgba(23,37,84,0.98) 0%, rgba(15,23,42,0.95) 100%)",
+        "linear-gradient(180deg, rgba(16,23,47,0.98) 0%, rgba(6,10,20,0.96) 100%)",
       surfaceGradient:
-        "linear-gradient(180deg, rgba(29,78,216,0.72) 0%, rgba(23,37,84,0.94) 100%)",
+        "linear-gradient(180deg, rgba(29,59,112,0.8) 0%, rgba(16,23,47,0.94) 100%)",
       ambientGlow:
-        "radial-gradient(circle, rgba(34,211,238,0.18) 0%, rgba(34,211,238,0) 72%)",
+        "radial-gradient(circle, rgba(96,165,250,0.18) 0%, rgba(96,165,250,0) 72%)",
       overlayPattern:
-        "linear-gradient(180deg, rgba(165,243,252,0.06) 0%, transparent 18%), radial-gradient(circle at 76% 12%, rgba(165,243,252,0.1) 1px, transparent 1px)",
-      borderStrong: "rgba(34, 211, 238, 0.3)",
-      panelShadow: "0 24px 52px rgba(1, 9, 25, 0.48)",
-      glowShadow: "0 0 42px rgba(34, 211, 238, 0.18)",
+        "radial-gradient(circle at 18% 22%, rgba(191,219,254,0.1) 1px, transparent 1px), radial-gradient(circle at 78% 16%, rgba(96,165,250,0.12) 1px, transparent 1px)",
+      borderStrong: "rgba(96, 165, 250, 0.28)",
+      panelShadow: "0 26px 60px rgba(2, 6, 18, 0.56)",
+      glowShadow: "0 0 46px rgba(96, 165, 250, 0.16)",
     },
     motion: {
       ...DEFAULT_MOTION,
       durationBase: "240ms",
       durationSlow: "520ms",
+      easingEmphasis: "cubic-bezier(0.16, 1, 0.3, 1)",
+      hoverScale: "1.05",
     },
     cursor: {
-      defaultItemId: null,
-      assetPath: null,
-      hotspotX: 8,
-      hotspotY: 8,
-      fallbackCursor: "auto",
+      defaultItemId: "theme_night_default",
+      assetPath: "/themes/theme_night/cursor-default.svg",
+      pointerAssetPath: "/themes/theme_night/cursor-pointer.svg",
+      activeAssetPath: "/themes/theme_night/cursor-active.svg",
+      hotspotX: 3,
+      hotspotY: 3,
+      trailOffsetX: 1,
+      trailOffsetY: 1,
+      fallbackCursor: "pointer",
       trailColor: "#22d3ee",
       trailGlow: "rgba(34, 211, 238, 0.72)",
+      trailStyle: "astral",
     },
     assets: {
-      heroPatternSvg: null,
-      overlayPatternSvg: null,
-      panelFrameSvg: null,
-      cursorSvg: null,
+      heroPatternSvg: "/themes/theme_night/hero-pattern.svg",
+      overlayPatternSvg: "/themes/theme_night/overlay-pattern.svg",
+      panelFrameSvg: "/themes/theme_night/panel-frame.svg",
+      cursorSvg: "/themes/theme_night/cursor.svg",
     },
   },
 };

@@ -1,0 +1,24 @@
+<svg width="1200" height="800" viewBox="0 0 1200 800" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="frame" x1="160" y1="108" x2="1038" y2="693" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#BFDBFE" stop-opacity="0.34"/>
+      <stop offset="0.52" stop-color="#60A5FA" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#BFDBFE" stop-opacity="0.3"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="18" y="18" width="1164" height="764" rx="30" stroke="url(#frame)" stroke-opacity="0.45" stroke-width="1.2"/>
+  <rect x="42" y="42" width="1116" height="716" rx="24" stroke="url(#frame)" stroke-opacity="0.25" stroke-width="0.9"/>
+
+  <path d="M108 116H260L316 74H884L940 116H1092" stroke="#BFDBFE" stroke-opacity="0.26" stroke-width="1"/>
+  <path d="M108 684H260L316 726H884L940 684H1092" stroke="#BFDBFE" stroke-opacity="0.2" stroke-width="1"/>
+
+  <path d="M120 166V112H174" stroke="#93C5FD" stroke-opacity="0.35" stroke-width="1.4"/>
+  <path d="M1026 112H1080V166" stroke="#93C5FD" stroke-opacity="0.35" stroke-width="1.4"/>
+  <path d="M120 634V688H174" stroke="#93C5FD" stroke-opacity="0.28" stroke-width="1.4"/>
+  <path d="M1026 688H1080V634" stroke="#93C5FD" stroke-opacity="0.28" stroke-width="1.4"/>
+
+  <circle cx="600" cy="74" r="3" fill="#E0F2FE" fill-opacity="0.65"/>
+  <circle cx="316" cy="74" r="2.5" fill="#BFDBFE" fill-opacity="0.4"/>
+  <circle cx="884" cy="74" r="2.5" fill="#BFDBFE" fill-opacity="0.4"/>
+</svg>

@@ -147,23 +147,31 @@ export const Shop: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const selectedOwned = selectedItem
     ? isItemOwned(inventory, selectedItem.id)
     : false;
-
+  const handlePanelWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    event.currentTarget.scrollTop += event.deltaY;
+  };
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden bg-black/90 p-4 backdrop-blur-md animate-fade-in">
-      <div className="relative flex h-[90vh] w-full max-w-7xl flex-col overflow-hidden rounded-[32px] border border-surface/80 bg-app shadow-[0_35px_120px_rgba(0,0,0,0.48)]">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-72 opacity-95">
+    <div
+      className="fixed inset-0 z-[100] bg-black/90 p-2 backdrop-blur-md animate-fade-in sm:p-4"
+    >
+      <div className="flex min-h-full items-start justify-center touch-pan-y">
+        <div
+          className="theme-panel-shell custom-scrollbar relative mx-auto flex h-[calc(100dvh-1rem)] w-full max-w-7xl flex-col overflow-y-auto overscroll-contain rounded-[24px] border border-surface/80 bg-app shadow-[0_35px_120px_rgba(0,0,0,0.48)] sm:my-4 sm:h-[92vh] sm:rounded-[32px]"
+          onWheel={handlePanelWheel}
+        >
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-40 opacity-95 sm:h-72">
           <div className="h-full w-full bg-[radial-gradient(circle_at_18%_18%,rgba(245,158,11,0.18),transparent_26%),radial-gradient(circle_at_82%_18%,rgba(16,185,129,0.15),transparent_24%),linear-gradient(180deg,rgba(15,23,42,0.92),rgba(15,23,42,0.18))]" />
         </div>
 
-        <div className="relative flex items-start justify-between gap-4 border-b border-surface/70 px-5 py-5 sm:px-7">
+        <div className="relative flex items-start justify-between gap-4 border-b border-surface/70 px-4 py-4 sm:px-7 sm:py-5">
           <div>
             <p className="text-[10px] uppercase tracking-[0.34em] text-text-muted/60">
               Curated marketplace
             </p>
-            <h2 className="mt-2 font-[var(--font-display)] text-3xl font-black text-text-main sm:text-4xl">
+            <h2 className="mt-2 font-[var(--font-display)] text-2xl font-black text-text-main sm:text-4xl">
               The Aetheric Bazaar
             </h2>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-text-muted">
+            <p className="mt-2 max-w-xl text-sm leading-6 text-text-muted">
               A denser, more atmospheric storefront built around featured
               cosmetics, nectar economy, and a proper item inspection rail.
             </p>
@@ -176,14 +184,14 @@ export const Shop: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           </button>
         </div>
 
-        <div className="relative grid min-h-0 flex-1 gap-0 xl:grid-cols-[300px_minmax(0,1fr)_330px]">
-          <aside className="flex min-h-0 flex-col gap-5 border-b border-surface/70 p-5 sm:p-6 xl:border-b-0 xl:border-r">
+        <div className="relative grid gap-5 p-4 sm:p-6 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)_320px]">
+          <aside className="flex flex-col gap-5">
             <div className="overflow-hidden rounded-[28px] border border-surface/80 bg-black/20 p-5 backdrop-blur-md">
               <p className="text-[10px] uppercase tracking-[0.32em] text-text-muted/55">
                 Bazaar guide
               </p>
-              <div className="mt-4 flex items-start gap-4">
-                <div className="relative overflow-hidden rounded-[24px] border border-primary/25 bg-panel/70 p-3 shadow-[0_18px_40px_rgba(0,0,0,0.35)]">
+              <div className="mt-4 flex flex-col gap-4">
+                <div className="relative mx-auto overflow-hidden rounded-[24px] border border-primary/25 bg-panel/70 p-3 shadow-[0_18px_40px_rgba(0,0,0,0.35)]">
                   <img
                     src="/assets/shopkeeper.png"
                     alt="Shopkeeper"
@@ -191,7 +199,7 @@ export const Shop: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                   />
                   <div className="pointer-events-none absolute inset-x-4 bottom-0 h-10 rounded-full bg-primary/20 blur-2xl" />
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 text-center xl:text-left">
                   <h3 className="text-xl font-black text-text-main">
                     Quartermaster Vey
                   </h3>
@@ -253,7 +261,7 @@ export const Shop: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             </div>
           </aside>
 
-          <section className="min-h-0 overflow-y-auto border-b border-surface/70 px-5 py-5 sm:px-6 xl:border-b-0 xl:border-r">
+          <section className="min-w-0">
             <div className="rounded-[28px] border border-surface/80 bg-black/20 p-5 backdrop-blur-md">
               <p className="text-[10px] uppercase tracking-[0.32em] text-text-muted/55">
                 {CATEGORY_COPY[activeCategory].eyebrow}
@@ -339,7 +347,7 @@ export const Shop: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             </div>
           </section>
 
-          <aside className="min-h-0 overflow-y-auto p-5 sm:p-6">
+          <aside className="min-w-0">
             {selectedItem ? (
               <div className="space-y-5">
                 <div className="overflow-hidden rounded-[28px] border border-surface/80 bg-black/20 p-5 backdrop-blur-md">
@@ -415,6 +423,7 @@ export const Shop: React.FC<{ onClose: () => void }> = ({ onClose }) => {
               </div>
             )}
           </aside>
+        </div>
         </div>
       </div>
     </div>

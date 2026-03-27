@@ -1,0 +1,45 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grid" x1="0" y1="0" x2="1600" y2="900" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#93C5FD" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#60A5FA" stop-opacity="0.03"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1600" height="900" fill="transparent"/>
+
+  <g opacity="0.45">
+    <path d="M0 180H1600" stroke="url(#grid)" stroke-width="0.6"/>
+    <path d="M0 450H1600" stroke="url(#grid)" stroke-width="0.6"/>
+    <path d="M0 720H1600" stroke="url(#grid)" stroke-width="0.6"/>
+    <path d="M240 0V900" stroke="url(#grid)" stroke-width="0.6"/>
+    <path d="M800 0V900" stroke="url(#grid)" stroke-width="0.6"/>
+    <path d="M1360 0V900" stroke="url(#grid)" stroke-width="0.6"/>
+  </g>
+
+  <g opacity="0.35" stroke="#BFDBFE" stroke-width="0.7">
+    <path d="M160 210L234 182L309 218L382 169"/>
+    <path d="M1290 164L1346 206L1421 177L1490 228"/>
+    <path d="M320 734L398 694L474 748L551 704"/>
+    <path d="M1028 664L1104 632L1178 676L1255 640"/>
+  </g>
+
+  <g opacity="0.58">
+    <circle cx="160" cy="210" r="1.8" fill="#E0F2FE"/>
+    <circle cx="234" cy="182" r="1.4" fill="#BFDBFE"/>
+    <circle cx="309" cy="218" r="1.6" fill="#E0F2FE"/>
+    <circle cx="382" cy="169" r="1.3" fill="#93C5FD"/>
+    <circle cx="1290" cy="164" r="1.6" fill="#E0F2FE"/>
+    <circle cx="1346" cy="206" r="1.5" fill="#BFDBFE"/>
+    <circle cx="1421" cy="177" r="1.7" fill="#E0F2FE"/>
+    <circle cx="1490" cy="228" r="1.4" fill="#93C5FD"/>
+    <circle cx="320" cy="734" r="1.7" fill="#E0F2FE"/>
+    <circle cx="398" cy="694" r="1.5" fill="#BFDBFE"/>
+    <circle cx="474" cy="748" r="1.6" fill="#E0F2FE"/>
+    <circle cx="551" cy="704" r="1.3" fill="#93C5FD"/>
+    <circle cx="1028" cy="664" r="1.5" fill="#E0F2FE"/>
+    <circle cx="1104" cy="632" r="1.6" fill="#BFDBFE"/>
+    <circle cx="1178" cy="676" r="1.7" fill="#E0F2FE"/>
+    <circle cx="1255" cy="640" r="1.3" fill="#93C5FD"/>
+  </g>
+</svg>

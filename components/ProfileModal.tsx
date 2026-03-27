@@ -231,16 +231,20 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const profileAvatar =
     profile?.avatar_url ||
     `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile?.avatar_seed || profile?.id || userId}`;
-
+  const handlePanelWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    event.currentTarget.scrollTop += event.deltaY;
+  };
   return (
     <div
-      className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-hidden animate-fade-in"
+      className="fixed inset-0 z-[100] bg-black/90 p-2 backdrop-blur-md animate-fade-in sm:p-4"
       onClick={onClose}
     >
-      <div
-        className="relative max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-[30px] border border-surface/80 bg-app shadow-[0_32px_100px_rgba(0,0,0,0.45)] animate-scale-in"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="flex min-h-full items-start justify-center touch-pan-y">
+        <div
+          className="theme-panel-shell custom-scrollbar relative flex h-[calc(100dvh-2rem)] w-full max-w-5xl flex-col overflow-y-auto overscroll-contain rounded-[24px] border border-surface/80 bg-app shadow-[0_32px_100px_rgba(0,0,0,0.45)] animate-scale-in sm:my-6 sm:h-[84vh] sm:rounded-[30px]"
+          onClick={(e) => e.stopPropagation()}
+          onWheel={handlePanelWheel}
+        >
         {/* Close Button */}
         <button
           onClick={onClose}
@@ -261,29 +265,29 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           </div>
         ) : profile ? (
           <>
-            <div className="relative overflow-hidden p-4 sm:p-6">
+            <div className="relative p-3 sm:p-6">
               <div
-                className="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-90"
+                className="pointer-events-none absolute inset-x-0 top-0 h-36 opacity-90 sm:h-64"
                 style={{ background: activeTheme.scene.appGradient }}
               />
-              <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-[radial-gradient(circle_at_18%_18%,rgba(255,255,255,0.08)_0,transparent_18%),radial-gradient(circle_at_80%_12%,rgba(16,185,129,0.14)_0,transparent_24%),radial-gradient(circle_at_74%_78%,rgba(245,158,11,0.12)_0,transparent_22%)]" />
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-[radial-gradient(circle_at_18%_18%,rgba(255,255,255,0.08)_0,transparent_18%),radial-gradient(circle_at_80%_12%,rgba(16,185,129,0.14)_0,transparent_24%),radial-gradient(circle_at_74%_78%,rgba(245,158,11,0.12)_0,transparent_22%)] sm:h-64" />
 
               <div className="relative overflow-hidden rounded-[28px] border border-surface/80 bg-black/20 shadow-[0_24px_70px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-                <div className="relative h-36 overflow-hidden border-b border-surface/60 sm:h-48">
+                <div className="relative h-24 overflow-hidden border-b border-surface/60 sm:h-48">
                   <div
                     className="absolute inset-0"
                     style={{ background: activeTheme.scene.panelGradient }}
                   />
                   <div className="absolute -left-10 top-6 h-28 w-28 rounded-full bg-primary/10 blur-3xl" />
-                  <div className="absolute right-5 top-5 rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.28em] text-amber-200">
+                  <div className="absolute right-4 top-4 rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.28em] text-amber-200">
                     {isOwnProfile ? "Your dossier" : "Player dossier"}
                   </div>
                 </div>
 
-                <div className="relative px-5 pb-5 pt-0 sm:px-6 sm:pb-6">
-                  <div className="-mt-12 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div className="relative px-4 pb-4 pt-0 sm:px-6 sm:pb-6">
+                  <div className="-mt-8 flex flex-col gap-4 lg:-mt-12 lg:flex-row lg:items-end lg:justify-between">
                     <div className="flex min-w-0 items-end gap-4">
-                      <div className="group relative h-24 w-24 overflow-hidden rounded-[28px] border-4 border-primary/30 bg-panel shadow-[0_20px_45px_rgba(0,0,0,0.45)] sm:h-28 sm:w-28">
+                      <div className="group relative h-20 w-20 overflow-hidden rounded-[24px] border-4 border-primary/30 bg-panel shadow-[0_20px_45px_rgba(0,0,0,0.45)] sm:h-28 sm:w-28 sm:rounded-[28px]">
                         <img
                           src={profileAvatar}
                           alt={profile.username}
@@ -312,7 +316,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                         <p className="text-[10px] uppercase tracking-[0.34em] text-text-muted/55">
                           HiveSpell profile
                         </p>
-                        <h2 className="mt-2 truncate text-3xl font-black leading-none text-text-main sm:text-[2.7rem]">
+                        <h2 className="mt-2 truncate text-2xl font-black leading-none text-text-main sm:text-[2.7rem]">
                           {profile.username}
                         </h2>
                         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -693,6 +697,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             <p className="text-text-muted">No profile data found.</p>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

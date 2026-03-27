@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { wordBank } from "../services/gameService";
 import { useMultiplayer } from "../context/MultiplayerContext";
 import { useToast } from "../context/ToastContext";
+import { useSettings } from "../context/SettingsContext";
 import { db } from "../firebase";
 import { ref, get, query, orderByChild, equalTo } from "firebase/database";
 
@@ -10,6 +11,7 @@ const Lobby: React.FC = () => {
   const modes = Object.keys(wordBank);
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const { themePackage } = useSettings();
   const [joinCode, setJoinCode] = useState("");
   const { createGameRoom, joinGameRoom, joinPublicGame, loading } =
     useMultiplayer();
@@ -119,10 +121,28 @@ const Lobby: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen pt-24 p-6 flex flex-col items-center bg-app pb-24">
+    <div className="theme-scene min-h-screen bg-app pt-24 pb-24">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div
+          className="absolute left-[8%] top-24 h-64 w-64 rounded-full blur-3xl opacity-80"
+          style={{ backgroundImage: "var(--theme-ambient-glow)" }}
+        />
+        <div
+          className="absolute bottom-20 right-[10%] h-72 w-72 rounded-full opacity-60 blur-3xl"
+          style={{
+            background:
+              "radial-gradient(circle, color-mix(in srgb, var(--accent) 24%, transparent) 0%, transparent 72%)",
+          }}
+        />
+      </div>
+
+      <div className="relative flex flex-col items-center px-6">
       {/* Difficulty Selection UI */}
-      <div className="w-full max-w-6xl text-center mb-10">
-        <h2 className="text-4xl font-extrabold text-text-main mb-2 tracking-tight">
+      <div className="theme-panel-shell mb-10 w-full max-w-6xl rounded-[32px] border bg-panel/45 px-6 py-8 text-center backdrop-blur-xl">
+        <h2
+          data-display="true"
+          className="mb-2 text-4xl font-extrabold tracking-tight text-text-main"
+        >
           Select Difficulty
         </h2>
         <p className="text-text-muted">
@@ -134,7 +154,8 @@ const Lobby: React.FC = () => {
         {modes.map((mode) => (
           <div
             key={mode}
-            className={`bg-panel border-2 rounded-2xl p-6 flex flex-col justify-between transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-app/50 group ${getModeColor(mode)}`}
+            className={`theme-panel-shell border-2 rounded-2xl bg-panel/70 p-6 flex flex-col justify-between transition-all duration-300 hover:-translate-y-2 group ${getModeColor(mode)}`}
+            style={{ boxShadow: themePackage.scene.panelShadow }}
           >
             <div className="mb-6">
               <h3 className="text-2xl font-black capitalize mb-2 tracking-wide">
@@ -149,7 +170,7 @@ const Lobby: React.FC = () => {
               <button
                 disabled={loading}
                 onClick={() => handleStartPublic(mode)}
-                className="w-full py-3 bg-surface group-hover:bg-text-main group-hover:text-app text-text-main rounded-lg font-bold text-sm tracking-wider transition-colors uppercase disabled:opacity-50 disabled:cursor-wait"
+                className="theme-surface-shell w-full rounded-lg py-3 text-sm font-bold uppercase tracking-wider text-text-main transition-colors group-hover:bg-text-main group-hover:text-app disabled:cursor-wait disabled:opacity-50"
               >
                 {loading ? "Connecting..." : "Public Match"}
               </button>
@@ -165,10 +186,10 @@ const Lobby: React.FC = () => {
         ))}
       </div>
 
-      <div className="fixed bottom-0 left-0 w-full bg-panel/80 backdrop-blur-xl border-t border-surface p-6 flex justify-center z-40">
+      <div className="fixed bottom-0 left-0 z-40 flex w-full justify-center border-t border-surface bg-panel/70 p-6 backdrop-blur-xl">
         <form
           onSubmit={handleJoinPrivate}
-          className="flex items-center gap-3 w-full max-w-lg bg-panel p-2 rounded-xl border border-surface focus-within:border-primary transition-colors"
+          className="theme-panel-shell flex w-full max-w-lg items-center gap-3 rounded-xl border border-surface bg-panel/80 p-2 transition-colors focus-within:border-primary"
         >
           <div className="pl-3 text-text-muted">
             <svg
@@ -201,6 +222,7 @@ const Lobby: React.FC = () => {
             {loading ? "..." : "JOIN"}
           </button>
         </form>
+      </div>
       </div>
     </div>
   );

@@ -125,14 +125,32 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     root.style.setProperty("--bg-app-gradient", scene.appGradient);
     root.style.setProperty("--bg-panel-gradient", scene.panelGradient);
     root.style.setProperty("--bg-surface-gradient", scene.surfaceGradient);
-    root.style.setProperty("--theme-ambient-glow", scene.ambientGlow);
-    root.style.setProperty("--theme-overlay-pattern", scene.overlayPattern);
-    root.style.setProperty("--theme-border-strong", scene.borderStrong);
-    root.style.setProperty("--theme-shadow-panel", scene.panelShadow);
-    root.style.setProperty("--theme-shadow-glow", scene.glowShadow);
-    root.style.setProperty("--motion-fast", motion.durationFast);
-    root.style.setProperty("--motion-base", motion.durationBase);
-    root.style.setProperty("--motion-slow", motion.durationSlow);
+     root.style.setProperty("--theme-ambient-glow", scene.ambientGlow);
+     root.style.setProperty("--theme-overlay-pattern", scene.overlayPattern);
+     root.style.setProperty("--theme-border-strong", scene.borderStrong);
+     root.style.setProperty("--theme-shadow-panel", scene.panelShadow);
+     root.style.setProperty("--theme-shadow-glow", scene.glowShadow);
+     root.style.setProperty(
+       "--theme-hero-pattern-url",
+       themePackage.assets.heroPatternSvg
+         ? `url("${themePackage.assets.heroPatternSvg}")`
+         : "none",
+     );
+     root.style.setProperty(
+       "--theme-overlay-asset-url",
+       themePackage.assets.overlayPatternSvg
+         ? `url("${themePackage.assets.overlayPatternSvg}")`
+         : "none",
+     );
+     root.style.setProperty(
+       "--theme-panel-frame-url",
+       themePackage.assets.panelFrameSvg
+         ? `url("${themePackage.assets.panelFrameSvg}")`
+         : "none",
+     );
+     root.style.setProperty("--motion-fast", motion.durationFast);
+     root.style.setProperty("--motion-base", motion.durationBase);
+     root.style.setProperty("--motion-slow", motion.durationSlow);
     root.style.setProperty("--ease-standard", motion.easingStandard);
     root.style.setProperty("--ease-emphasis", motion.easingEmphasis);
     root.style.setProperty("--hover-scale", motion.hoverScale);
@@ -143,13 +161,29 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     root.style.setProperty("--cursor-trail-glow", cursor.trailGlow);
     root.dataset.theme = themePackage.id;
 
-    const cursorCss = cursor.assetPath
-      ? `url("${cursor.assetPath}") ${cursor.hotspotX} ${cursor.hotspotY}, ${cursor.fallbackCursor}`
-      : cursor.fallbackCursor;
-    document.body.style.cursor = cursorCss;
+    const buildCursorCss = (assetPath: string | null) =>
+      assetPath
+        ? `url("${assetPath}") ${cursor.hotspotX} ${cursor.hotspotY}, ${cursor.fallbackCursor}`
+        : cursor.fallbackCursor;
+
+    const defaultCursorCss = buildCursorCss(cursor.assetPath);
+    const pointerCursorCss = buildCursorCss(
+      cursor.pointerAssetPath ?? cursor.assetPath,
+    );
+    const activeCursorCss = buildCursorCss(
+      cursor.activeAssetPath ?? cursor.pointerAssetPath ?? cursor.assetPath,
+    );
+
+    root.style.setProperty("--app-cursor-default", defaultCursorCss);
+    root.style.setProperty("--app-cursor-pointer", pointerCursorCss);
+    root.style.setProperty("--app-cursor-active", activeCursorCss);
+    document.body.style.cursor = defaultCursorCss;
 
     localStorage.setItem("hive_theme", theme);
     return () => {
+      root.style.removeProperty("--app-cursor-default");
+      root.style.removeProperty("--app-cursor-pointer");
+      root.style.removeProperty("--app-cursor-active");
       document.body.style.cursor = "";
     };
   }, [theme, themePackage]);
