@@ -138,7 +138,30 @@ const POLYMATH_WORDS = [
 
 // Local Definitions for Offline Support
 export const LOCAL_DEFINITIONS: Record<string, string> = {
+  // --- Baby & Cakewalk ---
+  be: "To exist or live.",
+  nobel: "Relating to Alfred Nobel or the prizes established by his will.",
+  // --- Learner ---
+  // --- Intermediate ---
+  abditive: "Having the power or quality of hiding.",
+  christmas:
+    "An annual Christian holiday celebrating the birth of Jesus Christ.",
+  excalibur: "The legendary sword of King Arthur.",
+  wednesday: "The day of the week before Thursday and following Tuesday.",
+
   // --- Heated ---
+  triphosphate: "A salt or ester containing three phosphate groups.",
+  tetraphobia: "An irrational fear of the number 4.",
+  supercede: "To take the place of; to replace.",
+  querimony: "A complaint or expression of discontent.",
+  photogeochemistry:
+    "The study of light-induced chemical reactions of Earth materials.",
+  multidimensionality: "The state of having many dimensions or aspects.",
+  isometropia: "Equality in the refraction of the two eyes.",
+  incoagulable: "Incapable of coagulating or clotting.",
+  glaucomatous: "Relating to or affected by glaucoma.",
+  cyrillic: "Denoting the alphabet used by many Slavic languages.",
+  anisosquaric: "Relating to a derivative of squaric acid.",
   abacaxi: "A large, sweet pineapple grown in Brazil.",
   abasia: "Inability to walk due to a lack of motor coordination.",
   accommodate: "Fit in with the wishes or needs of.",
@@ -205,6 +228,97 @@ export const LOCAL_DEFINITIONS: Record<string, string> = {
   zygote: "A diploid cell resulting from the fusion of two haploid gametes.",
 
   // --- Genius ---
+  xylotypographic: "Printed from wooden blocks.",
+  xiphiplastron: "The rear lateral plate of the plastron of a turtle.",
+  transinstitutionalization:
+    "The transfer of individuals from one institutional setting to another.",
+  thermochromatography:
+    "A chromatographic technique using a temperature gradient.",
+  thalassophobia: "An intense and persistent fear of the sea.",
+  temporomandibular:
+    "Relating to the joint connecting the jawbone to the skull.",
+  superferromagnetism: "A form of magnetism exhibited by nanoparticles.",
+  supererogatory: "Performed beyond what is required or expected.",
+  subdermatoglyphic:
+    "Located beneath the patterned ridges on the skin of the fingers and palms.",
+  subcompartmentalization:
+    "The division into smaller compartments or sub-units.",
+  rhinorrhagia: "A severe nosebleed.",
+  radiometeorograph:
+    "An instrument carried by a balloon or other airborne device for recording meteorological data.",
+  radioallergosorbent:
+    "A laboratory test used to determine a person's allergy to a specific substance.",
+  quoddamodotative:
+    "A philosophical term relating to a particular mode of being.",
+  quindecasyllabic: "Consisting of fifteen syllables.",
+  quasquicentennial: "A 125th anniversary.",
+  quasiautobiographical: "Partially autobiographical.",
+  pseudoriemannian:
+    "Relating to a manifold with a metric tensor that is not positive-definite.",
+  pseudoparallelodromous:
+    "A term describing a specific pattern of leaf venation.",
+  pseudohyperaldosteronism:
+    "A condition mimicking the effects of hyperaldosteronism.",
+  proceleusmatic: "An animating or inciting verse meter.",
+  plasmodiumfalciparum: "A protozoan parasite that causes malaria in humans.",
+  paraphernalia:
+    "Miscellaneous articles, especially the equipment needed for a particular activity.",
+  parallelogrammatic: "Having the shape of a parallelogram.",
+  panproctocolectomy:
+    "The surgical removal of the entire colon, rectum, and anal canal.",
+  orthogeosyncline:
+    "A geosyncline located between cratons or continental masses.",
+  neuropsychological:
+    "Relating to the relationship between brain function and behavior.",
+  necrobiosislipoidica:
+    "A necrotizing skin condition usually associated with diabetes.",
+  morphodifferentiation:
+    "The process by which cells or tissues change their shape or form.",
+  metonymic:
+    "Relating to a figure of speech in which a thing or concept is referred to by the name of something closely associated with it.",
+  mechanotransduction:
+    "The cellular processes that translate mechanical stimuli into biochemical signals.",
+  lepidopterology: "The branch of entomology concerning butterflies and moths.",
+  incomprehensibility: "The state of being impossible to understand.",
+  hyperpolysyllabic:
+    "Consisting of an exceptionally large number of syllables.",
+  hypergonadotropic: "Relating to an excess of gonadotropins.",
+  hypergammaglobulinemia:
+    "A condition characterized by increased levels of immunoglobulins in the blood.",
+  hemispherectomy:
+    "A surgical procedure where one half of the brain is removed or disabled.",
+  goniosynechialysis:
+    "A surgical procedure to separate adhesions in the angle of the eye.",
+  glyceraldehyde: "A simple triose sugar.",
+  geochronostratigraphical:
+    "Relating to the branch of stratigraphy combining geochronology and chronostratigraphy.",
+  frontoethmoidectomy:
+    "The surgical removal of part of the frontal and ethmoid sinuses.",
+  ethnopsychopharmacology:
+    "The study of cultural variations in response to psychiatric medications.",
+  electrotelethermometer:
+    "An electronic device for measuring temperature remotely.",
+  dichotomization:
+    "The division into two mutually exclusive, opposed, or contradictory groups.",
+  deoxyribonucleic: "Related to DNA, the carrier of genetic information.",
+  cryptoendolithic: "Living within rocks, typically in microscopic spaces.",
+  craniosynostosis:
+    "A condition in which one or more of the fibrous sutures in an infant skull prematurely fuses.",
+  countermajoritarianism: "A political philosophy opposing majority rule.",
+  clinicoechocardiographic:
+    "Relating to clinical and echocardiographic findings.",
+  chronopsychophysiology:
+    "The study of psychological and physiological processes chronologically.",
+  bogolanfini: "A traditional Malian cloth mud-dyed with geometrical patterns.",
+  batrachophobia: "An abnormal fear of amphibians, such as frogs and toads.",
+  ascosporogenous: "Producing ascospores.",
+  arthroereisis: "The surgical limitation of joint movement.",
+  aneurysmorrhaphy: "The surgical suturing of an aneurysm.",
+  allotransplantation:
+    "The transplant of an organ or tissue between two genetically non-identical individuals.",
+  achromatophilia: "The property of not being easily stained.",
+  achromatophil: "A cell or tissue that does not stain readily.",
+  abdominothoracic: "Relating to the abdomen and thorax.",
   absquatulate: "To leave abruptly.",
   acetaminophen: "An analgesic drug used to treat headaches, arthritis, etc.",
   acquiesce: "Accept something reluctantly but without protest.",
@@ -247,6 +361,87 @@ export const LOCAL_DEFINITIONS: Record<string, string> = {
   worcestershire: "A savory sauce containing soy sauce and vinegar.",
 
   // --- Polymath ---
+  uvulopalatopharyngoplasty:
+    "A surgical procedure used to remove tissue in the throat to treat sleep apnea.",
+  tonsillopharyngitis: "Inflammation of the tonsils and pharynx.",
+  stereoelectroencephalography:
+    "A minimally invasive surgical procedure used to identify epileptogenic zones in the brain.",
+  sphenopalatineganglioneuralgia:
+    "The scientific term for 'brain freeze' or 'ice cream headache'.",
+  spectrophotofluorometry:
+    "An analytical method used to measure the fluorescence of a sample.",
+  sclerectoiridectomy: "Surgical excision of portions of the sclera and iris.",
+  ribulosebisphosphatecarboxylaseoxygenase:
+    "RuBisCO, an enzyme involved in carbon fixation during photosynthesis.",
+  pyrrolizidinealkaloidosis:
+    "Toxicosis caused by ingestion of pyrrolizidine alkaloids.",
+  psychophysicotherapeutics:
+    "Therapeutic treatment involving both psychological and physical elements.",
+  psychoneuroendocrinological:
+    "Relating to the clinical study of hormone fluctuations and behavior.",
+  pseudorhombicuboctahedron:
+    "A convex polyhedron with 8 triangular and 18 square faces.",
+  pseudopseudohypoparathyroidism:
+    "An inherited condition causing short stature and shortened bones.",
+  polyphiloprogenitive: "Extremely prolific; generating many offspring.",
+  photoplethysmography:
+    "An optical technique used to detect blood volume changes.",
+  nucleotidylexotransferase: "An enzyme involved in DNA synthesis.",
+  nonanonacontanonactanonaliagon: "A polygon with 99,999 sides.",
+  neohesperidindihydrochalcone: "An artificial sweetener derived from citrus.",
+  lymphangioleiomyomatosis:
+    "A rare lung disease resulting in abnormal growth of smooth muscle cells.",
+  loncastuximabtesirine: "An antibody-drug conjugate used in cancer treatment.",
+  laryngotracheobronchitis:
+    "Croup, an inflammation of the larynx, trachea, and bronchi.",
+  laparohysterosalpingooophorectomy:
+    "Surgical removal of the uterus, fallopian tubes, and ovaries.",
+  inositolphosphorylceramide: "A sphingolipid found in yeast and plants.",
+  immunoelectrochemiluminescence:
+    "A highly sensitive diagnostic testing method using luminescence.",
+  hypothalamicpituitaryadrenocortical:
+    "Relating to the interaction between the hypothalamus, pituitary gland, and adrenal cortex.",
+  honourificabilitudinity: "The state of being able to achieve honours.",
+  hexakosioihexekontahexaphobia: "The fear of the number 666.",
+  haematospectrophotometrically:
+    "By means of an instrument evaluating blood photometrically.",
+  hematospectrophotometrically:
+    "By means of an instrument evaluating blood photometrically.",
+  fluorotetraferriphlogopite: "A complex synthetic silicate mineral.",
+  ferriprotoporphyrin: "An iron-containing porphyrin compound.",
+  erythrocytapheresis:
+    "A medical procedure that separates red blood cells from the rest of the blood.",
+  encephalocraniocutaneouslipomatosis:
+    "A rare congenital neurocutaneous disorder.",
+  eellogofusciouhipoppokunurious: "A nonsense word meaning 'good'.",
+  diisopropylfluorophosphate: "A highly toxic organophosphorus compound.",
+  dichlorodiphenyltrichloroethane:
+    "DDT, a commonly known synthetic insecticide.",
+  dextrodeorsumversion: "The turning of both eyes downward and to the right.",
+  dermatofibrosarcomaprotuberans:
+    "A rare type of skin cancer that begins in connective tissue.",
+  dehydrothiotoluidine:
+    "A chemical compound used as an intermediate in dye manufacturing.",
+  counterimmunoelectrophoresis:
+    "A laboratory technique used to detect antigens or antibodies.",
+  corticopontocerebellar:
+    "Relating to the neural pathway connecting the cerebral cortex, pons, and cerebellum.",
+  chondromyxohemangioendotheliosarcoma:
+    "A rare type of malignant tumor consisting of multiple tissue types.",
+  cholangiopancreatography:
+    "An imaging technique used to examine the bile ducts and pancreas.",
+  cholangiocholecystocholedochectomy:
+    "Surgical removal of the gallbladder and bile ducts.",
+  chargoggagoggmanchauggagoggchaubunagungamaugg:
+    "A lake in Webster, Massachusetts, known as the longest place name in the US.",
+  canaliculodacryocystorhinostomy:
+    "A surgical procedure to create a new tear drainage pathway.",
+  bromochlorodifluoromethane:
+    "A halon gas used primarily as a fire suppression agent.",
+  bourgeoisification: "The process of becoming bourgeois or middle-class.",
+  antixerophthalmic: "Preventing or curing xerophthalmia (dry eye disease).",
+  acetylglucocoroglaucigenin:
+    "A complex chemical compound native to certain plants.",
   anthropomorphization:
     "The attribution of human characteristics or behavior to a god, animal, or object.",
   antidisestablishmentarianism:
@@ -276,13 +471,6 @@ export const LOCAL_DEFINITIONS: Record<string, string> = {
     "A surgical operation to create a communication between a cerebral ventricle and a cisterna magna.",
 
   // --- Common Homophones & others ---
-  their:
-    "Belonging to or associated with the people or things previously mentioned.",
-  there: "In, at, or to that place or position.",
-  "they're": "Contraction of 'they are'.",
-  to: "Expressing motion in the direction of.",
-  too: "To a higher degree than is desirable.",
-  two: "The number 2.",
   phish:
     "The fraudulent practice of sending emails purporting to be from reputable companies.",
   newb: "A newcomer or novice.",
