@@ -1,855 +1,140 @@
 // Word Lists by Difficulty
-const BABY_TEXT = `Air
-Heir
-Baby
-Bad
-Bag
-Ball
-Bawl
-Bar
-Bat
-Bee
-Be
-Best
-Big
-Bird
-Blue
-Blew
-Book
-Bug
-Bus
-Cake
-Car
-Cat
-Cool
-Cry
-Cup
-Dad
-Dog
-Duck
-Eat
-Elf
-End
-Eye
-Aye
-Face
-Fire
-Fish
-Phish
-Foot
-Gold
-Hand
-Kiss
-Milk
-Mix
-Mom
-Moon
-Mug
-Noob
-Newb
-Pie
-Pi
-Pink
-Rain
-Reign
-Rat
-Red
-Read
-Ruby
-Run
-Sit
-Size
-Sighs
-Snow
-Soda
-Star
-Suck
-Sun
-Son
-Tag
-Tank
-Tap
-Town
-Tree
-Water
-Wind
-Word
-Zoo`;
+// prettier-ignore
+const BABY_WORDS = [
+  "Air", "Heir", "Baby", "Bad", "Bag", "Ball", "Bawl", "Bar",
+  "Bat", "Bee", "Be", "Best", "Big", "Bird", "Blue", "Blew",
+  "Book", "Bug", "Bus", "Cake", "Car", "Cat", "Cool", "Cry",
+  "Cup", "Dad", "Dog", "Duck", "Eat", "Elf", "End", "Eye",
+  "Aye", "Face", "Fire", "Fish", "Phish", "Foot", "Gold", "Hand",
+  "Kiss", "Milk", "Mix", "Mom", "Moon", "Mug", "Noob", "Newb",
+  "Pie", "Pi", "Pink", "Rain", "Reign", "Rat", "Red", "Read",
+  "Ruby", "Run", "Sit", "Size", "Sighs", "Snow", "Soda", "Star",
+  "Suck", "Sun", "Son", "Tag", "Tank", "Tap", "Town", "Tree",
+  "Water", "Wind", "Word", "Zoo",
+];
 
-const CAKEWALK_TEXT = `Absorb
-Angel
-Ash
-Bingo
-Black
-Boss
-Brain
-Burger
-Burial
-Cabin
-Circle
-Clever
-Cliff
-Clutch
-Comply
-Convey
-Crowd
-Dairy
-Defy
-Demon
-Echo
-Emoji
-Erupt
-Exert
-Exile
-Film
-Filter
-Flower
-Flour
-Foggy
-Forbid
-Gender
-Ghost
-Giant
-Greedy
-Green
-Grub
-Hello
-Hotel
-House
-Human
-Hungry
-Ink
-Intent
-Iron
-Irony
-Land
-Length
-Margin
-Melt
-Meow
-Monk
-Noble
-Nobel
-Orange
-Pasta
-Pear
-Pair
-Power
-Prank
-Pray
-Prey
-Proof
-Quack
-Quill
-Rally
-Random
-Reply
-Robust
-Rot
-Wrought
-Shake
-Shark
-Sigh
-Psi
-Sock
-State
-Stew
-Still
-Stumble
-Trauma
-Twist
-Update
-Vein
-Vain
-Walk
-Way
-Weigh
-White
-Workout
-Wrist`;
+// prettier-ignore
+const CAKEWALK_WORDS = [
+  "Absorb", "Angel", "Ash", "Bingo", "Black", "Boss", "Brain", "Burger",
+  "Burial", "Cabin", "Circle", "Clever", "Cliff", "Clutch", "Comply", "Convey",
+  "Crowd", "Dairy", "Defy", "Demon", "Echo", "Emoji", "Erupt", "Exert",
+  "Exile", "Film", "Filter", "Flower", "Flour", "Foggy", "Forbid", "Gender",
+  "Ghost", "Giant", "Greedy", "Green", "Grub", "Hello", "Hotel", "House",
+  "Human", "Hungry", "Ink", "Intent", "Iron", "Irony", "Land", "Length",
+  "Margin", "Melt", "Meow", "Monk", "Noble", "Nobel", "Orange", "Pasta",
+  "Pear", "Pair", "Power", "Prank", "Pray", "Prey", "Proof", "Quack",
+  "Quill", "Rally", "Random", "Reply", "Robust", "Rot", "Wrought", "Shake",
+  "Shark", "Sigh", "Psi", "Sock", "State", "Stew", "Still", "Stumble",
+  "Trauma", "Twist", "Update", "Vein", "Vain", "Walk", "Way", "Weigh",
+  "White", "Workout", "Wrist",
+];
 
-const LEARNER_TEXT = `Abolish
-Absence
-Abstract
-Agaric
-Agnostic
-Akin
-Albeit
-Alliance
-Alphabet
-Anatomical
-Answer
-Appetite
-Armor
-Armour
-Atone
-Automatic
-Await
-Bamboo
-Bayonet
-Betray
-Biography
-Bizarre
-Breakthrough
-Broccoli
-Catalog
-Catalogue
-Center
-Centre
-Chicken
-Chronic
-Church
-Congratulate
-Cooking
-Curious
-Damage
-Debris
-Diesel
-Dilate
-Dolphin
-Enact
-Excellent
-Familiar
-Firefighter
-Flavor
-Flavour
-Formidable
-Frolic
-Furious
-Gallant
-Gradual
-Guideline
-Harbor
-Harbour
-Heresy
-Immobilize
-Immobilise
-Integrity
-Ionize
-Ionise
-Lactose
-Lather
-Leafy
-Liable
-Lightning
-Magnificent
-Meditate
-Normal
-Oasis
-Obesity
-Offender
-Overdue
-Overdo
-Paradox
-Password
-Pigeon
-Pidgin
-Plethora
-Powder
-Probably
-Pulsar
-Pumpkin
-Pursuit
-Queen
-Recipient
-Refrain
-Refugee
-Remarkable
-Rye
-Wry
-Scrutiny
-Secret
-Seldom
-Semicircle
-Sigma
-Sleigh
-Slay
-Sniffle
-Special
-Spooky
-Strategic
-Subsidy
-Swamp
-Syntax
-Tangerine
-Telepathy
-Thesis
-Tremendous
-Twenty
-Uncomfortable
-Vague
-Villain
-Voluntary
-Walnut
-Warrior
-Window
-Zombie`;
+// prettier-ignore
+const LEARNER_WORDS = [
+  "Abolish", "Absence", "Abstract", "Agaric", "Agnostic", "Akin", "Albeit", "Alliance",
+  "Alphabet", "Anatomical", "Answer", "Appetite", "Armor", "Armour", "Atone", "Automatic",
+  "Await", "Bamboo", "Bayonet", "Betray", "Biography", "Bizarre", "Breakthrough", "Broccoli",
+  "Catalog", "Catalogue", "Center", "Centre", "Chicken", "Chronic", "Church", "Congratulate",
+  "Cooking", "Curious", "Damage", "Debris", "Diesel", "Dilate", "Dolphin", "Enact",
+  "Excellent", "Familiar", "Firefighter", "Flavor", "Flavour", "Formidable", "Frolic", "Furious",
+  "Gallant", "Gradual", "Guideline", "Harbor", "Harbour", "Heresy", "Immobilize", "Immobilise",
+  "Integrity", "Ionize", "Ionise", "Lactose", "Lather", "Leafy", "Liable", "Lightning",
+  "Magnificent", "Meditate", "Normal", "Oasis", "Obesity", "Offender", "Overdue", "Overdo",
+  "Paradox", "Password", "Pigeon", "Pidgin", "Plethora", "Powder", "Probably", "Pulsar",
+  "Pumpkin", "Pursuit", "Queen", "Recipient", "Refrain", "Refugee", "Remarkable", "Rye",
+  "Wry", "Scrutiny", "Secret", "Seldom", "Semicircle", "Sigma", "Sleigh", "Slay",
+  "Sniffle", "Special", "Spooky", "Strategic", "Subsidy", "Swamp", "Syntax", "Tangerine",
+  "Telepathy", "Thesis", "Tremendous", "Twenty", "Uncomfortable", "Vague", "Villain", "Voluntary",
+  "Walnut", "Warrior", "Window", "Zombie",
+];
 
-const INTERMEDIATE_TEXT = `Abditive
-Abdomen
-Abhorrent
-Abscond
-Accomplishment
-Accumulation
-Adolescent
-Adversity
-Aerodynamic
-Agriculture
-Apostrophe
-Articulate
-Asphyxiation
-Aspiration
-Assumption
-Asthma
-Atmospheric
-Beneficiary
-Benevolence
-Blizzard
-Bronchitis
-Brusque
-Calibration
-Candlelight
-Caustic
-Champagne
-Charisma
-Chlorophyll
-Christmas
-Cognitive
-Colonel
-Kernel
-Combustible
-Commodity
-Concentration
-Consumption
-Contour
-Controversial
-Cuisine
-Dauntless
-Deployment
-Derogatory
-Detrimental
-Diplomatic
-Disappointment
-Disconsolate
-Division
-Doctrine
-Elaborate
-Embarrassment
-Embassy
-Enchantment
-Encore
-Endeavor
-Endeavour
-Epiphany
-Epsilon
-Erratic
-Euphoria
-Exaggerate
-Excalibur
-Exorcism
-Expenditure
-Exponential
-Extravagant
-Fantasy
-Favorable
-Favourable
-Featherweight
-Fictitious
-Fjord
-Flamboyant
-Fluorescent
-Forthcoming
-Frostbite
-Fruition
-Gastronomic
-Gazebo
-Gibberish
-Gingerbread
-Glacier
-Gratitude
-Gravestone
-Hailstone
-Heritage
-Hexagonal
-Hibernation
-Hornswoggle
-Hourglass
-Humanitarian
-Hypothesis
-Ideological
-Idiom
-Imminent
-Imprisonment
-Independence
-Indifference
-Inhabitant
-Intermediate
-Intermission
-Juxtaposition
-Kangaroo
-Legendary
-Limousine
-Livery
-Mathematician
-Melancholy
-Metabolism
-Methodology
-Microorganism
-Misconception
-Mistletoe
-Multiplication
-Myopic
-Nebulous
-Necromancer
-Negotiation
-Neighboring
-Neighbouring
-Nonplussed
-Notorious
-Obituary
-Oblivious
-Opaque
-Optimism
-Palatine
-Pantograph
-Parallel
-Participation
-Passionate
-Peppermint
-Periodically
-Personnel
-Pestilence
-Photographer
-Pomegranate
-Portfolio
-Practitioner
-Predominantly
-Present
-Problematic
-Proclamation
-Procrastinate
-Pronunciation
-Propaganda
-Protocol
-Pygmy
-Ravenous
-Recession
-Reincarnation
-Reliability
-Residential
-Resilience
-Resurrection
-Revelation
-Rhythm
-Ricochet
-Sabotage
-Sachet
-Sashay
-Sapphire
-Scholarship
-Sentimental
-Separation
-Shareholder
-Significance
-Skeleton
-Snowflake
-Solidarity
-Spokesperson
-Steadfast
-Stereotype
-Supposedly
-Surrogate
-Surveillance
-Susceptible
-Syllable
-Symmetrical
-Systematic
-Technological
-Thesaurus
-Transaction
-Translucent
-Transparency
-Transportation
-Understand
-Unprecedented
-Validity
-Venerate
-Violation
-Vulnerability
-Wednesday
-Wholeheartedly
-Worthwhile`;
+// prettier-ignore
+const INTERMEDIATE_WORDS = [
+  "Abditive", "Abdomen", "Abhorrent", "Abscond", "Accomplishment", "Accumulation", "Adolescent", "Adversity",
+  "Aerodynamic", "Agriculture", "Apostrophe", "Articulate", "Asphyxiation", "Aspiration", "Assumption", "Asthma",
+  "Atmospheric", "Beneficiary", "Benevolence", "Blizzard", "Bronchitis", "Brusque", "Calibration", "Candlelight",
+  "Caustic", "Champagne", "Charisma", "Chlorophyll", "Christmas", "Cognitive", "Colonel", "Kernel",
+  "Combustible", "Commodity", "Concentration", "Consumption", "Contour", "Controversial", "Cuisine", "Dauntless",
+  "Deployment", "Derogatory", "Detrimental", "Diplomatic", "Disappointment", "Disconsolate", "Division", "Doctrine",
+  "Elaborate", "Embarrassment", "Embassy", "Enchantment", "Encore", "Endeavor", "Endeavour", "Epiphany",
+  "Epsilon", "Erratic", "Euphoria", "Exaggerate", "Excalibur", "Exorcism", "Expenditure", "Exponential",
+  "Extravagant", "Fantasy", "Favorable", "Favourable", "Featherweight", "Fictitious", "Fjord", "Flamboyant",
+  "Fluorescent", "Forthcoming", "Frostbite", "Fruition", "Gastronomic", "Gazebo", "Gibberish", "Gingerbread",
+  "Glacier", "Gratitude", "Gravestone", "Hailstone", "Heritage", "Hexagonal", "Hibernation", "Hornswoggle",
+  "Hourglass", "Humanitarian", "Hypothesis", "Ideological", "Idiom", "Imminent", "Imprisonment", "Independence",
+  "Indifference", "Inhabitant", "Intermediate", "Intermission", "Juxtaposition", "Kangaroo", "Legendary", "Limousine",
+  "Livery", "Mathematician", "Melancholy", "Metabolism", "Methodology", "Microorganism", "Misconception", "Mistletoe",
+  "Multiplication", "Myopic", "Nebulous", "Necromancer", "Negotiation", "Neighboring", "Neighbouring", "Nonplussed",
+  "Notorious", "Obituary", "Oblivious", "Opaque", "Optimism", "Palatine", "Pantograph", "Parallel",
+  "Participation", "Passionate", "Peppermint", "Periodically", "Personnel", "Pestilence", "Photographer", "Pomegranate",
+  "Portfolio", "Practitioner", "Predominantly", "Present", "Problematic", "Proclamation", "Procrastinate", "Pronunciation",
+  "Propaganda", "Protocol", "Pygmy", "Ravenous", "Recession", "Reincarnation", "Reliability", "Residential",
+  "Resilience", "Resurrection", "Revelation", "Rhythm", "Ricochet", "Sabotage", "Sachet", "Sashay",
+  "Sapphire", "Scholarship", "Sentimental", "Separation", "Shareholder", "Significance", "Skeleton", "Snowflake",
+  "Solidarity", "Spokesperson", "Steadfast", "Stereotype", "Supposedly", "Surrogate", "Surveillance", "Susceptible",
+  "Syllable", "Symmetrical", "Systematic", "Technological", "Thesaurus", "Transaction", "Translucent", "Transparency",
+  "Transportation", "Understand", "Unprecedented", "Validity", "Venerate", "Violation", "Vulnerability", "Wednesday",
+  "Wholeheartedly", "Worthwhile",
+];
 
-const HEATED_TEXT = `Abacaxi
-Abasia
-Accommodate
-Acculturate
-Aegis
-Aforementioned
-Aggrandize
-Aggrandise
-Agoraphobia
-Agoraphobic
-Ambidextrous
-Ambiguous
-Anaphylactic
-Anemone
-Anisosquaric
-Apocryphal
-Apothecary
-Asphyxiation
-Astigmatism
-Asunder
-Ataraxy
-Attorney
-Bandeau
-Belvedere
-Betwixt
-Blatherskite
-Bodacious
-Brucellosis
-Bucolic
-Cacophony
-Calamitous
-Calumny
-Capoeira
-Capricious
-Captious
-Cerulean
-Charcuterie
-Chauffeur
-Chronological
-Cinematographer
-Clandestine
-Coalescence
-Codicil
-Colloquialism
-Comeuppance
-Commodore
-Compunction
-Consanguine
-Consummate
-Correspondence
-Counterintuitive
-Culvert
-Cyrillic
-Defenestration
-Deleterious
-Depilatory
-Diminution
-Discombobulate
-Dodecahedron
-Eloquent
-Elysian
-Elision
-Epitome
-Extraterrestrial
-Facsimile
-Fastidious
-Fissiparous
-Flummox
-Fuchsia
-Gentrification
-Glaucomatous
-Glockenspiel
-Gobbledygook
-Gobbledegook
-Grandiloquent
-Handkerchief
-Harpsichord
-Hemoglobin
-Haemoglobin
-Heterozygous
-Hierarchy
-Homeopathy
-Homoeopathy
-Homogeneous
-Horticulturist
-Hypermetropia
-Iconoclast
-Incandescent
-Inchoate
-Incoagulable
-Indefatigable
-Ingenious
-Insinuate
-Isometropia
-Isthmus
-Kaleidoscope
-Languid
-Legislation
-Lexicography
-Liaison
-Lugubrious
-Lymphangiography
-Macabre
-Magniloquent
-Malapropism
-Martyrdom
-Mellifluous
-Menagerie
-Microminiaturisation
-Milieu
-Miniscule
-Minuscule
-Miscellaneous
-Monochromatic
-Monosyllabic
-Multidimensionality
-Municipal
-Myriad
-Narcissistic
-Nauseous
-Neuroplasticity
-Nocturn
-Nocturne
-Nomenclature
-Obfuscation
-Paradigm
-Parliamentary
-Paroxysm
-Pecuniary
-Pessimistic
-Phantasmagoria
-Pharaoh
-Farrow
-Phenomenon
-Phlegm
-Photogeochemistry
-Pirouette
-Pneumatic
-Polemic
-Polychromatic
-Polydactyly
-Predecessor
-Prestigious
-Psychological
-Puerile
-Pugnacious
-Querimony
-Quixotry
-Rambunctious
-Rehabilitation
-Reminiscence
-Rendezvous
-Sagacious
-Sanguine
-Sarcophagus
-Scintillate
-Semaphore
-Sequacious
-Sequoia
-Silhouette
-Simultaneous
-Sovereignty
-Subpoena
-Subterranean
-Supercentenarian
-Supersede
-Supercede
-Syllepsis
-Symbiosis
-Syzygy
-Tempestuous
-Tetraphobia
-Therapeutic
-Thermionic
-Thermoluminescence
-Triphosphate
-Ubiquitous
-Uncharacteristic
-Unintelligible
-Verbatim
-Vexatious
-Vignette
-Xenogeneic
-Zephyr
-Zygote`;
+// prettier-ignore
+const HEATED_WORDS = [
+  "Abacaxi", "Abasia", "Accommodate", "Acculturate", "Aegis", "Aforementioned", "Aggrandize", "Aggrandise",
+  "Agoraphobia", "Agoraphobic", "Ambidextrous", "Ambiguous", "Anaphylactic", "Anemone", "Anisosquaric", "Apocryphal",
+  "Apothecary", "Asphyxiation", "Astigmatism", "Asunder", "Ataraxy", "Attorney", "Bandeau", "Belvedere",
+  "Betwixt", "Blatherskite", "Bodacious", "Brucellosis", "Bucolic", "Cacophony", "Calamitous", "Calumny",
+  "Capoeira", "Capricious", "Captious", "Cerulean", "Charcuterie", "Chauffeur", "Chronological", "Cinematographer",
+  "Clandestine", "Coalescence", "Codicil", "Colloquialism", "Comeuppance", "Commodore", "Compunction", "Consanguine",
+  "Consummate", "Correspondence", "Counterintuitive", "Culvert", "Cyrillic", "Defenestration", "Deleterious", "Depilatory",
+  "Diminution", "Discombobulate", "Dodecahedron", "Eloquent", "Elysian", "Elision", "Epitome", "Extraterrestrial",
+  "Facsimile", "Fastidious", "Fissiparous", "Flummox", "Fuchsia", "Gentrification", "Glaucomatous", "Glockenspiel",
+  "Gobbledygook", "Gobbledegook", "Grandiloquent", "Handkerchief", "Harpsichord", "Hemoglobin", "Haemoglobin", "Heterozygous",
+  "Hierarchy", "Homeopathy", "Homoeopathy", "Homogeneous", "Horticulturist", "Hypermetropia", "Iconoclast", "Incandescent",
+  "Inchoate", "Incoagulable", "Indefatigable", "Ingenious", "Insinuate", "Isometropia", "Isthmus", "Kaleidoscope",
+  "Languid", "Legislation", "Lexicography", "Liaison", "Lugubrious", "Lymphangiography", "Macabre", "Magniloquent",
+  "Malapropism", "Martyrdom", "Mellifluous", "Menagerie", "Microminiaturisation", "Milieu", "Miniscule", "Minuscule",
+  "Miscellaneous", "Monochromatic", "Monosyllabic", "Multidimensionality", "Municipal", "Myriad", "Narcissistic", "Nauseous",
+  "Neuroplasticity", "Nocturn", "Nocturne", "Nomenclature", "Obfuscation", "Paradigm", "Parliamentary", "Paroxysm",
+  "Pecuniary", "Pessimistic", "Phantasmagoria", "Pharaoh", "Farrow", "Phenomenon", "Phlegm", "Photogeochemistry",
+  "Pirouette", "Pneumatic", "Polemic", "Polychromatic", "Polydactyly", "Predecessor", "Prestigious", "Psychological",
+  "Puerile", "Pugnacious", "Querimony", "Quixotry", "Rambunctious", "Rehabilitation", "Reminiscence", "Rendezvous",
+  "Sagacious", "Sanguine", "Sarcophagus", "Scintillate", "Semaphore", "Sequacious", "Sequoia", "Silhouette",
+  "Simultaneous", "Sovereignty", "Subpoena", "Subterranean", "Supercentenarian", "Supersede", "Supercede", "Syllepsis",
+  "Symbiosis", "Syzygy", "Tempestuous", "Tetraphobia", "Therapeutic", "Thermionic", "Thermoluminescence", "Triphosphate",
+  "Ubiquitous", "Uncharacteristic", "Unintelligible", "Verbatim", "Vexatious", "Vignette", "Xenogeneic", "Zephyr",
+  "Zygote",
+];
 
-const GENIUS_TEXT = `Abdominothoracic
-Absquatulate
-Acetaminophen
-Achromatophil
-Achromatophilia
-Acquiesce
-Allotransplantation
-Anachronistic
-Aneurysmorrhaphy
-Antediluvian
-Arthroereisis
-Ascosporogenous
-Baccalaureate
-Batrachophobia
-Bogolanfini
-Borborygmus
-Bougainvillea
-Bourgeoisie
-Buckminsterfullerene
-Bureaucracy
-Chronopsychophysiology
-Clinicoechocardiographic
-Compartmentalization
--sation
-Contradistinguish
-Countermajoritarianism
-Craniosynostosis
-Cryptoendolithic
-Dendrochronology
-Deoxyribonucleic
-Dichotomization
-Eclaircissement
-Effervescent
-Electrotelethermometer
-Entrepreneur
-Ethnomethodology
-Ethnopsychopharmacology
-Flibbertigibbet
-Fossiliferous
-Frontoethmoidectomy
-Geitonogamy
-Geochronostratigraphical
-Glyceraldehyde
-Goniosynechialysis
-Gubernatorial
-Hemispherectomy
-Hieroglyphics
-Hypercholesterolemia
-Hypergammaglobulinemia
-Hypergonadotropic
-Hyperpolysyllabic
-Hypoparathyroidism
-Incomprehensibility
-Infinitesimal
-Infundibulum
-Institutionalization
-Jurisprudence
-Labyrinthine
-Lepidopterology
-Machiavellian
-Mechanotransduction
-Metonymic
-Morphodifferentiation
-Necrobiosislipoidica
-Neuropsychological
-Oligonucleotide
-Onomatopoeia
-Orthogeosyncline
-Panproctocolectomy
-Parallelogrammatic
-Paraphernalia
-Perspicacious
-Photoreconnaissance
-Plasmodiumfalciparum
-Plenipotentiary
-Portmanteau
-Prestidigitation
-Proceleusmatic
-Prognostication
-Pseudohyperaldosteronism
-Pseudoparallelodromous
-Pseudoriemannian
-Psychotomimetic
-Pulchritudinous
-Pusillanimous
-Quasiautobiographical
-Quasquicentennial
-Quindecasyllabic
-Quoddamodotative
-Radioallergosorbent
-Radiometeorograph
-Rhinorrhagia
-Serendipity
-Sesquipedalian
-Soliloquy
-Spectrophotometer
-Subcompartmentalization
-Subdermatoglyphic
-Supererogatory
-Superferromagnetism
-Susurration
-Temporomandibular
-Thalassophobia
-Thermochromatography
-Tintinnabulation
-Transinstitutionalization
-Trinitrotoluene
-Utilitarianism
-Verisimilitude
-Worcestershire
-Xiphiplastron
-Xylotypographic`;
+// prettier-ignore
+const GENIUS_WORDS = [
+  "Abdominothoracic", "Absquatulate", "Acetaminophen", "Achromatophil", "Achromatophilia", "Acquiesce", "Allotransplantation", "Anachronistic",
+  "Aneurysmorrhaphy", "Antediluvian", "Arthroereisis", "Ascosporogenous", "Baccalaureate", "Batrachophobia", "Bogolanfini", "Borborygmus",
+  "Bougainvillea", "Bourgeoisie", "Buckminsterfullerene", "Bureaucracy", "Chronopsychophysiology", "Clinicoechocardiographic", "Compartmentalization", "Contradistinguish",
+  "Countermajoritarianism", "Craniosynostosis", "Cryptoendolithic", "Dendrochronology", "Deoxyribonucleic", "Dichotomization", "Eclaircissement", "Effervescent",
+  "Electrotelethermometer", "Entrepreneur", "Ethnomethodology", "Ethnopsychopharmacology", "Flibbertigibbet", "Fossiliferous", "Frontoethmoidectomy", "Geitonogamy",
+  "Geochronostratigraphical", "Glyceraldehyde", "Goniosynechialysis", "Gubernatorial", "Hemispherectomy", "Hieroglyphics", "Hypercholesterolemia", "Hypergammaglobulinemia",
+  "Hypergonadotropic", "Hyperpolysyllabic", "Hypoparathyroidism", "Incomprehensibility", "Infinitesimal", "Infundibulum", "Institutionalization", "Jurisprudence",
+  "Labyrinthine", "Lepidopterology", "Machiavellian", "Mechanotransduction", "Metonymic", "Morphodifferentiation", "Necrobiosislipoidica", "Neuropsychological",
+  "Oligonucleotide", "Onomatopoeia", "Orthogeosyncline", "Panproctocolectomy", "Parallelogrammatic", "Paraphernalia", "Perspicacious", "Photoreconnaissance",
+  "Plasmodiumfalciparum", "Plenipotentiary", "Portmanteau", "Prestidigitation", "Proceleusmatic", "Prognostication", "Pseudohyperaldosteronism", "Pseudoparallelodromous",
+  "Pseudoriemannian", "Psychotomimetic", "Pulchritudinous", "Pusillanimous", "Quasiautobiographical", "Quasquicentennial", "Quindecasyllabic", "Quoddamodotative",
+  "Radioallergosorbent", "Radiometeorograph", "Rhinorrhagia", "Serendipity", "Sesquipedalian", "Soliloquy", "Spectrophotometer", "Subcompartmentalization",
+  "Subdermatoglyphic", "Supererogatory", "Superferromagnetism", "Susurration", "Temporomandibular", "Thalassophobia", "Thermochromatography", "Tintinnabulation",
+  "Transinstitutionalization", "Trinitrotoluene", "Utilitarianism", "Verisimilitude", "Worcestershire", "Xiphiplastron", "Xylotypographic",
+];
 
-const POLYMATH_TEXT = `Acetylglucocoroglaucigenin
-Adrenocorticotropin
--trophin
-Anthropomorphization
--sation
-Antidisestablishmentarianism
-Antixerophthalmic
-Autothaumaturgist
-Bourgeoisification
-Bromochlorodifluoromethane
-Canaliculodacryocystorhinostomy
-Chargoggagoggmanchauggagoggchaubunagungamaugg
-Cholangiocholecystocholedochectomy
-Cholangiopancreatography
-Chondromyxohemangioendotheliosarcoma
-Convolvulaceous
-Corticopontocerebellar
-Counterimmunoelectrophoresis
-Dehydrothiotoluidine
-Dermatofibrosarcomaprotuberans
-Dextrodeorsumversion
-Dichlorodiphenyltrichloroethane
-Diisopropylfluorophosphate
-Eellogofusciouhipoppokunurious
-Encephalocraniocutaneouslipomatosis
-Erythrocytapheresis
-Ferriprotoporphyrin
-Floccinaucinihilipilification
-Fluorotetraferriphlogopite
-Gastroenterologist
-Gegenstandstheorie
-Hematospectrophotometrically
-Haematospectrophotometrically
-Hexakosioihexekontahexaphobia
-Hippopotomonstrosesquipedaliophobia
--quippedaliophobia
-Honorificabilitudinity
-Honourificabilitudinity
-Hypothalamicpituitaryadrenocortical
-Immunoelectrochemiluminescence
-Inositolphosphorylceramide
-Laparohysterosalpingooophorectomy
-Laryngotracheobronchitis
-Loncastuximabtesirine
-Lymphangioleiomyomatosis
-Micropachycephalosaurus
-Neohesperidindihydrochalcone
-Nonanonacontanonactanonaliagon
-Nucleotidylexotransferase
-Otorhinolaryngological
-Photoplethysmography
-Pneumoencephalography
-Pneumonoultramicroscopicsilicovolcanoconiosis
-Polyphiloprogenitive
-Pseudopseudohypoparathyroidism
-Pseudorhombicuboctahedron
-Psychoneuroendocrinological
-Psychoneuroimmunology
-Psychophysicotherapeutics
-Pyrrolizidinealkaloidosis
-Ribulosebisphosphatecarboxylaseoxygenase
-Sclerectoiridectomy
-Spectrophotofluorometry
-Sphenopalatineganglioneuralgia
-Sphygmomanometer
-Stereoelectroencephalography
-Supercalifragilisticexpialidocious
-Thyroparathyroidectomy
-Tonsillopharyngitis
-Uvulopalatopharyngoplasty
-Ventriculocisternostomy`;
+// prettier-ignore
+const POLYMATH_WORDS = [
+  "Acetylglucocoroglaucigenin", "Adrenocorticotropin", "Anthropomorphization", "Antidisestablishmentarianism", "Antixerophthalmic", "Autothaumaturgist", "Bourgeoisification", "Bromochlorodifluoromethane",
+  "Canaliculodacryocystorhinostomy", "Chargoggagoggmanchauggagoggchaubunagungamaugg", "Cholangiocholecystocholedochectomy", "Cholangiopancreatography", "Chondromyxohemangioendotheliosarcoma", "Convolvulaceous", "Corticopontocerebellar", "Counterimmunoelectrophoresis",
+  "Dehydrothiotoluidine", "Dermatofibrosarcomaprotuberans", "Dextrodeorsumversion", "Dichlorodiphenyltrichloroethane", "Diisopropylfluorophosphate", "Eellogofusciouhipoppokunurious", "Encephalocraniocutaneouslipomatosis", "Erythrocytapheresis",
+  "Ferriprotoporphyrin", "Floccinaucinihilipilification", "Fluorotetraferriphlogopite", "Gastroenterologist", "Gegenstandstheorie", "Hematospectrophotometrically", "Haematospectrophotometrically", "Hexakosioihexekontahexaphobia",
+  "Hippopotomonstrosesquipedaliophobia", "Honorificabilitudinity", "Honourificabilitudinity", "Hypothalamicpituitaryadrenocortical", "Immunoelectrochemiluminescence", "Inositolphosphorylceramide", "Laparohysterosalpingooophorectomy", "Laryngotracheobronchitis",
+  "Loncastuximabtesirine", "Lymphangioleiomyomatosis", "Micropachycephalosaurus", "Neohesperidindihydrochalcone", "Nonanonacontanonactanonaliagon", "Nucleotidylexotransferase", "Otorhinolaryngological", "Photoplethysmography",
+  "Pneumoencephalography", "Pneumonoultramicroscopicsilicovolcanoconiosis", "Polyphiloprogenitive", "Pseudopseudohypoparathyroidism", "Pseudorhombicuboctahedron", "Psychoneuroendocrinological", "Psychoneuroimmunology", "Psychophysicotherapeutics",
+  "Pyrrolizidinealkaloidosis", "Ribulosebisphosphatecarboxylaseoxygenase", "Sclerectoiridectomy", "Spectrophotofluorometry", "Sphenopalatineganglioneuralgia", "Sphygmomanometer", "Stereoelectroencephalography", "Supercalifragilisticexpialidocious",
+  "Thyroparathyroidectomy", "Tonsillopharyngitis", "Uvulopalatopharyngoplasty", "Ventriculocisternostomy",
+];
 
 // Local Definitions for Offline Support
 export const LOCAL_DEFINITIONS: Record<string, string> = {
@@ -1006,22 +291,16 @@ export const LOCAL_DEFINITIONS: Record<string, string> = {
   sigh: "Emit a long, deep, audible breath expressing sadness, relief, or tiredness.",
 };
 
-const parseWords = (text: string) =>
-  text
-    .split("\n")
-    .map((w) => w.trim())
-    .filter((w) => w.length > 0 && !w.startsWith("-"));
-
 // Sorted Word Lists (Shortest to Longest)
 const sortByLength = (arr: string[]) => arr.sort((a, b) => a.length - b.length);
 
-const baby = sortByLength(parseWords(BABY_TEXT));
-const cakewalk = sortByLength(parseWords(CAKEWALK_TEXT));
-const learner = sortByLength(parseWords(LEARNER_TEXT));
-const intermediate = sortByLength(parseWords(INTERMEDIATE_TEXT));
-const heated = sortByLength(parseWords(HEATED_TEXT));
-const genius = sortByLength(parseWords(GENIUS_TEXT));
-const polymath = sortByLength(parseWords(POLYMATH_TEXT));
+const baby = sortByLength(BABY_WORDS);
+const cakewalk = sortByLength(CAKEWALK_WORDS);
+const learner = sortByLength(LEARNER_WORDS);
+const intermediate = sortByLength(INTERMEDIATE_WORDS);
+const heated = sortByLength(HEATED_WORDS);
+const genius = sortByLength(GENIUS_WORDS);
+const polymath = sortByLength(POLYMATH_WORDS);
 const omniscient = sortByLength([
   ...baby,
   ...cakewalk,
