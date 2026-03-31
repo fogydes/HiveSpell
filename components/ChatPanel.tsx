@@ -545,11 +545,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
 
   return (
     <div
-      className="fixed inset-0 z-[100] bg-black/88 backdrop-blur-md p-0 sm:p-4 animate-fade-in"
+      className="fixed inset-0 z-100 bg-black/88 backdrop-blur-md p-0 sm:p-4 animate-fade-in"
       onClick={onClose}
     >
       <div
-        className="relative mx-auto flex h-full w-full overflow-hidden rounded-none border border-surface/80 bg-panel shadow-[0_32px_120px_rgba(0,0,0,0.45)] animate-scale-in sm:h-[88vh] sm:w-[94vw] sm:max-w-[1520px] sm:rounded-[28px]"
+        className="relative mx-auto flex h-full w-full overflow-hidden rounded-none border border-surface/80 bg-panel shadow-[0_32px_120px_rgba(0,0,0,0.45)] animate-scale-in sm:h-[88vh] sm:w-[94vw] sm:max-w-380 sm:rounded-[28px]"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -561,7 +561,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
         </button>
 
         <aside
-          className={`${selectedFriendId ? "hidden md:flex" : "flex"} w-full flex-col border-r border-surface/70 bg-black/10 md:w-[272px] md:min-w-[272px]`}
+          className={`${selectedFriendId ? "hidden md:flex" : "flex"} w-full flex-col border-r border-surface/70 bg-black/10 md:w-68 md:min-w-68`}
         >
           <div className="border-b border-surface/70 px-4 pb-4 pt-6 md:px-5">
             <div className="mb-4 flex items-center justify-between">
@@ -701,7 +701,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
                         : "border-transparent hover:border-surface/80 hover:bg-surface/30"
                     }`}
                   >
-                    <div className="relative flex-shrink-0">
+                    <div className="relative shrink-0">
                       <img
                         src={getAvatarUrl({
                           id: conversation.friendId,
@@ -712,7 +712,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
                         className="h-12 w-12 rounded-full border border-surface object-cover"
                       />
                       {conversation.unreadCount > 0 && (
-                        <span className="absolute -right-1 -top-1 flex min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-black">
+                        <span className="absolute -right-1 -top-1 flex min-w-4.5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-black">
                           {conversation.unreadCount}
                         </span>
                       )}
@@ -899,8 +899,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
                                     >
                                       ⋮
                                     </button>
-                                    {activeMenu === message.id && (
-                                      <div className="absolute right-full top-0 z-20 mr-2 min-w-[110px] overflow-hidden rounded-xl border border-surface/70 bg-panel shadow-2xl">
+                                      {activeMenu === message.id && (
+                                      <div className="absolute right-full top-0 z-20 mr-2 min-w-27.5 overflow-hidden rounded-xl border border-surface/70 bg-panel shadow-2xl">
                                         {message.content && (
                                           <button
                                             onClick={() => startEdit(message)}
@@ -940,10 +940,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
                                         />
                                       ) : message.attachment_type === "voice" ? (
                                         <div className="rounded-2xl border border-black/10 bg-black/10 p-2">
-                                          <audio
+                                            <audio
                                             controls
                                             src={message.attachment_url}
-                                            className="h-9 max-w-[220px]"
+                                            className="h-9 max-w-55"
                                             style={{ filter: isOwn ? "none" : "invert(1)" }}
                                           />
                                         </div>
@@ -1002,7 +1002,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
                                   ) : (
                                     message.content && (
                                       <p
-                                        className={`whitespace-pre-wrap break-words text-sm leading-6 ${
+                                        className={`whitespace-pre-wrap wrap-break-word text-sm leading-6 ${
                                           isOwn ? "text-black" : "text-text-main"
                                         }`}
                                       >
@@ -1032,7 +1032,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
                   </div>
 
                   <div className="border-t border-surface/70 px-3 py-3 sm:px-5 sm:py-4">
-                    <div className="flex items-end gap-2 rounded-[24px] border border-surface/70 bg-surface/25 px-3 py-3 sm:gap-3 sm:px-4">
+                    <div className="flex items-end gap-2 rounded-3xl border border-surface/70 bg-surface/25 px-3 py-3 sm:gap-3 sm:px-4">
                       <button
                         onClick={() => fileInputRef.current?.click()}
                         disabled={uploading}
@@ -1094,7 +1094,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
                 </div>
 
                 <aside
-                  className={`${showInfoPanel ? "flex" : "hidden"} absolute inset-y-0 right-0 z-20 min-h-0 w-full max-w-[320px] flex-col border-l border-surface/70 bg-panel/95 backdrop-blur-xl md:relative md:w-[280px] md:min-w-[280px]`}
+                  className={`${showInfoPanel ? "flex" : "hidden"} absolute inset-y-0 right-0 z-20 min-h-0 w-full max-w-[320px] flex-col border-l border-surface/70 bg-panel/95 backdrop-blur-xl md:relative md:w-70 md:min-w-70`}
                 >
                   <div className="shrink-0 border-b border-surface/70 px-4 py-4 text-center md:px-5 md:py-4">
                     <div className="mb-3 flex items-center justify-between">
