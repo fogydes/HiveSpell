@@ -48,11 +48,11 @@ const StatCard: React.FC<{
         : "text-text-main";
 
   return (
-    <div className="rounded-[24px] border border-surface/80 bg-black/20 px-4 py-4 backdrop-blur-md">
+    <div className="rounded-[20px] border border-surface/80 bg-black/20 px-4 py-4 backdrop-blur-md sm:rounded-[24px]">
       <p className="text-[10px] uppercase tracking-[0.32em] text-text-muted/55">
         {label}
       </p>
-      <p className={`mt-3 text-3xl font-black leading-none ${accentClass}`}>
+      <p className={`mt-3 text-2xl font-black leading-none sm:text-3xl ${accentClass}`}>
         {value}
       </p>
       {detail && (
@@ -231,19 +231,15 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const profileAvatar =
     profile?.avatar_url ||
     `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile?.avatar_seed || profile?.id || userId}`;
-  const handlePanelWheel = (event: React.WheelEvent<HTMLDivElement>) => {
-    event.currentTarget.scrollTop += event.deltaY;
-  };
   return (
     <div
-      className="fixed inset-0 z-[100] bg-black/90 p-2 backdrop-blur-md animate-fade-in sm:p-4"
+      className="fixed inset-0 z-[100] overflow-y-auto bg-black/90 p-2 backdrop-blur-md animate-fade-in sm:p-4"
       onClick={onClose}
     >
       <div className="flex min-h-full items-start justify-center touch-pan-y">
         <div
-          className="theme-panel-shell custom-scrollbar relative flex h-[calc(100dvh-2rem)] w-full max-w-5xl flex-col overflow-y-auto overscroll-contain rounded-[24px] border border-surface/80 bg-app shadow-[0_32px_100px_rgba(0,0,0,0.45)] animate-scale-in sm:my-6 sm:h-[84vh] sm:rounded-[30px]"
+          className="theme-panel-shell relative flex h-[calc(100dvh-1rem)] w-full max-w-5xl flex-col overflow-hidden overscroll-contain rounded-[22px] border border-surface/80 bg-app shadow-[0_32px_100px_rgba(0,0,0,0.45)] animate-scale-in sm:my-6 sm:h-[88vh] sm:rounded-[30px]"
           onClick={(e) => e.stopPropagation()}
-          onWheel={handlePanelWheel}
         >
         {/* Close Button */}
         <button
@@ -253,26 +249,30 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           ✕
         </button>
 
+        <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {loading ? (
-          <div className="p-12 text-center">
-            <div className="animate-spin text-4xl mb-4">🐝</div>
-            <p className="text-text-muted">Loading profile...</p>
+          <div className="flex min-h-full items-center justify-center p-12 text-center">
+            <div>
+              <div className="mb-4 text-4xl animate-spin">🐝</div>
+              <p className="text-text-muted">Loading profile...</p>
+            </div>
           </div>
         ) : error ? (
-          <div className="p-12 text-center">
-            <div className="text-4xl mb-4 opacity-50">❌</div>
-            <p className="text-red-400">{error}</p>
+          <div className="flex min-h-full items-center justify-center p-12 text-center">
+            <div>
+              <div className="mb-4 text-4xl opacity-50">❌</div>
+              <p className="text-red-400">{error}</p>
+            </div>
           </div>
         ) : profile ? (
-          <>
-            <div className="relative p-3 sm:p-6">
+            <div className="relative p-3 pb-5 pt-12 sm:p-6 sm:pb-6 sm:pt-6">
               <div
                 className="pointer-events-none absolute inset-x-0 top-0 h-36 opacity-90 sm:h-64"
                 style={{ background: activeTheme.scene.appGradient }}
               />
               <div className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-[radial-gradient(circle_at_18%_18%,rgba(255,255,255,0.08)_0,transparent_18%),radial-gradient(circle_at_80%_12%,rgba(16,185,129,0.14)_0,transparent_24%),radial-gradient(circle_at_74%_78%,rgba(245,158,11,0.12)_0,transparent_22%)] sm:h-64" />
 
-              <div className="relative overflow-hidden rounded-[28px] border border-surface/80 bg-black/20 shadow-[0_24px_70px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+              <div className="relative overflow-hidden rounded-[22px] border border-surface/80 bg-black/20 shadow-[0_24px_70px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:rounded-[28px]">
                 <div className="relative h-24 overflow-hidden border-b border-surface/60 sm:h-48">
                   <div
                     className="absolute inset-0"
@@ -316,7 +316,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                         <p className="text-[10px] uppercase tracking-[0.34em] text-text-muted/55">
                           HiveSpell profile
                         </p>
-                        <h2 className="mt-2 truncate text-2xl font-black leading-none text-text-main sm:text-[2.7rem]">
+                        <h2 className="mt-2 truncate text-[2rem] font-black leading-none text-text-main sm:text-[2.7rem]">
                           {profile.username}
                         </h2>
                         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -468,7 +468,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
                   <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.95fr)]">
                     <div className="space-y-6">
-                      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                      <div className="grid gap-3 grid-cols-2 xl:grid-cols-4">
                         <StatCard
                           label="Wins"
                           value={(profile.wins ?? 0).toLocaleString()}
@@ -493,7 +493,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                         />
                       </div>
 
-                      <div className="rounded-[26px] border border-surface/80 bg-black/20 p-5 backdrop-blur-md">
+                      <div className="rounded-[22px] border border-surface/80 bg-black/20 p-4 backdrop-blur-md sm:rounded-[26px] sm:p-5">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                           <div>
                             <p className="text-[10px] uppercase tracking-[0.32em] text-text-muted/55">
@@ -533,7 +533,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                         </div>
                       </div>
 
-                      <div className="rounded-[26px] border border-surface/80 bg-black/20 p-5 backdrop-blur-md">
+                      <div className="rounded-[22px] border border-surface/80 bg-black/20 p-4 backdrop-blur-md sm:rounded-[26px] sm:p-5">
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                           <div>
                             <p className="text-[10px] uppercase tracking-[0.32em] text-text-muted/55">
@@ -553,7 +553,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                             {ownedItems.slice(0, 6).map((item) => (
                               <div
                                 key={item.id}
-                                className="rounded-[22px] border border-surface/70 bg-panel/60 p-4"
+                                className="rounded-[18px] border border-surface/70 bg-panel/60 p-4 sm:rounded-[22px]"
                               >
                                 <div className="flex items-start gap-3">
                                   <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/15 bg-primary/10 text-xl">
@@ -596,7 +596,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     </div>
 
                     <div className="space-y-6">
-                      <div className="rounded-[26px] border border-surface/80 bg-black/20 p-5 backdrop-blur-md">
+                      <div className="rounded-[22px] border border-surface/80 bg-black/20 p-4 backdrop-blur-md sm:rounded-[26px] sm:p-5">
                         <p className="text-[10px] uppercase tracking-[0.32em] text-text-muted/55">
                           Dossier summary
                         </p>
@@ -660,7 +660,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                         </div>
                       </div>
 
-                      <div className="rounded-[26px] border border-surface/80 bg-black/20 p-5 backdrop-blur-md">
+                      <div className="rounded-[22px] border border-surface/80 bg-black/20 p-4 backdrop-blur-md sm:rounded-[26px] sm:p-5">
                         <p className="text-[10px] uppercase tracking-[0.32em] text-text-muted/55">
                           Archivist notes
                         </p>
@@ -691,12 +691,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 </div>
               </div>
             </div>
-          </>
         ) : (
-          <div className="p-12 text-center">
+          <div className="flex min-h-full items-center justify-center p-12 text-center">
             <p className="text-text-muted">No profile data found.</p>
           </div>
         )}
+        </div>
         </div>
       </div>
     </div>

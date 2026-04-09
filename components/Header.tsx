@@ -41,7 +41,13 @@ const Header: React.FC = () => {
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [leaderboardData, setLeaderboardData] = useState<
-    Array<{ uid: string; name: string; corrects: number; wins: number }>
+    Array<{
+      uid: string;
+      name: string;
+      corrects: number;
+      wins: number;
+      avatarUrl?: string;
+    }>
   >([]);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
 

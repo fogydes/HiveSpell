@@ -279,10 +279,13 @@ label,
 summary,
 select,
 [role="button"],
+[tabindex]:not([tabindex="-1"]),
 input[type="submit"],
 input[type="button"],
-input[type="reset"] {
-  cursor: var(--app-cursor-pointer);
+input[type="reset"],
+input[type="checkbox"],
+input[type="radio"] {
+  cursor: var(--app-cursor-pointer) !important;
 }
 
 button *,
@@ -291,10 +294,28 @@ label *,
 summary *,
 select *,
 [role="button"] *,
+[tabindex]:not([tabindex="-1"]) *,
 input[type="submit"] *,
 input[type="button"] *,
-input[type="reset"] * {
+input[type="reset"] *,
+input[type="checkbox"] *,
+input[type="radio"] * {
   cursor: inherit;
+}
+
+button:hover,
+a:hover,
+label:hover,
+summary:hover,
+select:hover,
+[role="button"]:hover,
+[tabindex]:not([tabindex="-1"]):hover,
+input[type="submit"]:hover,
+input[type="button"]:hover,
+input[type="reset"]:hover,
+input[type="checkbox"]:hover,
+input[type="radio"]:hover {
+  cursor: var(--app-cursor-pointer) !important;
 }
 
 button:active,
@@ -303,10 +324,13 @@ label:active,
 summary:active,
 select:active,
 [role="button"]:active,
+[tabindex]:not([tabindex="-1"]):active,
 input[type="submit"]:active,
 input[type="button"]:active,
-input[type="reset"]:active {
-  cursor: var(--app-cursor-active);
+input[type="reset"]:active,
+input[type="checkbox"]:active,
+input[type="radio"]:active {
+  cursor: var(--app-cursor-active) !important;
 }
 
 button:active *,
@@ -315,9 +339,12 @@ label:active *,
 summary:active *,
 select:active *,
 [role="button"]:active *,
+[tabindex]:not([tabindex="-1"]):active *,
 input[type="submit"]:active *,
 input[type="button"]:active *,
-input[type="reset"]:active * {
+input[type="reset"]:active *,
+input[type="checkbox"]:active *,
+input[type="radio"]:active * {
   cursor: inherit;
 }
 
@@ -397,6 +424,13 @@ h4,
   background-image: var(--bg-panel-gradient);
   border-color: var(--theme-border-strong);
   box-shadow: var(--theme-shadow-panel);
+}
+
+.theme-panel-scroll {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .theme-panel-shell::before {
@@ -517,6 +551,31 @@ body[data-theme="royal"] .theme-panel-shell::after {
   );
   mix-blend-mode: screen;
   animation: arcadeScan 7.2s linear infinite;
+}
+
+@media (max-width: 767px) {
+  body::before {
+    opacity: 0.16;
+  }
+
+  .theme-scene::before {
+    opacity: 0.24;
+    background-size: cover, 160px 160px;
+  }
+
+  .theme-scene::after {
+    opacity: 0.56;
+    filter: blur(36px);
+    transform: scale(1.08);
+  }
+
+  .theme-panel-shell {
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.34);
+  }
+
+  .theme-panel-shell::before {
+    opacity: 0.14;
+  }
 }
 
 /* Utilities using vars */

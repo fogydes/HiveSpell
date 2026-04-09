@@ -110,6 +110,25 @@ export async function deleteNotification(
 }
 
 /**
+ * Delete pending friend request notifications for a specific requester/addressee pair.
+ */
+export async function deleteFriendRequestNotifications(
+  addresseeId: string,
+  requesterId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("notifications")
+    .delete()
+    .eq("user_id", addresseeId)
+    .eq("type", "friend_request")
+    .contains("data", { from_user_id: requesterId });
+
+  if (error) {
+    console.error("Failed to delete friend request notifications:", error);
+  }
+}
+
+/**
  * Subscribe to realtime notification changes for a user.
  * Returns the channel so it can be unsubscribed later.
  */

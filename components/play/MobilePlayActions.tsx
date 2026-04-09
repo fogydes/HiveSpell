@@ -12,10 +12,11 @@ const MobilePlayActions: React.FC<MobilePlayActionsProps> = ({
   onToggleTab,
 }) => {
   return (
-    <div className="lg:hidden fixed right-4 top-1/2 -translate-y-1/2 flex flex-col gap-3 z-50 pointer-events-auto">
+    <div className="lg:hidden fixed inset-x-0 bottom-4 z-50 flex justify-center px-4 pointer-events-none">
+      <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-surface/80 bg-panel/92 px-3 py-2 shadow-xl backdrop-blur-xl">
       <button
         onClick={onExit}
-        className="p-3 bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded-full border border-red-500/50 backdrop-blur-sm transition-all shadow-lg mb-4"
+        className="p-3 bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded-full border border-red-500/50 backdrop-blur-sm transition-all shadow-lg"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -70,6 +71,7 @@ const MobilePlayActions: React.FC<MobilePlayActionsProps> = ({
           />
         </svg>
       </button>
+      </div>
     </div>
   );
 };

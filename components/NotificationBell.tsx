@@ -109,19 +109,7 @@ const NotificationBell: React.FC = () => {
       userData.username || "Someone",
     );
     if (result.success) {
-      // Update notification in place to reflect acceptance
-      setNotifications((prev) =>
-        prev.map((n) =>
-          n.id === notif.id
-            ? {
-                ...n,
-                type: "friend_accepted" as const,
-                title: "Friends!",
-                message: `You and ${notif.data?.from_username || "someone"} are now friends!`,
-              }
-            : n,
-        ),
-      );
+      setNotifications((prev) => prev.filter((n) => n.id !== notif.id));
     }
     setRespondingTo(null);
   };

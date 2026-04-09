@@ -8,7 +8,7 @@ const getPanelClasses = (
   const base =
     "fixed z-40 bg-panel/95 backdrop-blur-xl border border-surface shadow-2xl flex flex-col overflow-hidden transition-all duration-300";
   const mobilePos =
-    "right-4 top-1/2 -translate-y-1/2 w-[85vw] h-[50vh] rounded-2xl origin-right";
+    "inset-x-3 top-20 bottom-28 w-auto h-auto rounded-[22px] origin-bottom";
   const mobileState =
     activeTab === panel
       ? "scale-100 opacity-100 pointer-events-auto"

@@ -1,5 +1,8 @@
 import { supabase } from "./supabase";
-import { createNotification } from "./notificationService";
+import {
+  createNotification,
+  deleteFriendRequestNotifications,
+} from "./notificationService";
 
 export interface Friendship {
   id: string;
@@ -92,6 +95,11 @@ export async function acceptFriendRequest(
     return { success: false, error: error.message };
   }
 
+  await deleteFriendRequestNotifications(
+    friendship.addressee_id,
+    friendship.requester_id,
+  );
+
   // Notify the requester that their request was accepted
   await createNotification(
     friendship.requester_id,
@@ -110,6 +118,16 @@ export async function acceptFriendRequest(
 export async function declineFriendRequest(
   friendshipId: string,
 ): Promise<{ success: boolean; error?: string }> {
+  const { data: friendship, error: fetchError } = await supabase
+    .from("friendships")
+    .select("*")
+    .eq("id", friendshipId)
+    .single();
+
+  if (fetchError || !friendship) {
+    return { success: false, error: "Friend request not found." };
+  }
+
   const { error } = await supabase
     .from("friendships")
     .update({ status: "declined" })
@@ -119,6 +137,11 @@ export async function declineFriendRequest(
     console.error("Failed to decline friend request:", error);
     return { success: false, error: error.message };
   }
+
+  await deleteFriendRequestNotifications(
+    friendship.addressee_id,
+    friendship.requester_id,
+  );
 
   return { success: true };
 }
@@ -130,6 +153,18 @@ export async function cancelFriendRequest(
   friendshipId: string,
   requesterId: string,
 ): Promise<{ success: boolean; error?: string }> {
+  const { data: friendship, error: fetchError } = await supabase
+    .from("friendships")
+    .select("*")
+    .eq("id", friendshipId)
+    .eq("requester_id", requesterId)
+    .eq("status", "pending")
+    .single();
+
+  if (fetchError || !friendship) {
+    return { success: false, error: "Friend request not found." };
+  }
+
   const { error } = await supabase
     .from("friendships")
     .delete()
@@ -141,6 +176,11 @@ export async function cancelFriendRequest(
     console.error("Failed to cancel friend request:", error);
     return { success: false, error: error.message };
   }
+
+  await deleteFriendRequestNotifications(
+    friendship.addressee_id,
+    friendship.requester_id,
+  );
 
   return { success: true };
 }

@@ -147,17 +147,13 @@ export const Shop: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const selectedOwned = selectedItem
     ? isItemOwned(inventory, selectedItem.id)
     : false;
-  const handlePanelWheel = (event: React.WheelEvent<HTMLDivElement>) => {
-    event.currentTarget.scrollTop += event.deltaY;
-  };
   return (
     <div
       className="fixed inset-0 z-[100] bg-black/90 p-2 backdrop-blur-md animate-fade-in sm:p-4"
     >
       <div className="flex min-h-full items-start justify-center touch-pan-y">
         <div
-          className="theme-panel-shell custom-scrollbar relative mx-auto flex h-[calc(100dvh-1rem)] w-full max-w-7xl flex-col overflow-y-auto overscroll-contain rounded-[24px] border border-surface/80 bg-app shadow-[0_35px_120px_rgba(0,0,0,0.48)] sm:my-4 sm:h-[92vh] sm:rounded-[32px]"
-          onWheel={handlePanelWheel}
+          className="theme-panel-shell relative mx-auto flex h-[calc(100dvh-1rem)] w-full max-w-7xl flex-col overflow-hidden overscroll-contain rounded-[22px] border border-surface/80 bg-app shadow-[0_35px_120px_rgba(0,0,0,0.48)] sm:my-4 sm:h-[92vh] sm:rounded-[32px]"
         >
         <div className="pointer-events-none absolute inset-x-0 top-0 h-40 opacity-95 sm:h-72">
           <div className="h-full w-full bg-[radial-gradient(circle_at_18%_18%,rgba(245,158,11,0.18),transparent_26%),radial-gradient(circle_at_82%_18%,rgba(16,185,129,0.15),transparent_24%),linear-gradient(180deg,rgba(15,23,42,0.92),rgba(15,23,42,0.18))]" />
@@ -168,7 +164,7 @@ export const Shop: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             <p className="text-[10px] uppercase tracking-[0.34em] text-text-muted/60">
               Curated marketplace
             </p>
-            <h2 className="mt-2 font-[var(--font-display)] text-2xl font-black text-text-main sm:text-4xl">
+            <h2 className="mt-2 font-[var(--font-display)] text-xl font-black text-text-main sm:text-4xl">
               The Aetheric Bazaar
             </h2>
             <p className="mt-2 max-w-xl text-sm leading-6 text-text-muted">
@@ -184,26 +180,27 @@ export const Shop: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           </button>
         </div>
 
-        <div className="relative grid gap-5 p-4 sm:p-6 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)_320px]">
-          <aside className="flex flex-col gap-5">
-            <div className="overflow-hidden rounded-[28px] border border-surface/80 bg-black/20 p-5 backdrop-blur-md">
+        <div className="custom-scrollbar relative min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className="relative flex flex-col gap-4 p-3 pb-5 sm:gap-5 sm:p-6 xl:grid xl:grid-cols-[250px_minmax(0,1fr)_300px] xl:items-start">
+          <aside className="order-1 flex min-w-0 flex-col gap-4 sm:gap-5">
+            <div className="order-3 overflow-hidden rounded-[20px] border border-surface/80 bg-black/20 p-3 backdrop-blur-md sm:order-1 sm:rounded-[28px] sm:p-5">
               <p className="text-[10px] uppercase tracking-[0.32em] text-text-muted/55">
                 Bazaar guide
               </p>
-              <div className="mt-4 flex flex-col gap-4">
-                <div className="relative mx-auto overflow-hidden rounded-[24px] border border-primary/25 bg-panel/70 p-3 shadow-[0_18px_40px_rgba(0,0,0,0.35)]">
+              <div className="mt-3 flex items-center gap-3 sm:mt-4 sm:gap-4 sm:items-start xl:flex-col xl:items-stretch">
+                <div className="relative shrink-0 overflow-hidden rounded-[18px] border border-primary/25 bg-panel/70 p-2 shadow-[0_18px_40px_rgba(0,0,0,0.35)] sm:rounded-[24px] sm:p-3">
                   <img
                     src="/assets/shopkeeper.png"
                     alt="Shopkeeper"
-                    className="h-28 w-28 object-contain sm:h-32 sm:w-32"
+                    className="h-14 w-14 object-contain sm:h-24 sm:w-24 xl:h-28 xl:w-28"
                   />
                   <div className="pointer-events-none absolute inset-x-4 bottom-0 h-10 rounded-full bg-primary/20 blur-2xl" />
                 </div>
-                <div className="min-w-0 text-center xl:text-left">
-                  <h3 className="text-xl font-black text-text-main">
+                <div className="min-w-0 text-left">
+                  <h3 className="text-sm font-black text-text-main sm:text-xl">
                     Quartermaster Vey
                   </h3>
-                  <p className="mt-3 rounded-[18px] border border-primary/20 bg-primary/10 px-4 py-3 text-sm leading-6 text-text-main">
+                  <p className="mt-2 rounded-[16px] border border-primary/20 bg-primary/10 px-3 py-2 text-xs leading-5 text-text-main sm:mt-3 sm:rounded-[18px] sm:px-4 sm:py-3 sm:text-sm sm:leading-6">
                     “Browse slow. The rare pieces are the ones that change how
                     the whole hive feels.”
                   </p>
@@ -211,35 +208,35 @@ export const Shop: React.FC<{ onClose: () => void }> = ({ onClose }) => {
               </div>
             </div>
 
-            <div className="rounded-[28px] border border-surface/80 bg-black/20 p-5 backdrop-blur-md">
+            <div className="order-1 rounded-[20px] border border-surface/80 bg-black/20 p-3 backdrop-blur-md sm:rounded-[28px] sm:p-5">
               <p className="text-[10px] uppercase tracking-[0.32em] text-text-muted/55">
                 Wallet and inventory
               </p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                <div className="rounded-[22px] border border-primary/20 bg-primary/10 px-4 py-4">
+              <div className="mt-3 grid grid-cols-2 gap-3 sm:mt-4 xl:grid-cols-1">
+                <div className="rounded-[18px] border border-primary/20 bg-primary/10 px-4 py-4 sm:rounded-[20px]">
                   <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted/60">
                     Nectar balance
                   </p>
-                  <p className="mt-3 text-3xl font-black text-primary">
+                  <p className="mt-3 text-2xl font-black text-primary sm:text-3xl">
                     {userData?.nectar?.toLocaleString() ?? 0}
                   </p>
                 </div>
-                <div className="rounded-[22px] border border-surface/70 bg-panel/55 px-4 py-4">
+                <div className="rounded-[18px] border border-surface/70 bg-panel/55 px-4 py-4 sm:rounded-[20px]">
                   <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted/60">
                     Items owned
                   </p>
-                  <p className="mt-3 text-3xl font-black text-text-main">
+                  <p className="mt-3 text-2xl font-black text-text-main sm:text-3xl">
                     {ownedCount}
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-[28px] border border-surface/80 bg-black/20 p-5 backdrop-blur-md">
+            <div className="order-2 rounded-[20px] border border-surface/80 bg-black/20 p-3 backdrop-blur-md sm:rounded-[28px] sm:p-5">
               <p className="text-[10px] uppercase tracking-[0.32em] text-text-muted/55">
                 Browse lanes
               </p>
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1 sm:mx-0 sm:mt-4 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
                 {CATEGORY_ORDER.map((category) => {
                   const active = category === activeCategory;
                   const copy = CATEGORY_COPY[category];
@@ -247,7 +244,7 @@ export const Shop: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                     <button
                       key={category}
                       onClick={() => setActiveCategory(category)}
-                      className={`rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] transition-all ${
+                      className={`shrink-0 rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] transition-all ${
                         active
                           ? "border-primary/35 bg-primary/20 text-primary"
                           : "border-surface/70 bg-panel/60 text-text-muted hover:text-text-main"
@@ -261,14 +258,14 @@ export const Shop: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             </div>
           </aside>
 
-          <section className="min-w-0">
-            <div className="rounded-[28px] border border-surface/80 bg-black/20 p-5 backdrop-blur-md">
+          <section className="order-2 min-w-0">
+            <div className="rounded-[20px] border border-surface/80 bg-black/20 p-4 backdrop-blur-md sm:rounded-[28px] sm:p-5">
               <p className="text-[10px] uppercase tracking-[0.32em] text-text-muted/55">
                 {CATEGORY_COPY[activeCategory].eyebrow}
               </p>
               <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                 <div>
-                  <h3 className="text-2xl font-black text-text-main">
+                  <h3 className="text-lg font-black text-text-main sm:text-2xl">
                     {CATEGORY_COPY[activeCategory].label}
                   </h3>
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-text-muted">
@@ -288,7 +285,7 @@ export const Shop: React.FC<{ onClose: () => void }> = ({ onClose }) => {
               </div>
             </div>
 
-            <div className="mt-5 grid gap-4 pb-2 sm:grid-cols-2 2xl:grid-cols-3">
+            <div className="mt-4 grid gap-3 pb-2 sm:mt-5 sm:gap-4 sm:grid-cols-2 2xl:grid-cols-3">
               {visibleItems.map((item) => {
                 const owned = isItemOwned(inventory, item.id);
                 const selected = selectedItem?.id === item.id;
@@ -298,7 +295,7 @@ export const Shop: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                   <button
                     key={item.id}
                     onClick={() => setSelectedItemId(item.id)}
-                    className={`group relative overflow-hidden rounded-[28px] border p-5 text-left transition-all ${
+                    className={`group relative overflow-hidden rounded-[20px] border p-4 text-left transition-all sm:rounded-[28px] sm:p-5 ${
                       selected
                         ? "border-primary/35 bg-primary/10 shadow-[0_20px_40px_rgba(var(--primary-rgb),0.16)]"
                         : owned
@@ -311,7 +308,7 @@ export const Shop: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                     />
                     <div className="relative">
                       <div className="flex items-start justify-between gap-3">
-                        <div className="flex h-14 w-14 items-center justify-center rounded-[20px] border border-white/10 bg-white/6 text-3xl shadow-[0_16px_30px_rgba(0,0,0,0.24)]">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-white/10 bg-white/6 text-2xl shadow-[0_16px_30px_rgba(0,0,0,0.24)] sm:h-14 sm:w-14 sm:rounded-[20px] sm:text-3xl">
                           {item.icon}
                         </div>
                         <span
@@ -320,10 +317,10 @@ export const Shop: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                           {item.category}
                         </span>
                       </div>
-                      <h4 className="mt-5 text-lg font-black text-text-main">
+                      <h4 className="mt-4 text-base font-black text-text-main sm:mt-5 sm:text-lg">
                         {item.name}
                       </h4>
-                      <p className="mt-3 min-h-[72px] text-sm leading-6 text-text-muted">
+                      <p className="mt-3 min-h-0 text-sm leading-6 text-text-muted sm:min-h-[72px]">
                         {item.description}
                       </p>
                       <div className="mt-5 flex items-center justify-between gap-3">
@@ -347,25 +344,25 @@ export const Shop: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             </div>
           </section>
 
-          <aside className="min-w-0">
+          <aside className="order-3 min-w-0">
             {selectedItem ? (
               <div className="space-y-5">
-                <div className="overflow-hidden rounded-[28px] border border-surface/80 bg-black/20 p-5 backdrop-blur-md">
+                <div className="overflow-hidden rounded-[20px] border border-surface/80 bg-black/20 p-4 backdrop-blur-md sm:rounded-[28px] sm:p-5">
                   <p className="text-[10px] uppercase tracking-[0.32em] text-text-muted/55">
                     Inspection rail
                   </p>
                   <div
-                    className={`mt-4 rounded-[26px] border p-5 ${categoryBorder(selectedItem.category)} bg-panel/50`}
+                    className={`mt-4 rounded-[20px] border p-4 sm:rounded-[26px] sm:p-5 ${categoryBorder(selectedItem.category)} bg-panel/50`}
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <div className="flex h-16 w-16 items-center justify-center rounded-[22px] border border-white/10 bg-white/6 text-4xl">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-[20px] border border-white/10 bg-white/6 text-3xl sm:h-16 sm:w-16 sm:rounded-[22px] sm:text-4xl">
                         {selectedItem.icon}
                       </div>
                       <span className="rounded-full border border-surface/70 bg-panel/50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.24em] text-text-muted">
                         {selectedItem.category}
                       </span>
                     </div>
-                    <h3 className="mt-5 text-2xl font-black text-text-main">
+                    <h3 className="mt-4 text-xl font-black text-text-main sm:mt-5 sm:text-2xl">
                       {selectedItem.name}
                     </h3>
                     <p className="mt-3 text-sm leading-6 text-text-muted">
@@ -399,7 +396,7 @@ export const Shop: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                   </div>
                 </div>
 
-                <div className="rounded-[28px] border border-surface/80 bg-black/20 p-5 backdrop-blur-md">
+                <div className="rounded-[20px] border border-surface/80 bg-black/20 p-4 backdrop-blur-md sm:rounded-[28px] sm:p-5">
                   <p className="text-[10px] uppercase tracking-[0.32em] text-text-muted/55">
                     Bazaar notes
                   </p>
@@ -423,6 +420,7 @@ export const Shop: React.FC<{ onClose: () => void }> = ({ onClose }) => {
               </div>
             )}
           </aside>
+        </div>
         </div>
         </div>
       </div>

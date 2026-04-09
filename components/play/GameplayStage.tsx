@@ -60,7 +60,7 @@ const GameplayStage: React.FC<GameplayStageProps> = ({
       ?.name || "...";
 
   return (
-    <div className="w-full max-w-xl flex flex-col items-center z-10 transition-all duration-500 p-4 sm:p-8 rounded-3xl border border-transparent relative bg-panel/30">
+    <div className="relative z-10 flex w-full max-w-[min(100%,38rem)] flex-col items-center rounded-[24px] border border-transparent bg-panel/30 p-3 transition-all duration-500 sm:rounded-3xl sm:p-8">
       <button
         onClick={onExitArena}
         className="hidden lg:block absolute top-4 left-4 p-2 text-red-400 hover:text-red-300 font-bold text-xs uppercase tracking-widest transition-colors border border-transparent hover:border-red-500/30 rounded"
@@ -68,7 +68,7 @@ const GameplayStage: React.FC<GameplayStageProps> = ({
         Exit Arena
       </button>
 
-      <div className="w-full max-w-lg mb-4 sm:mb-8 text-center min-h-[50px] mt-8">
+      <div className="mt-4 mb-3 min-h-[44px] w-full max-w-lg text-center sm:mt-8 sm:mb-8 sm:min-h-[50px]">
         {status === "playing" ? (
           <p className="text-text-muted text-xs sm:text-sm italic font-serif leading-relaxed px-4 py-2 bg-panel/50 rounded-lg border border-surface">
             "{definition}"
@@ -91,7 +91,7 @@ const GameplayStage: React.FC<GameplayStageProps> = ({
         )}
       </div>
 
-      <div className="flex items-center gap-4 mb-4 sm:mb-6">
+      <div className="mb-3 flex items-center gap-3 sm:mb-6 sm:gap-4">
         <div className="bg-panel/80 px-4 py-1 rounded text-xs font-bold tracking-widest uppercase text-primary border border-surface">
           {streak > 25
             ? "RAMPAGE MODE"
@@ -121,14 +121,14 @@ const GameplayStage: React.FC<GameplayStageProps> = ({
         {timeLeft.toFixed(1)}s
       </div>
 
-      <div className="w-full h-2 sm:h-3 bg-panel rounded-full overflow-hidden mb-8 relative border border-surface">
+      <div className="relative mb-6 h-2 w-full overflow-hidden rounded-full border border-surface bg-panel sm:mb-8 sm:h-3">
         <div
           className={`h-full shadow-[0_0_15px_rgba(var(--primary-rgb),0.6)] ${timeLeft < 3 ? "bg-red-500" : "bg-primary"}`}
           style={{ width: `${Math.min(100, (timeLeft / totalTime) * 100)}%` }}
         ></div>
       </div>
 
-      <div className="mb-8 relative min-h-[100px] flex items-center justify-center w-full">
+      <div className="relative mb-6 flex min-h-[80px] w-full items-center justify-center sm:mb-8 sm:min-h-[100px]">
         {status !== "intermission" ? (
           status === "speaking" ? (
             <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-primary-dim border-2 border-primary flex items-center justify-center animate-spin-slow">
@@ -137,7 +137,7 @@ const GameplayStage: React.FC<GameplayStageProps> = ({
           ) : (
             <button
               onClick={onReplayWord}
-              className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-primary-dim/10 hover:bg-primary-dim/20 border border-primary-dim flex items-center justify-center transition-all group cursor-pointer active:scale-95 animate-pulse-slow"
+              className="group flex h-16 w-16 items-center justify-center rounded-full border border-primary-dim bg-primary-dim/10 transition-all active:scale-95 hover:bg-primary-dim/20 animate-pulse-slow sm:h-24 sm:w-24"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -167,8 +167,8 @@ const GameplayStage: React.FC<GameplayStageProps> = ({
         )}
       </div>
 
-      <div className="w-full max-w-lg mb-8 sm:mb-12">
-        <div className="text-center text-text-muted text-[10px] font-bold tracking-[0.2em] mb-2 sm:mb-4">
+      <div className="mb-6 w-full max-w-lg sm:mb-12">
+        <div className="mb-2 text-center text-[10px] font-bold tracking-[0.2em] text-text-muted sm:mb-4">
           {isMyTurn ? "TYPE THE WORD YOU HEAR" : `WATCHING ${currentTurnPlayerName}`}
         </div>
         <form onSubmit={handleSubmit}>
@@ -198,7 +198,7 @@ const GameplayStage: React.FC<GameplayStageProps> = ({
                   ? "Watching..."
                   : "Type word..."
             }
-            className={`w-full bg-transparent border-b-2 ${isMyTurn ? "border-primary" : "border-surface"} text-center text-3xl sm:text-5xl font-bold ${isMyTurn ? "text-text-main" : "text-text-muted"} outline-none py-2 sm:py-4 placeholder:text-surface transition-colors disabled:opacity-70 disabled:cursor-not-allowed`}
+            className={`w-full bg-transparent border-b-2 ${isMyTurn ? "border-primary" : "border-surface"} py-2 text-center text-2xl font-bold outline-none transition-colors placeholder:text-surface disabled:cursor-not-allowed disabled:opacity-70 sm:py-4 sm:text-5xl ${isMyTurn ? "text-text-main" : "text-text-muted"}`}
           />
         </form>
       </div>

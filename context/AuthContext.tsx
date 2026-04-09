@@ -23,6 +23,7 @@ export interface UserData {
 interface AuthContextType {
   user: User | null;
   userData: UserData | null;
+  loading: boolean;
   refreshUser: () => Promise<void>;
 }
 

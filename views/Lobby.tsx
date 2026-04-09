@@ -121,7 +121,7 @@ const Lobby: React.FC = () => {
   };
 
   return (
-    <div className="theme-scene min-h-screen bg-app pt-24 pb-24">
+    <div className="theme-scene min-h-screen bg-app pt-20 pb-28 sm:pt-24 sm:pb-24">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div
           className="absolute left-[8%] top-24 h-64 w-64 rounded-full blur-3xl opacity-80"
@@ -136,29 +136,29 @@ const Lobby: React.FC = () => {
         />
       </div>
 
-      <div className="relative flex flex-col items-center px-6">
+      <div className="relative flex flex-col items-center px-4 sm:px-6">
       {/* Difficulty Selection UI */}
-      <div className="theme-panel-shell mb-10 w-full max-w-6xl rounded-[32px] border bg-panel/45 px-6 py-8 text-center backdrop-blur-xl">
+      <div className="theme-panel-shell mb-6 w-full max-w-5xl rounded-[24px] border bg-panel/45 px-4 py-5 text-center backdrop-blur-xl sm:mb-10 sm:rounded-[32px] sm:px-6 sm:py-8">
         <h2
           data-display="true"
-          className="mb-2 text-4xl font-extrabold tracking-tight text-text-main"
+          className="mb-2 text-2xl font-extrabold tracking-tight text-text-main sm:text-4xl"
         >
           Select Difficulty
         </h2>
-        <p className="text-text-muted">
+        <p className="mx-auto max-w-2xl text-sm text-text-muted sm:text-base">
           Choose your challenge level to enter the hive.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 w-full max-w-6xl pb-20">
+      <div className="grid w-full max-w-6xl grid-cols-1 gap-4 pb-20 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
         {modes.map((mode) => (
           <div
             key={mode}
-            className={`theme-panel-shell border-2 rounded-2xl bg-panel/70 p-6 flex flex-col justify-between transition-all duration-300 hover:-translate-y-2 group ${getModeColor(mode)}`}
+            className={`theme-panel-shell border-2 rounded-[22px] bg-panel/70 p-4 flex flex-col justify-between transition-all duration-300 hover:-translate-y-2 group sm:rounded-2xl sm:p-6 ${getModeColor(mode)}`}
             style={{ boxShadow: themePackage.scene.panelShadow }}
           >
-            <div className="mb-6">
-              <h3 className="text-2xl font-black capitalize mb-2 tracking-wide">
+            <div className="mb-4 sm:mb-6">
+              <h3 className="text-xl font-black capitalize mb-2 tracking-wide sm:text-2xl">
                 {mode}
               </h3>
               <p className="text-text-muted text-sm font-medium">
@@ -170,7 +170,7 @@ const Lobby: React.FC = () => {
               <button
                 disabled={loading}
                 onClick={() => handleStartPublic(mode)}
-                className="theme-surface-shell w-full rounded-lg py-3 text-sm font-bold uppercase tracking-wider text-text-main transition-colors group-hover:bg-text-main group-hover:text-app disabled:cursor-wait disabled:opacity-50"
+                className="theme-surface-shell w-full rounded-lg py-2.5 text-sm font-bold uppercase tracking-wider text-text-main transition-colors group-hover:bg-text-main group-hover:text-app disabled:cursor-wait disabled:opacity-50 sm:py-3"
               >
                 {loading ? "Connecting..." : "Public Match"}
               </button>
@@ -186,10 +186,10 @@ const Lobby: React.FC = () => {
         ))}
       </div>
 
-      <div className="fixed bottom-0 left-0 z-40 flex w-full justify-center border-t border-surface bg-panel/70 p-6 backdrop-blur-xl">
+      <div className="fixed bottom-0 left-0 z-40 flex w-full justify-center border-t border-surface bg-panel/70 p-3 backdrop-blur-xl sm:p-6">
         <form
           onSubmit={handleJoinPrivate}
-          className="theme-panel-shell flex w-full max-w-lg items-center gap-3 rounded-xl border border-surface bg-panel/80 p-2 transition-colors focus-within:border-primary"
+          className="theme-panel-shell flex w-full max-w-md items-center gap-2 rounded-xl border border-surface bg-panel/80 p-2 transition-colors focus-within:border-primary sm:max-w-lg sm:gap-3"
         >
           <div className="pl-3 text-text-muted">
             <svg
@@ -212,12 +212,12 @@ const Lobby: React.FC = () => {
             placeholder="ENTER PRIVATE CODE"
             value={joinCode}
             onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-            className="flex-1 bg-transparent text-text-main placeholder-text-muted focus:outline-none font-mono text-lg tracking-widest uppercase"
+            className="flex-1 bg-transparent text-text-main placeholder-text-muted focus:outline-none font-mono text-base tracking-[0.24em] uppercase sm:text-lg sm:tracking-widest"
           />
           <button
             type="submit"
             disabled={loading}
-            className="bg-primary hover:bg-primary-dim text-app px-6 py-2 rounded-lg font-bold transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-wait"
+            className="bg-primary hover:bg-primary-dim text-app px-5 py-2 rounded-lg font-bold transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-wait sm:px-6"
           >
             {loading ? "..." : "JOIN"}
           </button>
