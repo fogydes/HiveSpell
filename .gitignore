@@ -38,3 +38,5 @@ supabase/.temp/
 *.sw?
 .claude/settings.local.json
 tasks/
+/graphify-out
+scripts/audio-check/*

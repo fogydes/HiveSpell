@@ -6,27 +6,27 @@ const BABY_WORDS = [
   "Book", "Bug", "Bus", "Cake", "Car", "Cat", "Cool", "Cry",
   "Cup", "Dad", "Dog", "Duck", "Eat", "Elf", "End", "Eye",
   "Aye", "Face", "Fire", "Fish", "Phish", "Foot", "Gold", "Hand",
-  "Kiss", "Milk", "Mix", "Mom", "Moon", "Mug", "Noob", "Newb",
-  "Pie", "Pi", "Pink", "Rain", "Reign", "Rat", "Red", "Read",
-  "Ruby", "Run", "Sit", "Size", "Sighs", "Snow", "Soda", "Star",
-  "Suck", "Sun", "Son", "Tag", "Tank", "Tap", "Town", "Tree",
-  "Water", "Wind", "Word", "Zoo",
+  "Ink", "Kiss", "Milk", "Mix", "Mom", "Moon", "Mug", "Newb",
+  "Noob", "Pie", "Pi", "Pink", "Rain", "Reign", "Rat", "Red",
+  "Read", "Ruby", "Run", "Sit", "Size", "Sighs", "Snow", "Soda",
+  "Star", "Suck", "Sun", "Son", "Tag", "Tank", "Tap", "Town",
+  "Tree", "Water", "Wind", "Word", "Zoo",
 ];
 
 // prettier-ignore
 const CAKEWALK_WORDS = [
   "Absorb", "Angel", "Ash", "Bingo", "Black", "Boss", "Brain", "Burger",
   "Burial", "Cabin", "Circle", "Clever", "Cliff", "Clutch", "Comply", "Convey",
-  "Crowd", "Dairy", "Defy", "Demon", "Echo", "Emoji", "Erupt", "Exert",
-  "Exile", "Film", "Filter", "Flower", "Flour", "Foggy", "Forbid", "Gender",
-  "Ghost", "Giant", "Greedy", "Green", "Grub", "Hello", "Hotel", "House",
-  "Human", "Hungry", "Ink", "Intent", "Iron", "Irony", "Land", "Length",
+  "Crowd", "Dairy", "Defy", "Demon", "Daemon", "Echo", "Emoji", "Erupt",
+  "Exert", "Exile", "Film", "Filter", "Flower", "Flour", "Foggy", "Forbid",
+  "Gender", "Ghost", "Giant", "Greedy", "Green", "Grub", "Hello", "Hotel",
+  "House", "Human", "Hungry", "Intent", "Iron", "Irony", "Land", "Length",
   "Margin", "Melt", "Meow", "Monk", "Noble", "Nobel", "Orange", "Pasta",
   "Pear", "Pair", "Power", "Prank", "Pray", "Prey", "Proof", "Quack",
-  "Quill", "Rally", "Random", "Reply", "Robust", "Rot", "Wrought", "Shake",
-  "Shark", "Sigh", "Psi", "Sock", "State", "Stew", "Still", "Stumble",
-  "Trauma", "Twist", "Update", "Vein", "Vain", "Walk", "Way", "Weigh",
-  "White", "Workout", "Wrist",
+  "Queen", "Quill", "Rally", "Random", "Reply", "Robust", "Rot", "Wrought",
+  "Shake", "Shark", "Sigh", "Psi", "Sock", "State", "Stew", "Still",
+  "Stumble", "Trauma", "Twist", "Update", "Vein", "Vain", "Walk", "Way",
+  "Weigh", "White", "Workout", "Wrist",
 ];
 
 // prettier-ignore
@@ -40,110 +40,114 @@ const LEARNER_WORDS = [
   "Gallant", "Gradual", "Guideline", "Harbor", "Harbour", "Heresy", "Immobilize", "Immobilise",
   "Integrity", "Ionize", "Ionise", "Lactose", "Lather", "Leafy", "Liable", "Lightning",
   "Magnificent", "Meditate", "Normal", "Oasis", "Obesity", "Offender", "Overdue", "Overdo",
-  "Paradox", "Password", "Pigeon", "Pidgin", "Plethora", "Powder", "Probably", "Pulsar",
-  "Pumpkin", "Pursuit", "Queen", "Recipient", "Refrain", "Refugee", "Remarkable", "Rye",
+  "Paradox", "Password", "Pigeon", "Pidgin", "Plethora", "Powder", "Present", "Probably",
+  "Pulsar", "Pumpkin", "Pursuit", "Recipient", "Refrain", "Refugee", "Remarkable", "Rye",
   "Wry", "Scrutiny", "Secret", "Seldom", "Semicircle", "Sigma", "Sleigh", "Slay",
   "Sniffle", "Special", "Spooky", "Strategic", "Subsidy", "Swamp", "Syntax", "Tangerine",
-  "Telepathy", "Thesis", "Tremendous", "Twenty", "Uncomfortable", "Vague", "Villain", "Voluntary",
-  "Walnut", "Warrior", "Window", "Zombie",
+  "Telepathy", "Thesis", "Tremendous", "Twenty", "Uncomfortable", "Understand", "Vague", "Villain",
+  "Voluntary", "Walnut", "Warrior", "Window", "Zombie",
 ];
 
 // prettier-ignore
 const INTERMEDIATE_WORDS = [
-  "Abditive", "Abdomen", "Abhorrent", "Abscond", "Accomplishment", "Accumulation", "Adolescent", "Adversity",
-  "Aerodynamic", "Agriculture", "Apostrophe", "Articulate", "Asphyxiation", "Aspiration", "Assumption", "Asthma",
-  "Atmospheric", "Beneficiary", "Benevolence", "Blizzard", "Bronchitis", "Brusque", "Calibration", "Candlelight",
-  "Caustic", "Champagne", "Charisma", "Chlorophyll", "Christmas", "Cognitive", "Colonel", "Kernel",
-  "Combustible", "Commodity", "Concentration", "Consumption", "Contour", "Controversial", "Cuisine", "Dauntless",
-  "Deployment", "Derogatory", "Detrimental", "Diplomatic", "Disappointment", "Disconsolate", "Division", "Doctrine",
-  "Elaborate", "Embarrassment", "Embassy", "Enchantment", "Encore", "Endeavor", "Endeavour", "Epiphany",
-  "Epsilon", "Erratic", "Euphoria", "Exaggerate", "Excalibur", "Exorcism", "Expenditure", "Exponential",
-  "Extravagant", "Fantasy", "Favorable", "Favourable", "Featherweight", "Fictitious", "Fjord", "Flamboyant",
-  "Fluorescent", "Forthcoming", "Frostbite", "Fruition", "Gastronomic", "Gazebo", "Gibberish", "Gingerbread",
-  "Glacier", "Gratitude", "Gravestone", "Hailstone", "Heritage", "Hexagonal", "Hibernation", "Hornswoggle",
-  "Hourglass", "Humanitarian", "Hypothesis", "Ideological", "Idiom", "Imminent", "Imprisonment", "Independence",
-  "Indifference", "Inhabitant", "Intermediate", "Intermission", "Juxtaposition", "Kangaroo", "Legendary", "Limousine",
-  "Livery", "Mathematician", "Melancholy", "Metabolism", "Methodology", "Microorganism", "Misconception", "Mistletoe",
-  "Multiplication", "Myopic", "Nebulous", "Necromancer", "Negotiation", "Neighboring", "Neighbouring", "Nonplussed",
-  "Notorious", "Obituary", "Oblivious", "Opaque", "Optimism", "Palatine", "Pantograph", "Parallel",
-  "Participation", "Passionate", "Peppermint", "Periodically", "Personnel", "Pestilence", "Photographer", "Pomegranate",
-  "Portfolio", "Practitioner", "Predominantly", "Present", "Problematic", "Proclamation", "Procrastinate", "Pronunciation",
-  "Propaganda", "Protocol", "Pygmy", "Ravenous", "Recession", "Reincarnation", "Reliability", "Residential",
-  "Resilience", "Resurrection", "Revelation", "Rhythm", "Ricochet", "Sabotage", "Sachet", "Sashay",
-  "Sapphire", "Scholarship", "Sentimental", "Separation", "Shareholder", "Significance", "Skeleton", "Snowflake",
-  "Solidarity", "Spokesperson", "Steadfast", "Stereotype", "Supposedly", "Surrogate", "Surveillance", "Susceptible",
-  "Syllable", "Symmetrical", "Systematic", "Technological", "Thesaurus", "Transaction", "Translucent", "Transparency",
-  "Transportation", "Understand", "Unprecedented", "Validity", "Venerate", "Violation", "Vulnerability", "Wednesday",
-  "Wholeheartedly", "Worthwhile",
+  "Abditive", "Abdomen", "Abhorrent", "Abscond", "Accomplishment", "Accommodate", "Accumulation", "Adolescent",
+  "Adversity", "Aegis", "Aerodynamic", "Agriculture", "Apostrophe", "Articulate", "Aspiration", "Assumption",
+  "Asunder", "Asthma", "Atmospheric", "Beneficiary", "Benevolence", "Blizzard", "Bronchitis", "Brusque",
+  "Calibration", "Candlelight", "Caustic", "Champagne", "Charisma", "Chlorophyll", "Christmas", "Cognitive",
+  "Colonel", "Kernel", "Combustible", "Commodity", "Concentration", "Consumption", "Contour", "Controversial",
+  "Cuisine", "Dauntless", "Deployment", "Derogatory", "Detrimental", "Diplomatic", "Disappointment", "Disconsolate",
+  "Division", "Doctrine", "Elaborate", "Embarrassment", "Embassy", "Enchantment", "Encore", "Endeavor",
+  "Endeavour", "Epiphany", "Epsilon", "Erratic", "Euphoria", "Exaggerate", "Excalibur", "Exorcism",
+  "Expenditure", "Exponential", "Extravagant", "Fantasy", "Favorable", "Favourable", "Featherweight", "Fictitious",
+  "Fjord", "Flamboyant", "Fluorescent", "Forthcoming", "Frostbite", "Fruition", "Gastronomic", "Gazebo",
+  "Gibberish", "Gingerbread", "Glacier", "Gratitude", "Gravestone", "Hailstone", "Heritage", "Hexagonal",
+  "Hibernation", "Hornswoggle", "Hourglass", "Humanitarian", "Hypothesis", "Ideological", "Idiom", "Imminent",
+  "Imprisonment", "Independence", "Indifference", "Inhabitant", "Insinuate", "Intermediate", "Intermission", "Jaded",
+  "Juxtaposition", "Kangaroo", "Languid", "Legendary", "Limousine", "Livery", "Mathematician", "Melancholy",
+  "Metabolism", "Methodology", "Microorganism", "Misconception", "Mistletoe", "Multiplication", "Myopic", "Nebulous",
+  "Necromancer", "Negotiation", "Neighboring", "Neighbouring", "Nonplussed", "Notorious", "Obituary", "Oblivious",
+  "Opaque", "Optimism", "Palatine", "Pantograph", "Parallel", "Participation", "Passionate", "Peppermint",
+  "Periodically", "Personnel", "Pestilence", "Photographer", "Pomegranate", "Portfolio", "Practitioner", "Predominantly",
+  "Problematic", "Proclamation", "Procrastinate", "Pronunciation", "Propaganda", "Protocol", "Pygmy", "Ravenous",
+  "Recession", "Reincarnation", "Reliability", "Residential", "Resilience", "Resurrection", "Revelation", "Rhythm",
+  "Ricochet", "Sabotage", "Sachet", "Sashay", "Sapphire", "Scholarship", "Sentimental", "Separation",
+  "Shareholder", "Significance", "Skeleton", "Snowflake", "Solidarity", "Spokesperson", "Steadfast", "Stereotype",
+  "Supposedly", "Surrogate", "Surveillance", "Susceptible", "Syllable", "Symmetrical", "Systematic", "Technological",
+  "Thesaurus", "Transaction", "Translucent", "Transparency", "Transportation", "Unprecedented", "Validity", "Venerate",
+  "Violation", "Vulnerability", "Wednesday", "Wholeheartedly", "Worthwhile",
 ];
 
 // prettier-ignore
 const HEATED_WORDS = [
-  "Abacaxi", "Abasia", "Accommodate", "Acculturate", "Aegis", "Aforementioned", "Aggrandize", "Aggrandise",
-  "Agoraphobia", "Agoraphobic", "Ambidextrous", "Ambiguous", "Anaphylactic", "Anemone", "Anisosquaric", "Apocryphal",
-  "Apothecary", "Asphyxiation", "Astigmatism", "Asunder", "Ataraxy", "Attorney", "Bandeau", "Belvedere",
-  "Betwixt", "Blatherskite", "Bodacious", "Brucellosis", "Bucolic", "Cacophony", "Calamitous", "Calumny",
-  "Capoeira", "Capricious", "Captious", "Cerulean", "Charcuterie", "Chauffeur", "Chronological", "Cinematographer",
-  "Clandestine", "Coalescence", "Codicil", "Colloquialism", "Comeuppance", "Commodore", "Compunction", "Consanguine",
-  "Consummate", "Correspondence", "Counterintuitive", "Culvert", "Cyrillic", "Defenestration", "Deleterious", "Depilatory",
-  "Diminution", "Discombobulate", "Dodecahedron", "Eloquent", "Elysian", "Elision", "Epitome", "Extraterrestrial",
-  "Facsimile", "Fastidious", "Fissiparous", "Flummox", "Fuchsia", "Gentrification", "Glaucomatous", "Glockenspiel",
-  "Gobbledygook", "Gobbledegook", "Grandiloquent", "Handkerchief", "Harpsichord", "Hemoglobin", "Haemoglobin", "Heterozygous",
-  "Hierarchy", "Homeopathy", "Homoeopathy", "Homogeneous", "Horticulturist", "Hypermetropia", "Iconoclast", "Incandescent",
-  "Inchoate", "Incoagulable", "Indefatigable", "Ingenious", "Insinuate", "Isometropia", "Isthmus", "Kaleidoscope",
-  "Languid", "Legislation", "Lexicography", "Liaison", "Lugubrious", "Lymphangiography", "Macabre", "Magniloquent",
-  "Malapropism", "Martyrdom", "Mellifluous", "Menagerie", "Microminiaturisation", "Milieu", "Miniscule", "Minuscule",
-  "Miscellaneous", "Monochromatic", "Monosyllabic", "Multidimensionality", "Municipal", "Myriad", "Narcissistic", "Nauseous",
-  "Neuroplasticity", "Nocturn", "Nocturne", "Nomenclature", "Obfuscation", "Paradigm", "Parliamentary", "Paroxysm",
-  "Pecuniary", "Pessimistic", "Phantasmagoria", "Pharaoh", "Farrow", "Phenomenon", "Phlegm", "Photogeochemistry",
-  "Pirouette", "Pneumatic", "Polemic", "Polychromatic", "Polydactyly", "Predecessor", "Prestigious", "Psychological",
-  "Puerile", "Pugnacious", "Querimony", "Quixotry", "Rambunctious", "Rehabilitation", "Reminiscence", "Rendezvous",
-  "Sagacious", "Sanguine", "Sarcophagus", "Scintillate", "Semaphore", "Sequacious", "Sequoia", "Silhouette",
-  "Simultaneous", "Sovereignty", "Subpoena", "Subterranean", "Supercentenarian", "Supersede", "Supercede", "Syllepsis",
-  "Symbiosis", "Syzygy", "Tempestuous", "Tetraphobia", "Therapeutic", "Thermionic", "Thermoluminescence", "Triphosphate",
-  "Ubiquitous", "Uncharacteristic", "Unintelligible", "Verbatim", "Vexatious", "Vignette", "Xenogeneic", "Zephyr",
-  "Zygote",
+  "Abacaxi", "Abasia", "Acculturate", "Aforementioned", "Aggrandize", "Aggrandise", "Agoraphobia", "Agoraphobic",
+  "Ambidextrous", "Ambiguous", "Anaphylactic", "Anemone", "Anisosquaric", "Apocryphal", "Apothecary", "Asphyxiation",
+  "Astigmatism", "Ataraxy", "Attorney", "Bandeau", "Belvedere", "Betwixt", "Blatherskite", "Bodacious",
+  "Bogolanfini", "Brucellosis", "Bucolic", "Cacophony", "Calamitous", "Calumny", "Capoeira", "Capricious",
+  "Captious", "Cerulean", "Charcuterie", "Chauffeur", "Chronological", "Cinematographer", "Clandestine", "Coalescence",
+  "Codicil", "Colloquialism", "Comeuppance", "Commodore", "Compunction", "Consanguine", "Consummate", "Contradistinguish",
+  "Correspondence", "Counterintuitive", "Culvert", "Cyrillic", "Defenestration", "Deleterious", "Depilatory", "Diminution",
+  "Discombobulate", "Dodecahedron", "Eloquent", "Elysian", "Elision", "Epitome", "Ethnomethodology", "Extraterrestrial",
+  "Facsimile", "Fastidious", "Fissiparous", "Flummox", "Fuchsia", "Garrulous", "Gentrification", "Glaucomatous",
+  "Glockenspiel", "Gobbledygook", "Gobbledegook", "Grandiloquent", "Handkerchief", "Harpsichord", "Hemoglobin", "Haemoglobin",
+  "Heterozygous", "Hierarchy", "Homeopathy", "Homoeopathy", "Homogeneous", "Horticulturist", "Hypermetropia", "Iconoclast",
+  "Incandescent", "Inchoate", "Incoagulable", "Indefatigable", "Ingenious", "Irascible", "Isometropia", "Isthmus",
+  "Kaleidoscope", "Latitudinarianism", "Legislation", "Lexicography", "Liaison", "Loquacious", "Lugubrious", "Lymphangiography",
+  "Macabre", "Magniloquent", "Malapropism", "Martyrdom", "Mellifluous", "Menagerie", "Meretricious", "Microminiaturisation",
+  "Microminiaturization", "Milieu", "Miniscule", "Minuscule", "Miscellaneous", "Monochromatic", "Monosyllabic", "Multidimensionality",
+  "Municipal", "Myriad", "Narcissistic", "Nauseous", "Neuroplasticity", "Nocturne", "Nocturn", "Nomenclature",
+  "Nutritious", "Obfuscation", "Onomatopoeia", "Paradigm", "Parliamentary", "Paroxysm", "Pecuniary", "Pernicious",
+  "Pessimistic", "Phantasmagoria", "Pharaoh", "Farrow", "Phenomenon", "Phlegm", "Photogeochemistry", "Pirouette",
+  "Pneumatic", "Polemic", "Polychromatic", "Polydactyly", "Predecessor", "Prestigious", "Psychological", "Puerile",
+  "Pugnacious", "Querimony", "Quixotry", "Radiometeorograph", "Rambunctious", "Rehabilitation", "Reminiscence", "Rendezvous",
+  "Sagacious", "Sanguine", "Sarcophagus", "Scintillate", "Semaphore", "Sententiously", "Sequacious", "Sequoia",
+  "Silhouette", "Simultaneous", "Soliloquy", "Sovereignty", "Subpoena", "Subterranean", "Supercentenarian", "Supersede",
+  "Supercede", "Syllepsis", "Symbiosis", "Syzygy", "Tempestuous", "Tetraphobia", "Therapeutic", "Thermionic",
+  "Thermoluminescence", "Triphosphate", "Ubiquitous", "Uncharacteristic", "Unintelligible", "Verbatim", "Vexatious", "Vignette",
+  "Xenogeneic", "Zephyr", "Zygote",
 ];
 
 // prettier-ignore
 const GENIUS_WORDS = [
   "Abdominothoracic", "Absquatulate", "Acetaminophen", "Achromatophil", "Achromatophilia", "Acquiesce", "Allotransplantation", "Anachronistic",
-  "Aneurysmorrhaphy", "Antediluvian", "Arthroereisis", "Ascosporogenous", "Baccalaureate", "Batrachophobia", "Bogolanfini", "Borborygmus",
-  "Bougainvillea", "Bourgeoisie", "Buckminsterfullerene", "Bureaucracy", "Chronopsychophysiology", "Clinicoechocardiographic", "Compartmentalization", "Contradistinguish",
-  "Countermajoritarianism", "Craniosynostosis", "Cryptoendolithic", "Dendrochronology", "Deoxyribonucleic", "Dichotomization", "Eclaircissement", "Effervescent",
-  "Electrotelethermometer", "Entrepreneur", "Ethnomethodology", "Ethnopsychopharmacology", "Flibbertigibbet", "Fossiliferous", "Frontoethmoidectomy", "Geitonogamy",
-  "Geochronostratigraphical", "Glyceraldehyde", "Goniosynechialysis", "Gubernatorial", "Hemispherectomy", "Hieroglyphics", "Hypercholesterolemia", "Hypergammaglobulinemia",
-  "Hypergonadotropic", "Hyperpolysyllabic", "Hypoparathyroidism", "Incomprehensibility", "Infinitesimal", "Infundibulum", "Institutionalization", "Jurisprudence",
-  "Labyrinthine", "Lepidopterology", "Machiavellian", "Mechanotransduction", "Metonymic", "Morphodifferentiation", "Necrobiosislipoidica", "Neuropsychological",
-  "Oligonucleotide", "Onomatopoeia", "Orthogeosyncline", "Panproctocolectomy", "Parallelogrammatic", "Paraphernalia", "Perspicacious", "Photoreconnaissance",
-  "Plasmodiumfalciparum", "Plenipotentiary", "Portmanteau", "Prestidigitation", "Proceleusmatic", "Prognostication", "Pseudohyperaldosteronism", "Pseudoparallelodromous",
-  "Pseudoriemannian", "Psychotomimetic", "Pulchritudinous", "Pusillanimous", "Quasiautobiographical", "Quasquicentennial", "Quindecasyllabic", "Quoddamodotative",
-  "Radioallergosorbent", "Radiometeorograph", "Rhinorrhagia", "Serendipity", "Sesquipedalian", "Soliloquy", "Spectrophotometer", "Subcompartmentalization",
-  "Subdermatoglyphic", "Supererogatory", "Superferromagnetism", "Susurration", "Temporomandibular", "Thalassophobia", "Thermochromatography", "Tintinnabulation",
-  "Transinstitutionalization", "Trinitrotoluene", "Utilitarianism", "Verisimilitude", "Worcestershire", "Xiphiplastron", "Xylotypographic",
+  "Aneurysmorrhaphy", "Antediluvian", "Arthroereisis", "Ascosporogenous", "Autothaumaturgist", "Baccalaureate", "Batrachophobia", "Borborygmus",
+  "Bougainvillea", "Bourgeoisie", "Buckminsterfullerene", "Bureaucracy", "Chronopsychophysiology", "Clinicoechocardiographic", "Compartmentalization", "Compartmentalisation",
+  "Countermajoritarianism", "Craniosynostosis", "Cryptoendolithic", "Dendrochronology", "Deoxyribonucleic", "Dichotomization", "Dichotomisation", "Eclaircissement",
+  "Effervescent", "Electrotelethermometer", "Entrepreneur", "Ethnopsychopharmacology", "Flibbertigibbet", "Fossiliferous", "Frontoethmoidectomy", "Gastroenterologist",
+  "Geitonogamy", "Geochronostratigraphical", "Glyceraldehyde", "Goniosynechialysis", "Gubernatorial", "Hemispherectomy", "Hieroglyphics", "Hydrochlorofluorocarbon",
+  "Hypercholesterolemia", "Hypergammaglobulinemia", "Hypergammaglobulinaemia", "Hypergonadotropic", "Hyperpolysyllabic", "Hypoparathyroidism", "Incomprehensibility", "Infinitesimal",
+  "Infundibulum", "Institutionalization", "Institutionalisation", "Jurisprudence", "Labyrinthine", "Lepidopterology", "Machiavellian", "Mechanotransduction",
+  "Methemoglobinemia", "Metonymic", "Morphodifferentiation", "Necrobiosislipoidica", "Neuroimmunomodulation", "Neuropsychological", "Oligonucleotide", "Orthogeosyncline",
+  "Panproctocolectomy", "Parallelogrammatic", "Paraphernalia", "Perspicacious", "Photoreconnaissance", "Plasmodiumfalciparum", "Plenipotentiary", "Portmanteau",
+  "Prestidigitation", "Proceleusmatic", "Prognostication", "Pseudohyperaldosteronism", "Pseudoparallelodromous", "Pseudoriemannian", "Psychoneuroimmunology", "Psychopharmacotherapy",
+  "Psychotomimetic", "Pulchritudinous", "Pusillanimous", "Quasiautobiographical", "Quasquicentennial", "Quindecasyllabic", "Quoddamodotative", "Radioallergosorbent",
+  "Rhinorrhagia", "Serendipity", "Sesquipedalian", "Spectrophotometer", "Subcompartmentalization", "Subcompartmentalisation", "Subdermatoglyphic", "Supererogatory",
+  "Superferromagnetism", "Susurration", "Temporomandibular", "Thalassophobia", "Thermochromatography", "Tintinnabulation", "Transinstitutionalization", "Transinstitutionalisation",
+  "Trinitrotoluene", "Utilitarianism", "Verisimilitude", "Worcestershire", "Xiphiplastron", "Xylotypographic",
 ];
 
 // prettier-ignore
 const POLYMATH_WORDS = [
-  "Acetylglucocoroglaucigenin", "Adrenocorticotropin", "Anthropomorphization", "Antidisestablishmentarianism", "Antixerophthalmic", "Autothaumaturgist", "Bourgeoisification", "Bromochlorodifluoromethane",
-  "Canaliculodacryocystorhinostomy", "Chargoggagoggmanchauggagoggchaubunagungamaugg", "Cholangiocholecystocholedochectomy", "Cholangiopancreatography", "Chondromyxohemangioendotheliosarcoma", "Convolvulaceous", "Corticopontocerebellar", "Counterimmunoelectrophoresis",
-  "Dehydrothiotoluidine", "Dermatofibrosarcomaprotuberans", "Dextrodeorsumversion", "Dichlorodiphenyltrichloroethane", "Diisopropylfluorophosphate", "Eellogofusciouhipoppokunurious", "Encephalocraniocutaneouslipomatosis", "Erythrocytapheresis",
-  "Ferriprotoporphyrin", "Floccinaucinihilipilification", "Fluorotetraferriphlogopite", "Gastroenterologist", "Gegenstandstheorie", "Hematospectrophotometrically", "Haematospectrophotometrically", "Hexakosioihexekontahexaphobia",
-  "Hippopotomonstrosesquipedaliophobia", "Honorificabilitudinity", "Honourificabilitudinity", "Hypothalamicpituitaryadrenocortical", "Immunoelectrochemiluminescence", "Inositolphosphorylceramide", "Laparohysterosalpingooophorectomy", "Laryngotracheobronchitis",
-  "Loncastuximabtesirine", "Lymphangioleiomyomatosis", "Micropachycephalosaurus", "Neohesperidindihydrochalcone", "Nonanonacontanonactanonaliagon", "Nucleotidylexotransferase", "Otorhinolaryngological", "Photoplethysmography",
-  "Pneumoencephalography", "Pneumonoultramicroscopicsilicovolcanoconiosis", "Polyphiloprogenitive", "Pseudopseudohypoparathyroidism", "Pseudorhombicuboctahedron", "Psychoneuroendocrinological", "Psychoneuroimmunology", "Psychophysicotherapeutics",
-  "Pyrrolizidinealkaloidosis", "Ribulosebisphosphatecarboxylaseoxygenase", "Sclerectoiridectomy", "Spectrophotofluorometry", "Sphenopalatineganglioneuralgia", "Sphygmomanometer", "Stereoelectroencephalography", "Supercalifragilisticexpialidocious",
-  "Thyroparathyroidectomy", "Tonsillopharyngitis", "Uvulopalatopharyngoplasty", "Ventriculocisternostomy",
+  "Acetylglucocoroglaucigenin", "Acrocephalopolydactylousdysplasia", "Adrenocorticotropin", "Adrenocorticotrophin", "Anthropomorphization", "Anthropomorphisation", "Antidisestablishmentarianism", "Antixerophthalmic",
+  "Bourgeoisification", "Bromochlorodifluoromethane", "Canaliculodacryocystorhinostomy", "Chargoggagoggmanchauggagoggchaubunagungamaugg", "Cholangiocholecystocholedochectomy", "Cholangiopancreatography", "Chondromyxohemangioendotheliosarcoma", "Convolvulaceous",
+  "Corticopontocerebellar", "Corynebacteriumpseudotuberculosis", "Counterimmunoelectrophoresis", "Dehydrothiotoluidine", "Dermatofibrosarcomaprotuberans", "Dextrodeorsumversion", "Dichlorodiphenyltrichloroethane", "Diisopropylfluorophosphate",
+  "Eellogofusciouhipoppokunurious", "Encephalocraniocutaneouslipomatosis", "Erythrocytapheresis", "Ferriprotoporphyrin", "Floccinaucinihilipilification", "Fluorotetraferriphlogopite", "Gegenstandstheorie", "Hematospectrophotometrically",
+  "Haematospectrophotometrically", "Hexakosioihexekontahexaphobia", "Hippopotomonstrosesquipedaliophobia", "Hippopotomonstrosesquippedaliophobia", "Honorificabilitudinity", "Honourificabilitudinity", "Hypothalamicpituitaryadrenocortical", "Immunoelectrochemiluminescence",
+  "Inositolphosphorylceramide", "Laparohysterosalpingooophorectomy", "Laryngotracheobronchitis", "Loncastuximabtesirine", "Lymphangioleiomyomatosis", "Micropachycephalosaurus", "Neohesperidindihydrochalcone", "Nonanonacontanonactanonaliagon",
+  "Nucleotidylexotransferase", "Orotatephosphoribosyltransferase", "Otorhinolaryngological", "Photoplethysmography", "Pneumoencephalography", "Pneumonoultramicroscopicsilicovolcanoconiosis", "Polyphiloprogenitive", "Pseudopseudohypoparathyroidism",
+  "Pseudorhombicuboctahedron", "Psychoneuroendocrinological", "Psychophysicotherapeutics", "Pyrrolizidinealkaloidosis", "Ribulosebisphosphatecarboxylaseoxygenase", "Sclerectoiridectomy", "Spectrophotofluorometry", "Sphenopalatineganglioneuralgia",
+  "Sphygmomanometer", "Stereoelectroencephalography", "Supercalifragilisticexpialidocious", "Thyroparathyroidectomy", "Tonsillopharyngitis", "Uvulopalatopharyngoplasty", "Ventriculocisternostomy",
 ];
 
 // Local Definitions for Offline Support
 export const LOCAL_DEFINITIONS: Record<string, string> = {
   // --- Baby & Cakewalk ---
   be: "To exist or live.",
+  daemon: "A supernatural being or spirit in Greek mythology; a variant of demon.",
   nobel: "Relating to Alfred Nobel or the prizes established by his will.",
   // --- Learner ---
   // --- Intermediate ---
   abditive: "Having the power or quality of hiding.",
+  jaded: "Tired, bored, or lacking enthusiasm, typically after having too much of something.",
   christmas:
     "An annual Christian holiday celebrating the birth of Jesus Christ.",
   excalibur: "The legendary sword of King Arthur.",
@@ -153,13 +157,25 @@ export const LOCAL_DEFINITIONS: Record<string, string> = {
   triphosphate: "A salt or ester containing three phosphate groups.",
   tetraphobia: "An irrational fear of the number 4.",
   supercede: "To take the place of; to replace.",
+  sententiously: "In a manner that is given to moralizing in a pompous or affected way.",
   querimony: "A complaint or expression of discontent.",
   photogeochemistry:
     "The study of light-induced chemical reactions of Earth materials.",
+  pernicious: "Having a harmful effect, especially in a gradual or subtle way.",
+  nutritious: "Nourishing; efficient as food.",
   multidimensionality: "The state of having many dimensions or aspects.",
+  microminiaturization:
+    "The manufacture of extremely small electronic devices.",
+  meretricious:
+    "Apparently attractive but having in reality no value or integrity.",
+  loquacious: "Tending to talk a great deal; talkative.",
+  latitudinarianism:
+    "A lack of strictness or rigidity in religious or other matters.",
   isometropia: "Equality in the refraction of the two eyes.",
+  irascible: "Having or showing a tendency to be easily angered.",
   incoagulable: "Incapable of coagulating or clotting.",
   glaucomatous: "Relating to or affected by glaucoma.",
+  garrulous: "Excessively talkative, especially on trivial matters.",
   cyrillic: "Denoting the alphabet used by many Slavic languages.",
   anisosquaric: "Relating to a derivative of squaric acid.",
   abacaxi: "A large, sweet pineapple grown in Brazil.",
@@ -228,6 +244,26 @@ export const LOCAL_DEFINITIONS: Record<string, string> = {
   zygote: "A diploid cell resulting from the fusion of two haploid gametes.",
 
   // --- Genius ---
+  compartmentalisation:
+    "The division of something into sections or categories (British spelling).",
+  dichotomisation:
+    "The division into two mutually exclusive, opposed, or contradictory groups (British spelling).",
+  hydrochlorofluorocarbon:
+    "A compound containing hydrogen, chlorine, fluorine, and carbon atoms; used as a refrigerant.",
+  hypergammaglobulinaemia:
+    "A condition characterized by increased levels of immunoglobulins in the blood (British spelling).",
+  institutionalisation:
+    "The process of establishing something as a convention or norm in an organization (British spelling).",
+  methemoglobinemia:
+    "A blood disorder in which an abnormal amount of methemoglobin is produced.",
+  neuroimmunomodulation:
+    "The process by which the nervous system modulates immune responses.",
+  psychopharmacotherapy:
+    "The treatment of mental disorders using pharmaceutical drugs.",
+  subcompartmentalisation:
+    "The division into smaller compartments or sub-units (British spelling).",
+  transinstitutionalisation:
+    "The transfer of individuals from one institutional setting to another (British spelling).",
   xylotypographic: "Printed from wooden blocks.",
   xiphiplastron: "The rear lateral plate of the plastron of a turtle.",
   transinstitutionalization:
@@ -361,6 +397,18 @@ export const LOCAL_DEFINITIONS: Record<string, string> = {
   worcestershire: "A savory sauce containing soy sauce and vinegar.",
 
   // --- Polymath ---
+  acrocephalopolydactylousdysplasia:
+    "A rare congenital syndrome characterized by a pointed head and extra fingers or toes.",
+  adrenocorticotrophin:
+    "A hormone produced by the pituitary gland that stimulates the adrenal cortex (British spelling).",
+  anthropomorphisation:
+    "The attribution of human characteristics or behavior to a god, animal, or object (British spelling).",
+  corynebacteriumpseudotuberculosis:
+    "A bacterium that causes caseous lymphadenitis in sheep and goats.",
+  hippopotomonstrosesquippedaliophobia:
+    "The fear of long words (variant spelling with double p).",
+  orotatephosphoribosyltransferase:
+    "An enzyme involved in the pyrimidine biosynthesis pathway.",
   uvulopalatopharyngoplasty:
     "A surgical procedure used to remove tissue in the throat to treat sleep apnea.",
   tonsillopharyngitis: "Inflammation of the tonsils and pharynx.",
