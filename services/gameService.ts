@@ -418,8 +418,8 @@ export const speak = async (
               logAudioDebug("audio-file-playing", {
                 elapsedMs: Date.now() - startedAt,
                 fileName,
-                networkState: audio.networkState,
-                readyState: audio.readyState,
+                networkState: audio?.networkState,
+                readyState: audio?.readyState,
                 trigger,
               });
               cleanupListeners();
@@ -431,8 +431,8 @@ export const speak = async (
                 fileName,
                 message:
                   error instanceof Error ? error.message : String(error),
-                networkState: audio.networkState,
-                readyState: audio.readyState,
+                networkState: audio?.networkState,
+                readyState: audio?.readyState,
                 trigger,
               });
               cleanupListeners();
@@ -442,8 +442,8 @@ export const speak = async (
           logAudioDebug("audio-file-playing", {
             elapsedMs: Date.now() - startedAt,
             fileName,
-            networkState: audio.networkState,
-            readyState: audio.readyState,
+            networkState: audio?.networkState,
+            readyState: audio?.readyState,
             trigger,
           });
           cleanupListeners();
