@@ -28,5 +28,5 @@ export const getPlayerPanelClasses = (activeTab: PlayPanelTab) =>
   getPanelClasses(
     activeTab,
     "players",
-    "lg:right-4 lg:top-1/2 lg:-translate-y-1/2 lg:w-64 lg:h-[60vh] lg:rounded-xl lg:origin-center lg:scale-100 lg:opacity-100 lg:pointer-events-auto",
+    "lg:left-auto lg:right-4 lg:top-1/2 lg:-translate-y-1/2 lg:w-64 lg:h-[60vh] lg:rounded-xl lg:origin-center lg:scale-100 lg:opacity-100 lg:pointer-events-auto",
   );
