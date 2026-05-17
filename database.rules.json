@@ -1,8 +1,5 @@
 {
   "rules": {
-    "matches": {
-      ".indexOn": ["type", "code", "status"]
-    },
     "users": {
       ".read": true,
       "$uid": {
@@ -29,14 +26,11 @@
         ".validate": "newData.isString() && newData.val() === auth.uid"
       }
     },
-    "chat": {
-      ".read": "auth != null",
-      ".write": "auth != null"
-    },
     "rooms": {
       ".indexOn": ["type", "code", "status"],
-      ".read": "auth != null",
+      ".read": "auth != null && ((query.orderByChild == 'code' && query.equalTo != null) || (query.orderByChild == 'type' && query.equalTo == 'public'))",
       "$roomId": {
+        ".read": "auth != null",
         ".write": "(auth != null && !data.exists()) || (data.exists() && data.child('players').child(auth.uid).exists())",
         "id": {
           ".validate": "newData.isString() && (!data.exists() || newData.val() === data.val())"
@@ -139,6 +133,10 @@
               ".validate": "newData.isNumber() || !newData.exists()"
             }
           }
+        },
+        "chat": {
+          ".read": "auth != null",
+          ".write": "auth != null && data.parent().child('players').child(auth.uid).exists()"
         }
       }
     }

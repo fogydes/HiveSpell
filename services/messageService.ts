@@ -263,25 +263,33 @@ export async function markConversationAsRead(
 }
 
 /**
- * Subscribe to new messages for a user (Realtime)
+ * Subscribe to message events for a user (Realtime)
  */
 export function subscribeToMessages(
   userId: string,
-  onNewMessage: (msg: Message) => void,
+  onMessagePayload: (payload: any) => void,
 ): RealtimeChannel {
   const channel = supabase
     .channel(`messages:${userId}`)
     .on(
       "postgres_changes",
       {
-        event: "INSERT",
+        event: "*",
         schema: "public",
         table: "messages",
         filter: `receiver_id=eq.${userId}`,
       },
-      (payload) => {
-        onNewMessage(payload.new as Message);
+      onMessagePayload,
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "messages",
+        filter: `sender_id=eq.${userId}`,
       },
+      onMessagePayload,
     )
     .subscribe();
 

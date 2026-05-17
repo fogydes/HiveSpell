@@ -266,21 +266,23 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const players = currentRoom ? Object.values(currentRoom.players || {}) : [];
+  const players = React.useMemo(() => {
+    return currentRoom ? Object.values(currentRoom.players || {}) : [];
+  }, [currentRoom?.players]);
+
+  const contextValue = React.useMemo(() => ({
+    currentRoom,
+    players,
+    loading,
+    error,
+    createGameRoom,
+    joinGameRoom,
+    joinPublicGame,
+    leaveGameRoom,
+  }), [currentRoom, players, loading, error]);
 
   return (
-    <MultiplayerContext.Provider
-      value={{
-        currentRoom,
-        players,
-        loading,
-        error,
-        createGameRoom,
-        joinGameRoom,
-        joinPublicGame,
-        leaveGameRoom,
-      }}
-    >
+    <MultiplayerContext.Provider value={contextValue}>
       {children}
     </MultiplayerContext.Provider>
   );
