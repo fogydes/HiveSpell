@@ -101,7 +101,7 @@ Gameplay progression now prefers a Supabase RPC named `award_profile_win` with:
 
 Expected behavior:
 
-- identify the user securely via `auth.jwt()->>'sub'`
+- identify the user securely via verified authentication claims
 - create a profile row if one does not exist
 - increment `wins`
 - recalculate `title`
@@ -118,7 +118,7 @@ Gameplay progression now prefers a Supabase RPC named `apply_correct_answer_rewa
 
 Expected behavior:
 
-- identify the user securely via `auth.jwt()->>'sub'`
+- identify the user securely via verified authentication claims
 - create a profile row if one does not exist
 - increment `corrects`
 - increment `current_nectar`
@@ -138,7 +138,7 @@ The shop calls a Supabase RPC named `purchase_item` with:
 
 Expected behavior:
 
-- identify the user securely via `auth.jwt()->>'sub'`
+- identify the user securely via verified authentication claims
 - verify the user can afford the purchase
 - deduct nectar or equivalent currency
 - update inventory
