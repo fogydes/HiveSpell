@@ -48,6 +48,8 @@ Detailed internal contract notes live in [`supabase.md`](./supabase.md).
 
 Firebase is the primary authentication layer used by the web app. The authenticated Firebase user is then used to load and coordinate other profile-related data needed by the interface.
 
+To interact securely with Supabase, the application requires the **Firebase Third-Party Auth integration** to be enabled on the Supabase project. The Firebase JWT is injected into the Supabase client using the `accessToken` hook. This allows Supabase to cryptographically verify the Firebase token natively and extract the user's string-based UID using `auth.jwt()->>'sub'` inside Row Level Security (RLS) policies and RPCs.
+
 ## Environment Configuration
 
 The app expects:

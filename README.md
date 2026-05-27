@@ -5,10 +5,10 @@ HiveSpell is a real-time multiplayer spelling game built around audio-first play
 ## Features
 
 - Public matchmaking and private room codes
-- Turn-based multiplayer spelling rounds
+- Turn-based multiplayer spelling rounds (with proactive ghost-room cleanup)
 - Audio-first gameplay with fallback speech playback
 - Persistent player profiles, stats, and progression
-- Friends, notifications, and direct messages
+- Friends, notifications, and secure real-time direct messages
 
 ## Tech Stack
 

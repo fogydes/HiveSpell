@@ -97,11 +97,11 @@ Used for pre-recorded spelling word playback before falling back to browser TTS.
 
 Gameplay progression now prefers a Supabase RPC named `award_profile_win` with:
 
-- `p_user_id`
 - `p_username`
 
 Expected behavior:
 
+- identify the user securely via `auth.jwt()->>'sub'`
 - create a profile row if one does not exist
 - increment `wins`
 - recalculate `title`
@@ -113,12 +113,12 @@ The frontend currently falls back to a direct profile upsert only if this RPC is
 
 Gameplay progression now prefers a Supabase RPC named `apply_correct_answer_reward` with:
 
-- `p_user_id`
 - `p_username`
 - `p_nectar_to_add`
 
 Expected behavior:
 
+- identify the user securely via `auth.jwt()->>'sub'`
 - create a profile row if one does not exist
 - increment `corrects`
 - increment `current_nectar`
@@ -132,13 +132,13 @@ The frontend currently falls back to a direct profile upsert only if this RPC is
 
 The shop calls a Supabase RPC named `purchase_item` with:
 
-- `p_user_id`
 - `item_id`
 - `cost`
 - `category`
 
 Expected behavior:
 
+- identify the user securely via `auth.jwt()->>'sub'`
 - verify the user can afford the purchase
 - deduct nectar or equivalent currency
 - update inventory

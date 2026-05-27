@@ -104,7 +104,7 @@ Social features are split across reusable UI and service modules:
 
 - [`components/ProfileModal.tsx`](../components/ProfileModal.tsx)
 - [`components/FriendsPanel.tsx`](../components/FriendsPanel.tsx)
-- [`components/ChatPanel.tsx`](../components/ChatPanel.tsx)
+- [`components/ChatPanel.tsx`](../components/ChatPanel.tsx) (and its modular children in `components/chat/`)
 - [`components/NotificationBell.tsx`](../components/NotificationBell.tsx)
 - [`services/friendService.ts`](../services/friendService.ts)
 - [`services/messageService.ts`](../services/messageService.ts)
