@@ -118,36 +118,31 @@ export const leaveRoom = async (
 ): Promise<void> => {
   try {
     const playerRef = ref(db, `rooms/${roomId}/players/${playerId}`);
-    // Mark player as disconnected
+    // Mark player as disconnected. We don't remove them yet to allow reconnection
+    // if it was just a network blip.
     await update(playerRef, { status: "disconnected" });
     console.log(`[LeaveRoom] Marked player ${playerId} as disconnected`);
 
     // Check if ALL players are disconnected to clean up room immediately
-    try {
-      const roomRef = ref(db, `rooms/${roomId}`);
-      const roomSnap = await get(roomRef);
+    const roomRef = ref(db, `rooms/${roomId}`);
+    const roomSnap = await get(roomRef);
 
-      if (roomSnap.exists()) {
-        const roomData = roomSnap.val();
-        const players = roomData.players || {};
-        const playerList = Object.values(players) as any[];
+    if (roomSnap.exists()) {
+      const roomData = roomSnap.val();
+      const players = roomData.players || {};
+      const playerList = Object.values(players) as any[];
 
-        // Only delete if there are players AND all of them are disconnected
-        if (playerList.length > 0) {
-          const allDisconnected = playerList.every(
-            (p) => p.status === "disconnected",
-          );
+      // If no players or everyone is disconnected, delete the room
+      const activePlayers = playerList.filter(
+        (p) => p.status !== "disconnected",
+      );
 
-          if (allDisconnected) {
-            console.log(
-              `[LeaveRoom] All players disconnected, deleting room immediately: ${roomId}`,
-            );
-            await remove(roomRef);
-          }
-        }
+      if (activePlayers.length === 0) {
+        console.log(
+          `[LeaveRoom] No active players left, deleting room: ${roomId}`,
+        );
+        await remove(roomRef);
       }
-    } catch (cleanupErr) {
-      console.warn(`[LeaveRoom] Cleanup check failed:`, cleanupErr);
     }
   } catch (err) {
     console.error(`[LeaveRoom] Error leaving room:`, err);
@@ -164,13 +159,13 @@ export const subscribeToRoom = (
   });
   return () => off(roomRef, "value", listener);
 };
+
 // Find a public room with matching difficulty
 export const findPublicRoom = async (
   difficulty: string,
 ): Promise<string | null> => {
   const roomsRef = ref(db, "rooms");
-  // Query for public rooms. Note: Ideally we'd index this.
-  // We limit to 50 to avoid fetching too many.
+  // Query for public rooms.
   const publicRoomsQuery = query(
     roomsRef,
     orderByChild("type"),
@@ -185,20 +180,22 @@ export const findPublicRoom = async (
   const rooms = snapshot.val();
   // Client-side filter for specificity (Firebase RDB limits multiple queries)
   for (const [id, room] of Object.entries(rooms) as [string, any][]) {
+    const players = room.players || {};
+    const playerList = Object.values(players) as any[];
+    const activePlayers = playerList.filter((p) => p.status !== "disconnected");
+
+    // Proactive cleanup: If we find a room with no active players, delete it
+    if (activePlayers.length === 0) {
+      console.log(`[FindPublicRoom] Cleaning up zombie room: ${id}`);
+      remove(ref(db, `rooms/${id}`)).catch(() => {}); // Fire and forget
+      continue;
+    }
+
     if (
       room.settings?.difficulty === difficulty &&
       room.status !== "finished" && // Can join waiting or playing
-      (!room.players ||
-        Object.keys(room.players).length < (room.settings.maxPlayers || 10))
+      activePlayers.length < (room.settings.maxPlayers || 10)
     ) {
-      // Skip rooms where all players are disconnected (zombie rooms)
-      if (room.players) {
-        const playerList = Object.values(room.players) as any[];
-        const hasActivePlayer = playerList.some(
-          (p) => p.status !== "disconnected",
-        );
-        if (playerList.length > 0 && !hasActivePlayer) continue;
-      }
       return id;
     }
   }
