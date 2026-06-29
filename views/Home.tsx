@@ -1,14 +1,10 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 const Home: React.FC = () => {
-  const { user } = useAuth();
+  const { user, userData } = useAuth();
   const navigate = useNavigate();
-
-  const handleNav = (path: string) => {
-    navigate(path);
-  };
 
   return (
     <div className="theme-scene min-h-screen flex flex-col items-center justify-center bg-app p-4 relative overflow-hidden">
@@ -46,24 +42,56 @@ const Home: React.FC = () => {
           </p>
         </div>
 
-        <div className="mt-12 flex flex-col items-center gap-4">
+        {/* Quick stats for logged-in users */}
+        {user && userData && (
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-4 sm:gap-6">
+            <div className="rounded-xl border border-surface bg-panel/50 px-4 py-3 text-center">
+              <div className="text-2xl font-black text-primary">{userData.wins}</div>
+              <div className="text-[10px] uppercase tracking-wider text-text-muted">Wins</div>
+            </div>
+            <div className="rounded-xl border border-surface bg-panel/50 px-4 py-3 text-center">
+              <div className="text-2xl font-black text-primary">{userData.corrects?.toLocaleString()}</div>
+              <div className="text-[10px] uppercase tracking-wider text-text-muted">Corrects</div>
+            </div>
+            <div className="rounded-xl border border-surface bg-panel/50 px-4 py-3 text-center">
+              <div className="text-2xl font-black text-accent">{userData.title}</div>
+              <div className="text-[10px] uppercase tracking-wider text-text-muted">Title</div>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
           <button
-            onClick={() => handleNav(user ? "/lobby" : "/auth")}
+            onClick={() => navigate(user ? "/lobby" : "/auth")}
             className="rounded-full bg-primary px-10 py-4 text-lg font-black tracking-[0.18em] text-app transition-all hover:scale-[var(--hover-scale)]"
             style={{ boxShadow: "var(--theme-shadow-glow)" }}
           >
-            {user ? "CONTINUE TO LOBBY" : "GET STARTED"}
+            {user ? "PLAY NOW" : "GET STARTED"}
           </button>
-          <p className="text-xs uppercase tracking-[0.22em] text-text-muted">
+          {user && (
+            <button
+              onClick={() => navigate("/lobby")}
+              className="rounded-full border border-surface px-8 py-4 text-sm font-bold uppercase tracking-wider text-text-muted transition-colors hover:border-primary hover:text-primary"
+            >
+              Browse Lobby
+            </button>
+          )}
+        </div>
+
+        {!user && (
+          <p className="mt-4 text-xs uppercase tracking-[0.22em] text-text-muted">
             Fast rounds. Tight pressure. Clean wins.
           </p>
-        </div>
+        )}
       </div>
 
       {!user && (
         <div className="absolute bottom-8 text-sm text-text-muted">
-          Already have an account? 
-          <button onClick={() => handleNav("/auth")} className="ml-1 text-primary hover:underline">
+          Already have an account?{" "}
+          <button
+            onClick={() => navigate("/auth")}
+            className="ml-1 text-primary hover:underline"
+          >
             Log in
           </button>
         </div>
@@ -71,4 +99,5 @@ const Home: React.FC = () => {
     </div>
   );
 };
+
 export default Home;

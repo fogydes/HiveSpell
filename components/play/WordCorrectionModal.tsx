@@ -23,35 +23,42 @@ const WordCorrectionModal: React.FC<WordCorrectionModalProps> = ({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 cursor-pointer"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 cursor-pointer"
     >
-      <div className="bg-[#111] border-2 border-slate-700 rounded-xl p-8 shadow-2xl max-w-2xl w-full mx-4 flex flex-col gap-6 transform scale-100 cursor-default">
-        <h2 className="font-mono font-black text-3xl text-center text-white mb-2 uppercase tracking-[0.2em] drop-shadow-md">
-          Word Correction
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-panel border border-surface rounded-2xl p-6 shadow-2xl max-w-md w-full mx-4 flex flex-col gap-4 cursor-default"
+      >
+        <h2 className="font-bold text-lg text-center text-text-main tracking-wide">
+          {feedback.typed ? "Incorrect Spelling" : "Time's Up"}
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-[#2a1212] border-2 border-red-900/50 rounded-lg p-6 flex flex-col items-center gap-3 shadow-inner">
-            <span className="text-xs text-red-300/80 font-bold uppercase tracking-widest">
-              Your Spelling:
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 flex flex-col items-center gap-2">
+            <span className="text-[10px] text-red-300/70 font-bold uppercase tracking-widest">
+              You typed
             </span>
-            <span className="text-red-500 font-black text-3xl font-mono tracking-wide break-all text-center">
-              {feedback.typed || "---"}
+            <span className="text-red-400 font-black text-xl font-mono tracking-wide break-all text-center">
+              {feedback.typed || "—"}
             </span>
           </div>
 
-          <div className="bg-[#122a18] border-2 border-green-900/50 rounded-lg p-6 flex flex-col items-center gap-3 shadow-inner">
-            <span className="text-xs text-green-300/80 font-bold uppercase tracking-widest">
-              Correct Word:
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 flex flex-col items-center gap-2">
+            <span className="text-[10px] text-emerald-300/70 font-bold uppercase tracking-widest">
+              Correct word
             </span>
-            <span className="text-green-400 font-black text-3xl font-mono tracking-wide break-all text-center">
+            <span className="text-emerald-400 font-black text-xl font-mono tracking-wide break-all text-center">
               {feedback.correct}
             </span>
           </div>
         </div>
 
-        <div className="mt-2 text-center text-slate-500 text-sm font-mono">
-          (Click anywhere to dismiss)
-        </div>
+        <button
+          onClick={onClose}
+          className="mt-2 w-full rounded-lg border border-surface bg-surface/30 py-2 text-sm font-medium text-text-muted transition-colors hover:bg-surface/60 hover:text-text-main"
+        >
+          Continue
+        </button>
       </div>
     </div>
   );
