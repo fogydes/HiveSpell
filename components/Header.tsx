@@ -51,8 +51,7 @@ const Header: React.FC = () => {
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
 
   const isPlayMode = location.pathname.startsWith("/play");
-  const isLobbyMode = location.pathname === "/lobby";
-  const hideSidebar = isPlayMode || isLobbyMode;
+  const hideSidebar = isPlayMode;
   const equippedBadgeItem = equippedBadge ? ITEM_CATALOG[equippedBadge] : null;
 
   // Close dropdown when clicking outside
@@ -161,7 +160,10 @@ const Header: React.FC = () => {
           <NotificationBell />
           <div className="relative">
             <button
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsDropdownOpen(!isDropdownOpen);
+              }}
               className="w-12 h-12 rounded-full border-2 border-primary-dim p-[2px] shadow-lg hover:scale-105 transition-transform"
             >
               <div className="w-full h-full rounded-full bg-panel flex items-center justify-center overflow-hidden">
