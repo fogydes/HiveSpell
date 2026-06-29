@@ -55,8 +55,6 @@ const Header: React.FC = () => {
   const hideSidebar = isPlayMode || isLobbyMode;
   const equippedBadgeItem = equippedBadge ? ITEM_CATALOG[equippedBadge] : null;
 
-  if (!user) return null;
-
   // Close dropdown when clicking outside
   React.useEffect(() => {
     if (!isDropdownOpen) return;
@@ -82,6 +80,8 @@ const Header: React.FC = () => {
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
   }, [showShop, showInventory, showLeaderboard, showSettings, showProfile, selectedProfileId, showFriends, showChat, isDropdownOpen]);
+
+  if (!user) return null;
 
   const handleLogout = () => {
     signOut(auth);
