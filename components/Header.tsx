@@ -51,7 +51,6 @@ const Header: React.FC = () => {
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
 
   const isPlayMode = location.pathname.startsWith("/play");
-  const hideSidebar = isPlayMode;
   const equippedBadgeItem = equippedBadge ? ITEM_CATALOG[equippedBadge] : null;
 
   // Close dropdown when clicking outside
@@ -121,9 +120,10 @@ const Header: React.FC = () => {
   };
 
   // Dynamic positioning for desktop sidebar
-  // If in play mode, position below the chatbox (which ends at ~80vh)
+  // In play mode: bottom-left horizontal strip to avoid overlapping game content
+  // Otherwise: left-middle vertical sidebar
   const desktopContainerClasses = isPlayMode
-    ? "hidden md:flex fixed left-4 top-[82vh] z-40 flex-row gap-2 pointer-events-auto"
+    ? "hidden md:flex fixed left-4 bottom-4 z-40 flex-row gap-2 pointer-events-auto"
     : "hidden md:flex fixed left-6 top-1/2 -translate-y-1/2 z-40 flex-col gap-3 pointer-events-auto";
 
   return (
@@ -236,8 +236,7 @@ const Header: React.FC = () => {
         </div>
       </header>
 
-      {/* MOBILE: Burger Menu (Left Middle) - Hidden on md+ and hidden on lobby/play */}
-      {!hideSidebar && (
+      {/* MOBILE: Burger Menu (Left Middle) - Hidden on md+ */}
       <div className="fixed left-4 top-1/2 -translate-y-1/2 z-50 flex flex-col items-start gap-2 pointer-events-auto md:hidden">
         <button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -278,10 +277,8 @@ const Header: React.FC = () => {
           </div>
         )}
       </div>
-      )}
 
-      {/* DESKTOP: Persistent Sidebar - Hidden on lobby/play */}
-      {!hideSidebar && (
+      {/* DESKTOP: Persistent Sidebar */}
       <div className={desktopContainerClasses}>
         <MenuButtons
           onShop={() => setShowShop(true)}
@@ -291,7 +288,6 @@ const Header: React.FC = () => {
           compact={isPlayMode}
         />
       </div>
-      )}
 
       {/* Leaderboard Modal */}
       {showLeaderboard && (
