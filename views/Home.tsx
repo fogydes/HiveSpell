@@ -2,9 +2,18 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
+const LAST_MODE_KEY = "hive_last_mode";
+
+/** Call this from Play.tsx when a game starts to record the last difficulty. */
+export const saveLastPlayedMode = (mode: string) => {
+  localStorage.setItem(LAST_MODE_KEY, mode);
+};
+
 const Home: React.FC = () => {
   const { user, userData } = useAuth();
   const navigate = useNavigate();
+
+  const lastMode = localStorage.getItem(LAST_MODE_KEY);
 
   return (
     <div className="theme-scene min-h-screen flex flex-col items-center justify-center bg-app p-4 relative overflow-hidden">
@@ -60,14 +69,29 @@ const Home: React.FC = () => {
           </div>
         )}
 
-        <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-          <button
-            onClick={() => navigate(user ? "/lobby" : "/auth")}
-            className="rounded-full bg-primary px-10 py-4 text-lg font-black tracking-[0.18em] text-app transition-all hover:scale-[var(--hover-scale)]"
-            style={{ boxShadow: "var(--theme-shadow-glow)" }}
-          >
-            {user ? "PLAY NOW" : "GET STARTED"}
-          </button>
+        <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center sm:gap-4">
+          {user && lastMode ? (
+            <div className="flex flex-col items-center">
+              <button
+                onClick={() => navigate(`/lobby`)}
+                className="rounded-full bg-primary px-10 py-4 text-lg font-black tracking-[0.18em] text-app transition-all hover:scale-[var(--hover-scale)]"
+                style={{ boxShadow: "var(--theme-shadow-glow)" }}
+              >
+                PLAY NOW
+              </button>
+              <span className="mt-2 text-xs text-text-muted">
+                Last played: <span className="capitalize text-primary font-medium">{lastMode}</span>
+              </span>
+            </div>
+          ) : (
+            <button
+              onClick={() => navigate(user ? "/lobby" : "/auth")}
+              className="rounded-full bg-primary px-10 py-4 text-lg font-black tracking-[0.18em] text-app transition-all hover:scale-[var(--hover-scale)]"
+              style={{ boxShadow: "var(--theme-shadow-glow)" }}
+            >
+              {user ? "PLAY NOW" : "GET STARTED"}
+            </button>
+          )}
           {user && (
             <button
               onClick={() => navigate("/lobby")}

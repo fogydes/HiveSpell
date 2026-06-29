@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import { useMultiplayer } from "../context/MultiplayerContext";
 import { leaveRoom } from "../services/multiplayerService";
+import { saveLastPlayedMode } from "./Home";
 import {
   speak,
   checkAnswer,
@@ -56,6 +57,11 @@ const Play: React.FC = () => {
     onMissingRoom: () => navigate("/lobby"),
     userId: user?.uid,
   });
+
+  // Save last played mode for the home page quick-play button
+  useEffect(() => {
+    if (paramMode) saveLastPlayedMode(paramMode);
+  }, [paramMode]);
 
   // --- Gameplay State ---
   // Streak is now synced from room state, not local

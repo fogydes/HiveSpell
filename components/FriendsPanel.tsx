@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import ConfirmDialog from "./ConfirmDialog";
+import { SkeletonList } from "./Skeleton";
 import {
   getFriends,
   getIncomingRequests,
@@ -236,14 +238,16 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({
     setActionLoading(null);
   };
 
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+
   const handleRemoveFriend = async (friendshipId: string) => {
-    if (!confirm("Remove this friend?")) return;
     setActionLoading(friendshipId);
     const result = await removeFriend(friendshipId);
     if (result.success) {
       await loadData();
     }
     setActionLoading(null);
+    setConfirmRemoveId(null);
   };
 
   const getAvatarUrl = (profile: {
@@ -312,10 +316,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({
         {/* Content */}
         <div className="max-h-[75vh] flex-1 overflow-y-auto custom-scrollbar">
           {loading ? (
-            <div className="p-12 text-center">
-              <div className="animate-spin text-3xl mb-3">🐝</div>
-              <p className="text-text-muted text-sm">Loading...</p>
-            </div>
+            <SkeletonList rows={4} />
           ) : (
             <>
               {/* Friends Tab */}
@@ -357,7 +358,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({
                             </button>
                           )}
                           <button
-                            onClick={() => handleRemoveFriend(f.friendship.id)}
+                            onClick={() => setConfirmRemoveId(f.friendship.id)}
                             disabled={actionLoading === f.friendship.id}
                             className="px-2 py-1 text-[10px] font-bold text-red-400/60 border border-red-500/20 rounded-lg hover:bg-red-500/10 hover:text-red-400 transition-colors disabled:opacity-50"
                           >
@@ -572,6 +573,17 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({
           )}
         </div>
       </div>
+
+      {confirmRemoveId && (
+        <ConfirmDialog
+          title="Remove Friend"
+          message="Are you sure you want to remove this friend? You can always add them back later."
+          confirmLabel="Remove"
+          variant="danger"
+          onConfirm={() => handleRemoveFriend(confirmRemoveId)}
+          onCancel={() => setConfirmRemoveId(null)}
+        />
+      )}
     </div>
   );
 };
