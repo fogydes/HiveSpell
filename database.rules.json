@@ -1,8 +1,8 @@
 {
   "rules": {
     "users": {
-      ".read": true,
       "$uid": {
+        ".read": true,
         ".write": "auth != null && $uid === auth.uid",
         "username": {
           ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 30 && (!data.exists() || newData.val() === data.val())"
@@ -16,8 +16,11 @@
       }
     },
     "presence": {
-      ".read": true,
-      ".write": "auth != null"
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && $uid === auth.uid",
+        ".validate": "newData.isBoolean() || newData.isNumber() || newData.isString() || !newData.exists()"
+      }
     },
     "usernames": {
       ".read": true,
@@ -76,7 +79,7 @@
             ".validate": "newData.hasChildren() || !newData.exists()"
           },
           "currentInput": {
-            ".validate": "newData.isString() || !newData.exists()"
+            ".validate": "(newData.isString() && newData.val().length <= 100) || !newData.exists()"
           },
           "currentPlayerWpm": {
             ".validate": "newData.isNumber() || !newData.exists()"
@@ -88,7 +91,7 @@
             ".validate": "newData.isString() || !newData.exists()"
           },
           "winnerName": {
-            ".validate": "newData.isString() || !newData.exists()"
+            ".validate": "(newData.isString() && newData.val().length <= 40) || !newData.exists()"
           },
           "frozenTimeLeft": {
             ".validate": "newData.isNumber() || !newData.exists()"
@@ -136,7 +139,10 @@
         },
         "chat": {
           ".read": "auth != null",
-          ".write": "auth != null && data.parent().child('players').child(auth.uid).exists()"
+          ".write": "auth != null && data.parent().child('players').child(auth.uid).exists()",
+          "$messageId": {
+            ".validate": "newData.hasChild('text') && newData.hasChild('sender') && newData.child('text').isString() && newData.child('text').val().length <= 500 && newData.child('sender').isString() && newData.child('sender').val().length <= 40"
+          }
         }
       }
     }

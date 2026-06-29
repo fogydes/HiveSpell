@@ -16,6 +16,9 @@ import {
 } from "firebase/database";
 import { Room, Player, GameSettings } from "../types/multiplayer";
 
+/** Maximum room age in ms before it's considered stale (1 hour). */
+const ROOM_MAX_AGE_MS = 60 * 60 * 1000;
+
 export const createRoom = async (
   hostId: string,
   hostName: string,
@@ -28,10 +31,14 @@ export const createRoom = async (
   const newRoomRef = push(roomsRef);
   const roomId = newRoomRef.key as string;
 
-  // Only generate code for private rooms
+  // Only generate code for private rooms (cryptographically random)
   const code =
     type === "private"
-      ? Math.random().toString(36).substring(2, 8).toUpperCase()
+      ? Array.from(crypto.getRandomValues(new Uint8Array(4)))
+          .map((b) => b.toString(36).padStart(2, "0"))
+          .join("")
+          .substring(0, 6)
+          .toUpperCase()
       : null;
 
   const newRoom: any = {
@@ -68,6 +75,12 @@ export const createRoom = async (
   });
 
   await set(newRoomRef, newRoom);
+
+  // Register server-side cleanup: if this player disconnects and they're
+  // the only one, Firebase will delete the room automatically.
+  const playerRef = ref(db, `rooms/${roomId}/players/${hostId}`);
+  await onDisconnect(playerRef).update({ status: "disconnected" });
+
   return roomId;
 };
 
@@ -83,6 +96,14 @@ export const joinRoom = async (
   }
 
   const roomVal = roomSnap.val();
+
+  // Reject stale rooms
+  if (roomVal.createdAt && Date.now() - roomVal.createdAt > ROOM_MAX_AGE_MS) {
+    console.log(`[Join] Room ${roomId} is stale (>1h old), deleting...`);
+    await remove(roomRef);
+    throw new Error("Room has expired");
+  }
+
   const isGameRunning = roomVal.status === "playing";
 
   // Late joiners are spectators. Waiting/Intermission -> Connected (Ready for next round)
@@ -155,7 +176,28 @@ export const subscribeToRoom = (
 ): (() => void) => {
   const roomRef = ref(db, `rooms/${roomId}`);
   const listener = onValue(roomRef, (snapshot) => {
-    callback(snapshot.val());
+    const roomData = snapshot.val();
+
+    // Auto-cleanup: if the room exists but all players are disconnected,
+    // delete it. This catches cases where onDisconnect marked everyone
+    // as disconnected but no client ran leaveRoom().
+    if (roomData && roomData.players) {
+      const playerList = Object.values(roomData.players) as any[];
+      const hasActivePlayer = playerList.some(
+        (p) => p.status !== "disconnected",
+      );
+
+      if (!hasActivePlayer && playerList.length > 0) {
+        console.log(
+          `[SubscribeToRoom] All players disconnected in room ${roomId}, cleaning up.`,
+        );
+        remove(roomRef).catch(() => {});
+        callback(null);
+        return;
+      }
+    }
+
+    callback(roomData);
   });
   return () => off(roomRef, "value", listener);
 };
@@ -177,6 +219,7 @@ export const findPublicRoom = async (
 
   if (!snapshot.exists()) return null;
 
+  const now = Date.now();
   const rooms = snapshot.val();
   // Client-side filter for specificity (Firebase RDB limits multiple queries)
   for (const [id, room] of Object.entries(rooms) as [string, any][]) {
@@ -184,9 +227,13 @@ export const findPublicRoom = async (
     const playerList = Object.values(players) as any[];
     const activePlayers = playerList.filter((p) => p.status !== "disconnected");
 
-    // Proactive cleanup: If we find a room with no active players, delete it
-    if (activePlayers.length === 0) {
-      console.log(`[FindPublicRoom] Cleaning up zombie room: ${id}`);
+    // Proactive cleanup: stale rooms (>1h) or rooms with no active players
+    const isStale = room.createdAt && now - room.createdAt > ROOM_MAX_AGE_MS;
+
+    if (activePlayers.length === 0 || isStale) {
+      console.log(
+        `[FindPublicRoom] Cleaning up ${isStale ? "stale" : "zombie"} room: ${id}`,
+      );
       remove(ref(db, `rooms/${id}`)).catch(() => {}); // Fire and forget
       continue;
     }

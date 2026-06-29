@@ -22,10 +22,18 @@ Thanks for your interest in contributing to HiveSpell.
 
 Before submitting changes:
 
-- run `npx tsc --noEmit`
+- run `npx tsc --noEmit` (strict mode is enabled)
+- run `npm run test`
 - run `npm run build`
 - manually test the user flow you changed
 - update documentation if setup or behavior changed
+
+## Important Security Notes
+
+- Never commit `.env.local` or any file containing real API keys
+- Firebase rules changes must be tested against actual gameplay flows before merging
+- Do not add client-side fallbacks for server-owned operations (rewards, purchases)
+- Use the `utils/logger.ts` module for debug logging — never `console.log` directly
 
 ## Contribution Guidelines
 

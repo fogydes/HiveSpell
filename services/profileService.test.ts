@@ -63,70 +63,29 @@ describe("profileService", () => {
     expect(mockFrom).not.toHaveBeenCalled();
   });
 
-  it("falls back to a profile upsert when the win RPC is missing", async () => {
+  it("does not fall back to client-side upsert when the win RPC is missing", async () => {
     mockRpc.mockResolvedValue({ error: { code: "PGRST202" } });
-    mockMaybeSingle.mockResolvedValue({
-      data: {
-        id: "user-1",
-        username: "SavedName",
-        corrects: 1200,
-        wins: 99,
-        current_nectar: 15,
-        lifetime_nectar: 40,
-        inventory: ["theme_honey"],
-        equipped_theme: "hive",
-      },
-      error: null,
-    });
-    mockUpsert.mockResolvedValue({ error: null });
 
     await awardProfileWin("user-1", "Fallback");
 
-    expect(mockUpsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: "user-1",
-        username: "SavedName",
-        wins: 100,
-        title: "Busy Bee",
-      }),
-      { onConflict: "id" },
-    );
+    // Security: no client-side fallback — just logs and returns
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockUpsert).not.toHaveBeenCalled();
   });
 
-  it("clamps fallback nectar rewards to zero to match the RPC path", async () => {
+  it("clamps nectar to zero and does not fall back when RPC is missing", async () => {
     mockRpc.mockResolvedValue({ error: { code: "42883" } });
-    mockMaybeSingle.mockResolvedValue({
-      data: {
-        id: "user-2",
-        username: "Existing",
-        corrects: 999,
-        wins: 100,
-        current_nectar: 5,
-        lifetime_nectar: 7,
-        inventory: [],
-        equipped_theme: "hive",
-      },
-      error: null,
-    });
-    mockUpsert.mockResolvedValue({ error: null });
 
     await applyCorrectAnswerReward("user-2", "Fallback", -20);
 
+    // Verifies the RPC was called with clamped value
     expect(mockRpc).toHaveBeenCalledWith("apply_correct_answer_reward", {
       p_user_id: "user-2",
       p_username: "Fallback",
       p_nectar_to_add: 0,
     });
-    expect(mockUpsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: "user-2",
-        corrects: 1000,
-        wins: 100,
-        current_nectar: 5,
-        lifetime_nectar: 7,
-        title: "Busy Bee",
-      }),
-      { onConflict: "id" },
-    );
+    // Security: no client-side fallback
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockUpsert).not.toHaveBeenCalled();
   });
 });

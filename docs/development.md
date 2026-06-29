@@ -32,12 +32,26 @@ The Vite dev server runs on port `3000`.
 Useful commands:
 
 ```bash
-npx tsc --noEmit
+npx tsc --noEmit    # Strict mode enabled
+npm run test        # Vitest unit tests
 npm run build
 npm run preview
 ```
 
-There is currently no dedicated lint or test script in `package.json`.
+## Logging
+
+Use `utils/logger.ts` instead of bare `console.log`:
+
+```typescript
+import { log, warn, error } from "../utils/logger";
+```
+
+`log()` and `warn()` are development-only (stripped in production).
+`error()` always logs (use for genuine runtime errors).
+
+## Error Handling
+
+The app wraps all routes in an `ErrorBoundary` component (`components/ErrorBoundary.tsx`). If an unhandled exception reaches this boundary, users see a recovery UI instead of a white screen.
 
 ## Project Conventions
 

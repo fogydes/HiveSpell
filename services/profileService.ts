@@ -1,5 +1,4 @@
 import { supabase } from "./supabase";
-import { getTitle } from "./gameService";
 import type { ThemeId } from "../data/themePackages";
 
 interface ProfileRow {
@@ -73,22 +72,17 @@ export const awardProfileWin = async (
     p_username: fallbackUsername,
   });
 
-  if (!error) {
-    return;
-  }
-
-  if (!isMissingRpcError(error)) {
+  if (error) {
+    if (isMissingRpcError(error)) {
+      console.error(
+        "[profileService] award_profile_win RPC not found. " +
+          "Deploy the RPC to your Supabase project. " +
+          "Client-side fallback has been removed for security.",
+      );
+      return;
+    }
     throw error;
   }
-
-  const profile = await loadProfile(userId);
-  const nextWins = (profile?.wins ?? 0) + 1;
-  const nextCorrects = profile?.corrects ?? 0;
-
-  await saveProfile(userId, fallbackUsername, {
-    wins: nextWins,
-    title: getTitle(nextCorrects, nextWins),
-  });
 };
 
 export const applyCorrectAnswerReward = async (
@@ -103,26 +97,17 @@ export const applyCorrectAnswerReward = async (
     p_nectar_to_add: safeNectarToAdd,
   });
 
-  if (!error) {
-    return;
-  }
-
-  if (!isMissingRpcError(error)) {
+  if (error) {
+    if (isMissingRpcError(error)) {
+      console.error(
+        "[profileService] apply_correct_answer_reward RPC not found. " +
+          "Deploy the RPC to your Supabase project. " +
+          "Client-side fallback has been removed for security.",
+      );
+      return;
+    }
     throw error;
   }
-
-  const profile = await loadProfile(userId);
-  const nextCorrects = (profile?.corrects ?? 0) + 1;
-  const nextWins = profile?.wins ?? 0;
-  const nextCurrentNectar = (profile?.current_nectar ?? 0) + safeNectarToAdd;
-  const nextLifetimeNectar = (profile?.lifetime_nectar ?? 0) + safeNectarToAdd;
-
-  await saveProfile(userId, fallbackUsername, {
-    corrects: nextCorrects,
-    current_nectar: nextCurrentNectar,
-    lifetime_nectar: nextLifetimeNectar,
-    title: getTitle(nextCorrects, nextWins),
-  });
 };
 
 export const setProfileTheme = async (

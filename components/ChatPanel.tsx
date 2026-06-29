@@ -171,9 +171,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
                 Pick a conversation
               </h3>
               <p className="mt-3 max-w-md text-sm leading-6 text-text-muted">
-                The current chat work is functional. This layout now mirrors the
-                three-pane Messenger structure you asked for. Select a thread or
-                start a new one from the left rail.
+                Select a thread or start a new one from the left rail.
               </p>
             </div>
           ) : (
