@@ -70,14 +70,14 @@ const GameplayStage: React.FC<GameplayStageProps> = ({
 
       <div className="mt-4 mb-3 min-h-[44px] w-full max-w-lg text-center sm:mt-8 sm:mb-8 sm:min-h-[50px]">
         {status === "playing" ? (
-          <p className="text-text-muted text-xs sm:text-sm italic font-serif leading-relaxed px-4 py-2 bg-panel/50 rounded-lg border border-surface">
+          <p className="text-text-muted text-xs sm:text-sm italic font-serif leading-relaxed px-4 py-2 bg-panel/50 rounded-lg border border-surface line-clamp-3 sm:line-clamp-none">
             "{definition}"
           </p>
         ) : (
           <div className="h-[50px]">
             {status === "speaking" && (
               <div className="text-primary animate-pulse text-sm font-bold tracking-widest">
-                LISTENING TO HIVE...
+                🔊 Listen to the word...
               </div>
             )}
             <IntermissionStatus
@@ -123,7 +123,7 @@ const GameplayStage: React.FC<GameplayStageProps> = ({
 
       <div className="relative mb-6 h-2 w-full overflow-hidden rounded-full border border-surface bg-panel sm:mb-8 sm:h-3">
         <div
-          className={`h-full shadow-[0_0_15px_rgba(var(--primary-rgb),0.6)] ${timeLeft < 3 ? "bg-red-500" : "bg-primary"}`}
+          className={`h-full shadow-[0_0_15px_rgba(var(--primary-rgb),0.6)] ${timeLeft / totalTime < 0.3 ? "bg-red-500" : "bg-primary"}`}
           style={{ width: `${Math.min(100, (timeLeft / totalTime) * 100)}%` }}
         ></div>
       </div>
@@ -137,11 +137,12 @@ const GameplayStage: React.FC<GameplayStageProps> = ({
           ) : (
             <button
               onClick={onReplayWord}
-              className="group flex h-16 w-16 items-center justify-center rounded-full border border-primary-dim bg-primary-dim/10 transition-all active:scale-95 hover:bg-primary-dim/20 animate-pulse-slow sm:h-24 sm:w-24"
+              className="group flex flex-col h-20 w-20 items-center justify-center rounded-full border border-primary-dim bg-primary-dim/10 transition-all active:scale-95 hover:bg-primary-dim/20 sm:h-24 sm:w-24"
+              title="Replay word"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-8 w-8 sm:h-10 sm:w-10 text-primary group-hover:scale-110 transition-transform"
+                className="h-7 w-7 sm:h-9 sm:w-9 text-primary group-hover:scale-110 transition-transform"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -153,6 +154,7 @@ const GameplayStage: React.FC<GameplayStageProps> = ({
                   d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
                 />
               </svg>
+              <span className="text-[9px] font-bold text-primary/70 mt-1 uppercase tracking-wider">Replay</span>
             </button>
           )
         ) : (
@@ -193,7 +195,7 @@ const GameplayStage: React.FC<GameplayStageProps> = ({
             }
             placeholder={
               myStatus === "eliminated"
-                ? "ELIMINATED"
+                ? playersList.length === 1 ? "MISSED" : "ELIMINATED"
                 : !isMyTurn
                   ? "Watching..."
                   : "Type word..."

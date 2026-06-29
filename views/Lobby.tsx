@@ -120,6 +120,20 @@ const Lobby: React.FC = () => {
     return colors[mode] || "text-white border-slate-700";
   };
 
+  const getModeHint = (mode: string) => {
+    const hints: Record<string, string> = {
+      baby: "Common short words",
+      cakewalk: "Everyday vocabulary",
+      learner: "Standard difficulty",
+      intermediate: "Longer words",
+      heated: "Challenging words",
+      genius: "Advanced vocabulary",
+      polymath: "Complex and rare",
+      omniscient: "All difficulties mixed",
+    };
+    return hints[mode] || "";
+  };
+
   return (
     <div className="theme-scene min-h-screen bg-app pt-20 pb-28 sm:pt-24 sm:pb-24">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -158,11 +172,11 @@ const Lobby: React.FC = () => {
             style={{ boxShadow: themePackage.scene.panelShadow }}
           >
             <div className="mb-4 sm:mb-6">
-              <h3 className="text-xl font-black capitalize mb-2 tracking-wide sm:text-2xl">
+              <h3 className="text-xl font-black capitalize mb-1 tracking-wide sm:text-2xl">
                 {mode}
               </h3>
-              <p className="text-text-muted text-sm font-medium">
-                {wordBank[mode].length} Words Available
+              <p className="text-text-muted text-xs">
+                {wordBank[mode].length} words · {getModeHint(mode)}
               </p>
             </div>
 

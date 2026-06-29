@@ -8,9 +8,8 @@ import CustomizationEffects from "./CustomizationEffects";
 import NotificationBell from "./NotificationBell";
 import FriendsPanel from "./FriendsPanel";
 import ChatPanel from "./ChatPanel";
-import { auth, db } from "../firebase";
+import { auth } from "../firebase";
 import { signOut } from "firebase/auth";
-import { ref, get, query, orderByChild, limitToLast } from "firebase/database";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../services/supabase";
 import { ITEM_CATALOG } from "../data/customizationCatalog";
@@ -190,42 +189,43 @@ const Header: React.FC = () => {
                       setShowProfile(true);
                       setIsDropdownOpen(false);
                     }}
-                    className="w-full text-left px-4 py-2 text-sm text-text-muted hover:bg-primary-dim hover:text-primary transition-colors"
+                    className="w-full text-left px-4 py-2 text-sm text-text-muted hover:bg-primary-dim hover:text-primary transition-colors flex items-center gap-2"
                   >
-                    Profile
+                    <span className="text-base">👤</span> Profile
                   </button>
                   <button
                     onClick={() => {
                       setShowFriends(true);
                       setIsDropdownOpen(false);
                     }}
-                    className="w-full text-left px-4 py-2 text-sm text-text-muted hover:bg-primary-dim hover:text-primary transition-colors"
+                    className="w-full text-left px-4 py-2 text-sm text-text-muted hover:bg-primary-dim hover:text-primary transition-colors flex items-center gap-2"
                   >
-                    Friends
+                    <span className="text-base">👥</span> Friends
                   </button>
                   <button
                     onClick={() => {
                       setShowChat(true);
                       setIsDropdownOpen(false);
                     }}
-                    className="w-full text-left px-4 py-2 text-sm text-text-muted hover:bg-primary-dim hover:text-primary transition-colors"
+                    className="w-full text-left px-4 py-2 text-sm text-text-muted hover:bg-primary-dim hover:text-primary transition-colors flex items-center gap-2"
                   >
-                    Messages
+                    <span className="text-base">💬</span> Messages
                   </button>
                   <button
                     onClick={() => {
                       setShowSettings(true);
                       setIsDropdownOpen(false);
                     }}
-                    className="w-full text-left px-4 py-2 text-sm text-text-muted hover:bg-primary-dim hover:text-primary transition-colors"
+                    className="w-full text-left px-4 py-2 text-sm text-text-muted hover:bg-primary-dim hover:text-primary transition-colors flex items-center gap-2"
                   >
-                    Settings
+                    <span className="text-base">⚙️</span> Settings
                   </button>
+                  <div className="border-t border-surface my-1"></div>
                   <button
                     onClick={handleLogout}
-                    className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/20 transition-colors"
+                    className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/20 transition-colors flex items-center gap-2"
                   >
-                    Logout
+                    <span className="text-base">🚪</span> Logout
                   </button>
                 </div>
               </div>
@@ -329,9 +329,12 @@ const Header: React.FC = () => {
                       setSelectedProfileId(p.uid);
                       setShowLeaderboard(false);
                     }}
-                    className="grid grid-cols-[1fr_80px_60px] px-6 py-4 border-b border-surface hover:bg-surface/50 transition-colors items-center w-full text-left cursor-pointer"
+                    className={`grid grid-cols-[1fr_80px_60px] px-6 py-4 border-b border-surface hover:bg-surface/50 transition-colors items-center w-full text-left cursor-pointer ${p.uid === user?.uid ? "bg-primary/10" : ""}`}
                   >
                     <div className="flex items-center gap-3">
+                      <span className={`text-xs font-bold w-5 text-center ${i < 3 ? "text-primary" : "text-text-muted"}`}>
+                        {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`}
+                      </span>
                       <div className="w-8 h-8 rounded bg-surface flex items-center justify-center">
                         <img
                           src={
@@ -342,8 +345,8 @@ const Header: React.FC = () => {
                           alt="avatar"
                         />
                       </div>
-                      <span className="text-text-main font-medium">
-                        {p.name} {i < 3 && "🔥"}
+                      <span className={`font-medium ${p.uid === user?.uid ? "text-primary" : "text-text-main"}`}>
+                        {p.name}
                       </span>
                     </div>
                     <div className="text-right font-mono text-primary">
