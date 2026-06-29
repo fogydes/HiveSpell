@@ -1,6 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useMultiplayer } from "../context/MultiplayerContext";
+import { useToast } from "../context/ToastContext";
 
 const LAST_MODE_KEY = "hive_last_mode";
 
@@ -11,9 +13,29 @@ export const saveLastPlayedMode = (mode: string) => {
 
 const Home: React.FC = () => {
   const { user, userData } = useAuth();
+  const { joinPublicGame, loading } = useMultiplayer();
+  const { showToast } = useToast();
   const navigate = useNavigate();
+  const [joining, setJoining] = useState(false);
 
   const lastMode = localStorage.getItem(LAST_MODE_KEY);
+
+  const handleQuickPlay = async () => {
+    if (!lastMode || loading || joining) return;
+    setJoining(true);
+    try {
+      await joinPublicGame(lastMode);
+      navigate(`/play/${lastMode}`);
+    } catch {
+      showToast({
+        title: "Matchmaking failed",
+        message: "Could not find a match. Try the lobby.",
+        variant: "error",
+      });
+    } finally {
+      setJoining(false);
+    }
+  };
 
   return (
     <div className="theme-scene min-h-screen flex flex-col items-center justify-center bg-app p-4 relative overflow-hidden">
@@ -41,13 +63,11 @@ const Home: React.FC = () => {
             data-display="true"
             className="mb-4 text-5xl font-black leading-none text-text-main md:text-7xl"
           >
-            Welcome to Hive<span className="text-primary">Spell</span>
+            Hive<span className="text-primary">Spell</span>
           </h1>
 
-          <p className="max-w-2xl text-base font-light leading-relaxed text-text-muted md:text-xl">
-            The ultimate competitive spelling arena. Test your speed and
-            accuracy against the hive and make every round feel like a ritual,
-            not a drill.
+          <p className="max-w-2xl text-base font-light leading-relaxed text-text-muted md:text-lg">
+            Hear the word. Spell it fast. Outlast everyone.
           </p>
         </div>
 
@@ -73,14 +93,15 @@ const Home: React.FC = () => {
           {user && lastMode ? (
             <div className="flex flex-col items-center">
               <button
-                onClick={() => navigate(`/lobby`)}
-                className="rounded-full bg-primary px-10 py-4 text-lg font-black tracking-[0.18em] text-app transition-all hover:scale-[var(--hover-scale)]"
+                onClick={handleQuickPlay}
+                disabled={joining || loading}
+                className="rounded-full bg-primary px-10 py-4 text-lg font-black tracking-[0.18em] text-app transition-all hover:scale-[var(--hover-scale)] disabled:opacity-50 disabled:cursor-wait"
                 style={{ boxShadow: "var(--theme-shadow-glow)" }}
               >
-                PLAY NOW
+                {joining ? "FINDING MATCH..." : "PLAY NOW"}
               </button>
-              <span className="mt-2 text-xs text-text-muted">
-                Last played: <span className="capitalize text-primary font-medium">{lastMode}</span>
+              <span className="mt-2 text-xs text-text-muted capitalize">
+                {lastMode} difficulty
               </span>
             </div>
           ) : (
