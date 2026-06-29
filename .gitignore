@@ -39,4 +39,4 @@ supabase/.temp/
 .claude/settings.local.json
 tasks/
 /graphify-out
-scripts/audio-check/*
+/scripts/
