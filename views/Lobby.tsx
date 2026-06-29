@@ -150,7 +150,7 @@ const Lobby: React.FC = () => {
         </p>
       </div>
 
-      <div className="grid w-full max-w-6xl grid-cols-1 gap-4 pb-20 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid w-full max-w-6xl grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
         {modes.map((mode) => (
           <div
             key={mode}
@@ -186,7 +186,7 @@ const Lobby: React.FC = () => {
         ))}
       </div>
 
-      <div className="fixed bottom-0 left-0 z-40 flex w-full justify-center border-t border-surface bg-panel/70 p-3 backdrop-blur-xl sm:p-6">
+      <div className="mt-6 flex w-full max-w-5xl justify-center sm:mt-10">
         <form
           onSubmit={handleJoinPrivate}
           className="theme-panel-shell flex w-full max-w-md items-center gap-2 rounded-xl border border-surface bg-panel/80 p-2 transition-colors focus-within:border-primary sm:max-w-lg sm:gap-3"

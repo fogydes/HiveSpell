@@ -52,9 +52,37 @@ const Header: React.FC = () => {
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
 
   const isPlayMode = location.pathname.startsWith("/play");
+  const isLobbyMode = location.pathname === "/lobby";
+  const hideSidebar = isPlayMode || isLobbyMode;
   const equippedBadgeItem = equippedBadge ? ITEM_CATALOG[equippedBadge] : null;
 
   if (!user) return null;
+
+  // Close dropdown when clicking outside
+  React.useEffect(() => {
+    if (!isDropdownOpen) return;
+    const handleClick = () => setIsDropdownOpen(false);
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
+  }, [isDropdownOpen]);
+
+  // Global Escape key handler for all modals
+  React.useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (showShop) { setShowShop(false); return; }
+      if (showInventory) { setShowInventory(false); return; }
+      if (showLeaderboard) { setShowLeaderboard(false); return; }
+      if (showSettings) { setShowSettings(false); return; }
+      if (showProfile) { setShowProfile(false); return; }
+      if (selectedProfileId) { setSelectedProfileId(null); return; }
+      if (showFriends) { setShowFriends(false); return; }
+      if (showChat) { setShowChat(false); return; }
+      if (isDropdownOpen) { setIsDropdownOpen(false); return; }
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [showShop, showInventory, showLeaderboard, showSettings, showProfile, selectedProfileId, showFriends, showChat, isDropdownOpen]);
 
   const handleLogout = () => {
     signOut(auth);
@@ -206,7 +234,8 @@ const Header: React.FC = () => {
         </div>
       </header>
 
-      {/* MOBILE: Burger Menu (Left Middle) - Hidden on md+ */}
+      {/* MOBILE: Burger Menu (Left Middle) - Hidden on md+ and hidden on lobby/play */}
+      {!hideSidebar && (
       <div className="fixed left-4 top-1/2 -translate-y-1/2 z-50 flex flex-col items-start gap-2 pointer-events-auto md:hidden">
         <button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -247,22 +276,32 @@ const Header: React.FC = () => {
           </div>
         )}
       </div>
+      )}
 
-      {/* DESKTOP: Persistent Sidebar or Bottom Bar based on route */}
+      {/* DESKTOP: Persistent Sidebar - Hidden on lobby/play */}
+      {!hideSidebar && (
       <div className={desktopContainerClasses}>
         <MenuButtons
           onShop={() => setShowShop(true)}
           onLeaderboard={() => fetchLeaderboard()}
           onInventory={() => setShowInventory(true)}
           desktop
-          compact={isPlayMode} // Pass compact flag for play mode
+          compact={isPlayMode}
         />
       </div>
+      )}
 
       {/* Leaderboard Modal */}
       {showLeaderboard && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 pointer-events-auto">
-          <div className="bg-panel w-full max-w-md rounded-2xl border border-surface shadow-2xl overflow-hidden animate-scale-in">
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 pointer-events-auto"
+          onClick={() => setShowLeaderboard(false)}
+          onKeyDown={(e) => e.key === "Escape" && setShowLeaderboard(false)}
+        >
+          <div
+            className="bg-panel w-full max-w-md rounded-2xl border border-surface shadow-2xl overflow-hidden animate-scale-in"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="p-4 flex justify-between items-center border-b border-surface bg-panel/50">
               <h2 className="text-xl font-bold text-text-main">Leaderboard</h2>
               <button
@@ -327,8 +366,14 @@ const Header: React.FC = () => {
 
       {/* Settings Modal */}
       {showSettings && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 pointer-events-auto">
-          <div className="bg-panel w-full max-w-md rounded-2xl border border-surface shadow-2xl p-6 animate-scale-in">
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 pointer-events-auto"
+          onClick={() => setShowSettings(false)}
+        >
+          <div
+            className="bg-panel w-full max-w-md rounded-2xl border border-surface shadow-2xl p-6 animate-scale-in"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2 className="text-2xl font-bold text-text-main mb-6">Settings</h2>
 
             <div className="space-y-6">

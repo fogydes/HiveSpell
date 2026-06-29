@@ -204,8 +204,8 @@ const GameplayStage: React.FC<GameplayStageProps> = ({
       </div>
 
       {currentRoom.type === "private" && (
-        <div className="absolute top-20 right-6 flex flex-col items-end gap-2">
-          <span className="text-[10px] text-slate-600">CODE: {currentRoom.code}</span>
+        <div className="mt-4 text-center">
+          <span className="text-[10px] text-text-muted/60 font-mono tracking-wider">CODE: {currentRoom.code}</span>
         </div>
       )}
     </div>

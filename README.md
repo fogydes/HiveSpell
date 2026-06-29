@@ -5,19 +5,20 @@ HiveSpell is a real-time multiplayer spelling game built around audio-first play
 ## Features
 
 - Public matchmaking and private room codes
-- Turn-based multiplayer spelling rounds (with proactive ghost-room cleanup)
-- Audio-first gameplay with fallback speech playback
-- Persistent player profiles, stats, and progression
+- Turn-based multiplayer spelling rounds with automatic stale room cleanup
+- Audio-first gameplay with Supabase-hosted word recordings and TTS fallback
+- Persistent player profiles, stats, and progression via server-owned RPCs
 - Friends, notifications, and secure real-time direct messages
+- Themed visual packages with cursor effects and customization
+- In-game shop with nectar economy and cosmetic unlocks
 
 ## Tech Stack
 
-- React 19
-- TypeScript
-- Vite
-- Tailwind CSS v4
-- Firebase
-- Supabase
+- React 19 + TypeScript (strict mode)
+- Vite 8
+- Tailwind CSS v4 (CSS-first mode)
+- Firebase (Auth, Realtime Database, Hosting)
+- Supabase (Profiles, Social, Storage, RPCs)
 
 ## Getting Started
 
@@ -43,7 +44,7 @@ HiveSpell is a real-time multiplayer spelling game built around audio-first play
 
 ## Environment Variables
 
-The app expects environment variables for Firebase and Supabase configuration.
+The app expects environment variables for Firebase and Supabase configuration. See `.env.template` for the full list.
 
 Firebase:
 
@@ -67,9 +68,27 @@ VITE_SUPABASE_ANON_KEY=
 
 ## Scripts
 
-- `npm run dev` - start the development server
-- `npm run build` - build the production bundle
-- `npm run preview` - preview the production build locally
+- `npm run dev` — start the development server
+- `npm run typecheck` — run TypeScript strict-mode type checking
+- `npm run test` — run Vitest unit tests
+- `npm run build` — build the production bundle
+- `npm run preview` — preview the production build locally
+
+## Project Structure
+
+```
+├── App.tsx                 # Root component, providers, routes
+├── components/             # Shared UI (chat, play, modals)
+├── context/                # React context providers (Auth, Multiplayer, Settings, Toast)
+├── data/                   # Game data (word banks, customization catalog, themes)
+├── docs/                   # Project documentation
+├── hooks/                  # Custom React hooks (gameplay, chat, lifecycle)
+├── services/               # Backend service layer (Firebase, Supabase, game logic)
+├── types/                  # TypeScript interfaces
+├── utils/                  # Shared utilities (logger)
+├── views/                  # Page-level components (Home, Auth, Lobby, Play, Shop, Stash)
+└── public/                 # Static assets (favicons, themes)
+```
 
 ## Documentation
 
@@ -77,16 +96,25 @@ Project documentation lives in [`docs/`](./docs/README.md).
 
 - Architecture: [`docs/architecture.md`](./docs/architecture.md)
 - Development guide: [`docs/development.md`](./docs/development.md)
-- Gameplay guide: [`docs/gameplay.md`](./docs/gameplay.md)
 - Backend guide: [`docs/backend.md`](./docs/backend.md)
+- Gameplay guide: [`docs/gameplay.md`](./docs/gameplay.md)
 - Supabase contracts: [`docs/supabase.md`](./docs/supabase.md)
 - Deployment guide: [`docs/deployment.md`](./docs/deployment.md)
+- Architecture roadmap: [`docs/roadmap.md`](./docs/roadmap.md)
+- Design roadmap: [`docs/experience-roadmap.md`](./docs/experience-roadmap.md)
+- Security & quality plan: [`docs/improvement-plan.md`](./docs/improvement-plan.md)
+- Design improvement plan: [`docs/design-improvement-plan.md`](./docs/design-improvement-plan.md)
 
 ## Contributing
 
-Contributions are welcome. If you want to improve HiveSpell, start with [`CONTRIBUTING.md`](./CONTRIBUTING.md) for workflow, conventions, and suggested areas to help.
+Contributions are welcome. Start with [`CONTRIBUTING.md`](./CONTRIBUTING.md) for workflow, conventions, and suggested areas to help.
 
 ## Security
+
+- Firebase Realtime Database rules enforce per-user write access, chat validation, and field-level schema enforcement
+- Supabase progression uses server-owned RPCs (no client-side stat manipulation)
+- Hosting includes CSP, X-Frame-Options, and security headers
+- Room codes use cryptographic randomness
 
 If you discover a security issue, please read [`SECURITY.md`](./SECURITY.md) before opening a public issue.
 
