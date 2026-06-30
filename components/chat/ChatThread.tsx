@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Message, updateMessage, deleteMessage, sendMessage, uploadAttachment } from "../../services/messageService";
 import { PlusIcon, MicIcon, SendIcon, BackIcon, SearchIcon } from "./ChatIcons";
-import { getAvatarUrl, formatTime, formatDayLabel, MAX_FILE_SIZE } from "./ChatUtils";
+import { getAvatarUrl, formatTime, formatDayLabel, MAX_FILE_SIZE, sanitizeAttachmentUrl } from "./ChatUtils";
 import { useToast } from "../../context/ToastContext";
 
 interface ChatThreadProps {
@@ -385,26 +385,31 @@ export const ChatThread: React.FC<ChatThreadProps> = ({
                       {message.attachment_url && (
                         <div className={message.content ? "mb-3" : ""}>
                           {message.attachment_type === "image" ? (
+                            sanitizeAttachmentUrl(message.attachment_url) ? (
                             <img
-                              src={message.attachment_url}
+                              src={sanitizeAttachmentUrl(message.attachment_url)}
                               alt="attachment"
                               className="max-h-56 w-full cursor-pointer rounded-2xl object-cover"
                               onClick={() =>
-                                window.open(message.attachment_url!, "_blank")
+                                window.open(sanitizeAttachmentUrl(message.attachment_url), "_blank")
                               }
                             />
+                            ) : null
                           ) : message.attachment_type === "voice" ? (
+                            sanitizeAttachmentUrl(message.attachment_url) ? (
                             <div className="rounded-2xl border border-black/10 bg-black/10 p-2">
                               <audio
                                 controls
-                                src={message.attachment_url}
+                                src={sanitizeAttachmentUrl(message.attachment_url)}
                                 className="h-9 max-w-55"
                                 style={{ filter: isOwn ? "none" : "invert(1)" }}
                               />
                             </div>
+                            ) : null
                           ) : (
+                            sanitizeAttachmentUrl(message.attachment_url) ? (
                             <a
-                              href={message.attachment_url}
+                              href={sanitizeAttachmentUrl(message.attachment_url)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className={`inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm ${
@@ -418,6 +423,7 @@ export const ChatThread: React.FC<ChatThreadProps> = ({
                                 {message.attachment_name || "File"}
                               </span>
                             </a>
+                            ) : null
                           )}
                         </div>
                       )}

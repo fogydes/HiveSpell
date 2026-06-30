@@ -65,12 +65,16 @@ export const useRoomChat = ({
 
   const sendMessage = async (e: FormEvent) => {
     e.preventDefault();
-    if (!chatInput.trim() || !roomId || !senderName) return;
+    const trimmed = chatInput.trim();
+    if (!trimmed || !roomId || !senderName) return;
+
+    // Enforce max length to prevent spam
+    const text = trimmed.slice(0, 500);
 
     try {
       await dbPush(dbRef(db, `rooms/${roomId}/chat`), {
         sender: senderName,
-        text: chatInput,
+        text,
         timestamp: dbServerTimestamp(),
         type: "user",
       });

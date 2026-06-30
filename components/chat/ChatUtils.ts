@@ -54,3 +54,28 @@ export function getAvatarUrl(profile: {
 }
 
 export const MAX_FILE_SIZE = 5 * 1024 * 1024;
+
+/** Allowed domains for user-generated attachment URLs. */
+const TRUSTED_ATTACHMENT_DOMAINS = [
+  "supabase.co",
+  "supabase.in",
+];
+
+/**
+ * Validates that a URL is safe to render (https and from a trusted domain).
+ * Returns the URL if valid, or an empty string if suspicious.
+ */
+export function sanitizeAttachmentUrl(url: string | null | undefined): string {
+  if (!url) return "";
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:") return "";
+    const hostname = parsed.hostname;
+    const isTrusted = TRUSTED_ATTACHMENT_DOMAINS.some(
+      (domain) => hostname === domain || hostname.endsWith(`.${domain}`),
+    );
+    return isTrusted ? url : "";
+  } catch {
+    return "";
+  }
+}

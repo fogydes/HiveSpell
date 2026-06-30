@@ -57,6 +57,16 @@ const Lobby: React.FC = () => {
 
     const targetId = joinCode.trim();
 
+    // Validate: room codes/IDs should only contain safe characters
+    if (!/^[a-zA-Z0-9_-]+$/.test(targetId)) {
+      showToast({
+        title: "Invalid code",
+        message: "Room codes can only contain letters, numbers, and dashes.",
+        variant: "error",
+      });
+      return;
+    }
+
     try {
       // 1. Try Direct ID Lookup
       let foundRoomId = null;

@@ -370,10 +370,14 @@ export async function searchUsers(
     title?: string;
   }>
 > {
+  // Sanitize: strip SQL LIKE wildcards and require minimum length
+  const sanitized = query.replace(/[%_]/g, "").trim();
+  if (sanitized.length < 2) return [];
+
   const { data, error } = await supabase
     .from("profiles")
     .select("id, username, avatar_url, avatar_seed, title")
-    .ilike("username", `%${query}%`)
+    .ilike("username", `%${sanitized}%`)
     .neq("id", currentUserId)
     .limit(10);
 

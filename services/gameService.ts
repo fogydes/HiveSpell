@@ -132,7 +132,7 @@ export const fetchDefinition = async (word: string): Promise<string> => {
 
   try {
     const res = await fetch(
-      `https://api.dictionaryapi.dev/api/v2/entries/en/${word}`,
+      `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`,
     );
     if (!res.ok) throw new Error("No def");
     const data = await res.json();
