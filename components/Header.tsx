@@ -8,6 +8,7 @@ import CustomizationEffects from "./CustomizationEffects";
 import NotificationBell from "./NotificationBell";
 import FriendsPanel from "./FriendsPanel";
 import ChatPanel from "./ChatPanel";
+import SettingsPanel from "./SettingsPanel";
 import { auth } from "../firebase";
 import { signOut } from "firebase/auth";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -17,10 +18,6 @@ import { ITEM_CATALOG } from "../data/customizationCatalog";
 const Header: React.FC = () => {
   const { userData, user } = useAuth();
   const {
-    ttsVolume,
-    setTtsVolume,
-    sfxVolume,
-    setSfxVolume,
     equippedBadge,
   } = useSettings();
   const navigate = useNavigate();
@@ -365,63 +362,8 @@ const Header: React.FC = () => {
         </div>
       )}
 
-      {/* Settings Modal */}
-      {showSettings && (
-        <div
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 pointer-events-auto"
-          onClick={() => setShowSettings(false)}
-        >
-          <div
-            className="bg-panel w-full max-w-md rounded-2xl border border-surface shadow-2xl p-6 animate-scale-in"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="text-2xl font-bold text-text-main mb-6">Settings</h2>
-
-            <div className="space-y-6">
-              <div>
-                <label className="flex justify-between text-sm font-bold text-text-muted mb-2">
-                  <span>TTS Volume (Voice)</span>
-                  <span>{Math.round(ttsVolume * 100)}%</span>
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value={ttsVolume}
-                  onChange={(e) => setTtsVolume(parseFloat(e.target.value))}
-                  className="w-full h-2 bg-surface rounded-lg appearance-none cursor-pointer accent-primary"
-                />
-              </div>
-
-              <div>
-                <label className="flex justify-between text-sm font-bold text-text-muted mb-2">
-                  <span>SFX Volume (Typing)</span>
-                  <span>{Math.round(sfxVolume * 100)}%</span>
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value={sfxVolume}
-                  onChange={(e) => setSfxVolume(parseFloat(e.target.value))}
-                  className="w-full h-2 bg-surface rounded-lg appearance-none cursor-pointer accent-primary"
-                />
-              </div>
-            </div>
-
-            <div className="mt-8 flex justify-end">
-              <button
-                onClick={() => setShowSettings(false)}
-                className="px-6 py-2 bg-surface hover:bg-surface/80 rounded-lg text-text-main font-bold transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Settings Panel */}
+      {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
 
       {/* Shop Modal */}
       {showShop && <Shop onClose={() => setShowShop(false)} />}
