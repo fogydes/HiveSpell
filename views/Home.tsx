@@ -101,7 +101,7 @@ const Home: React.FC = () => {
                 {joining ? "FINDING MATCH..." : "PLAY NOW"}
               </button>
               <span className="mt-2 text-xs text-text-muted capitalize">
-                {lastMode} difficulty
+                Recently played {lastMode}
               </span>
             </div>
           ) : (

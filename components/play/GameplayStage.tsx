@@ -183,10 +183,19 @@ const GameplayStage: React.FC<GameplayStageProps> = ({
             autoCapitalize="none"
             autoFocus
             spellCheck={false}
+            inputMode="text"
+            data-form-type="other"
+            data-lpignore="true"
             value={isMyTurn ? inputValue : syncedInput}
             onChange={handleInputChange}
             onDrop={handleInputDrop}
             onPaste={handleInputPaste}
+            onBeforeInput={(e: any) => {
+              // Block dictation and composition-based injection (speech-to-text)
+              if (e.inputType === "insertFromDrop" || e.inputType === "insertFromPaste") {
+                e.preventDefault();
+              }
+            }}
             disabled={
               !isMyTurn ||
               !isInputEnabled ||

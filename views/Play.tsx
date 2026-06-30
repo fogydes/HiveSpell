@@ -284,6 +284,13 @@ const Play: React.FC = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
+
+    // Anti-cheat: reject input that jumps by more than 2 characters at once
+    // (catches programmatic injection, autocomplete, and dictation)
+    if (val.length > inputValue.length + 2) {
+      return;
+    }
+
     setInputValue(val);
     if (val.length > inputValue.length) playTypingSound();
 
