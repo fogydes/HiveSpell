@@ -57,8 +57,9 @@ jobs:
           BUILD_OUTPUT=$(npm run build 2>&1)
           echo "$BUILD_OUTPUT"
 
+          # Parse gzipped sizes (format: "dist/assets/name.js    255.61 kB │ gzip:  68.53 kB")
           # Check main chunk (< 200KB gzipped for P6 performance budget - warning only)
-          MAIN_GZIP=$(echo "$BUILD_OUTPUT" | grep -E 'index-.*\.js' | head -1 | sed -E 's/.*gzip:\s*([0-9.]+)\s*kB.*/\1/')
+          MAIN_GZIP=$(echo "$BUILD_OUTPUT" | grep -E 'index-[^ ]+\.js' | head -1 | sed -E 's/.*gzip:[[:space:]]*([0-9.]+)[[:space:]]*kB.*/\1/')
           if [ -n "$MAIN_GZIP" ]; then
             echo "Main chunk gzipped: ${MAIN_GZIP} kB"
             MAIN_INT=$(echo "$MAIN_GZIP" | cut -d. -f1)
@@ -66,10 +67,12 @@ jobs:
               echo "::warning::Main bundle exceeds 200KB gzipped (${MAIN_GZIP} kB) - P6 budget exceeded"
               # Not failing - allow for growth
             fi
+          else
+            echo "::warning::Could not parse main chunk gzip size"
           fi
 
           # Check vendor chunk (< 250KB gzipped)
-          VENDOR_GZIP=$(echo "$BUILD_OUTPUT" | grep -E 'vendor-.*\.js' | head -1 | sed -E 's/.*gzip:\s*([0-9.]+)\s*kB.*/\1/')
+          VENDOR_GZIP=$(echo "$BUILD_OUTPUT" | grep -E 'vendor-[^ ]+\.js' | head -1 | sed -E 's/.*gzip:[[:space:]]*([0-9.]+)[[:space:]]*kB.*/\1/')
           if [ -n "$VENDOR_GZIP" ]; then
             echo "Vendor chunk gzipped: ${VENDOR_GZIP} kB"
             VENDOR_INT=$(echo "$VENDOR_GZIP" | cut -d. -f1)
@@ -77,10 +80,12 @@ jobs:
               echo "::warning::Vendor bundle exceeds 250KB gzipped (${VENDOR_GZIP} kB)"
               # Not failing - vendor is often larger
             fi
+          else
+            echo "::warning::Could not parse vendor chunk gzip size"
           fi
 
           # Check CSS (< 25KB gzipped)
-          CSS_GZIP=$(echo "$BUILD_OUTPUT" | grep -E 'index-.*\.css' | head -1 | sed -E 's/.*gzip:\s*([0-9.]+)\s*kB.*/\1/')
+          CSS_GZIP=$(echo "$BUILD_OUTPUT" | grep -E 'index-[^ ]+\.css' | head -1 | sed -E 's/.*gzip:[[:space:]]*([0-9.]+)[[:space:]]*kB.*/\1/')
           if [ -n "$CSS_GZIP" ]; then
             echo "CSS gzipped: ${CSS_GZIP} kB"
             CSS_INT=$(echo "$CSS_GZIP" | cut -d. -f1)
@@ -88,6 +93,8 @@ jobs:
               echo "::error::CSS bundle exceeds 25KB gzipped (${CSS_GZIP} kB)"
               exit 1
             fi
+          else
+            echo "::warning::Could not parse CSS gzip size"
           fi
 
           echo "All bundle sizes within P6 performance budget"
@@ -441,7 +448,13 @@ jobs:
     name: Monitoring Setup Verification
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    continue-on-error: true
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Verify PostHog configuration
         if: env.VITE_POSTHOG_API_KEY != ''
         run: |
@@ -483,10 +496,14 @@ jobs:
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           # Read current version from package.json
-          CURRENT_VERSION=$(node -p "require('./package.json').version")
-          echo "Current version: $CURRENT_VERSION"
-          if [ -z "$CURRENT_VERSION" ] || [ "$CURRENT_VERSION" = "0.0.0" ]; then
-            echo "::warning::Version is 0.0.0 - semantic-release will determine version on next release"
+          if [ -f package.json ]; then
+            CURRENT_VERSION=$(node -p "require('./package.json').version" 2>/dev/null || echo "unknown")
+            echo "Current version: $CURRENT_VERSION"
+            if [ -z "$CURRENT_VERSION" ] || [ "$CURRENT_VERSION" = "0.0.0" ] || [ "$CURRENT_VERSION" = "unknown" ]; then
+              echo "::warning::Version is 0.0.0 or unknown - semantic-release will determine version on next release"
+            fi
+          else
+            echo "::warning::package.json not found - skipping version check"
           fi
           # In a real setup, you'd compare with last release tag:
           # git describe --tags --abbrev=0
