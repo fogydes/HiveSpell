@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import { Shop } from "../views/Shop";
@@ -14,6 +14,8 @@ import { signOut } from "firebase/auth";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../services/supabase";
 import { ITEM_CATALOG } from "../data/customizationCatalog";
+import { useFocusTrap, useRestoreFocus } from "../hooks/useAccessibility";
+import { useTranslation } from "react-i18next";
 
 const Header: React.FC = () => {
   const { userData, user } = useAuth();
@@ -22,6 +24,7 @@ const Header: React.FC = () => {
   } = useSettings();
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
@@ -50,10 +53,35 @@ const Header: React.FC = () => {
   const isPlayMode = location.pathname.startsWith("/play");
   const equippedBadgeItem = equippedBadge ? ITEM_CATALOG[equippedBadge] : null;
 
+  // Refs for focus management
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const leaderboardRef = useRef<HTMLDivElement>(null);
+  const friendsRef = useRef<HTMLDivElement>(null);
+  const chatRef = useRef<HTMLDivElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
+
+  // Focus traps for modals
+  useFocusTrap(isDropdownOpen, { current: dropdownRef.current });
+  useFocusTrap(showLeaderboard, leaderboardRef);
+  useFocusTrap(showFriends, friendsRef);
+  useFocusTrap(showChat, chatRef);
+  useFocusTrap(isMenuOpen, mobileMenuRef);
+
+  // Restore focus when modals close
+  useRestoreFocus(isDropdownOpen);
+  useRestoreFocus(showLeaderboard);
+  useRestoreFocus(showFriends);
+  useRestoreFocus(showChat);
+  useRestoreFocus(isMenuOpen);
+
   // Close dropdown when clicking outside
   React.useEffect(() => {
     if (!isDropdownOpen) return;
-    const handleClick = () => setIsDropdownOpen(false);
+    const handleClick = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
     document.addEventListener("click", handleClick);
     return () => document.removeEventListener("click", handleClick);
   }, [isDropdownOpen]);
@@ -139,7 +167,7 @@ const Header: React.FC = () => {
           </span>
           <div className="w-px h-5 bg-primary-dim mx-1"></div>
           <span className="text-accent font-medium text-sm tracking-wide uppercase">
-            {userData?.title || "Newbee"}
+            {userData?.title || t("header.newbee")}
           </span>
           {equippedBadgeItem && (
             <>
@@ -155,12 +183,15 @@ const Header: React.FC = () => {
         {/* Right: Profile Dropdown */}
         <div className="flex items-center gap-3 pointer-events-auto">
           <NotificationBell />
-          <div className="relative">
+          <div className="relative" ref={dropdownRef}>
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 setIsDropdownOpen(!isDropdownOpen);
               }}
+              aria-expanded={isDropdownOpen}
+              aria-haspopup="menu"
+              aria-label={isDropdownOpen ? t("header.closeProfileMenu") : t("header.openProfileMenu")}
               className="w-12 h-12 rounded-full border-2 border-primary-dim p-[2px] shadow-lg hover:scale-105 transition-transform"
             >
               <div className="w-full h-full rounded-full bg-panel flex items-center justify-center overflow-hidden">
@@ -169,14 +200,18 @@ const Header: React.FC = () => {
                     userData?.avatarUrl ||
                     `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`
                   }
-                  alt="Profile"
+                  alt=""
                   className="w-full h-full object-cover"
                 />
               </div>
             </button>
 
             {isDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-panel border border-surface rounded-lg shadow-xl overflow-hidden animate-fade-in-down z-50">
+              <div
+                ref={dropdownRef}
+                role="menu"
+                className="absolute right-0 mt-2 w-48 bg-panel border border-surface rounded-lg shadow-xl overflow-hidden animate-fade-in-down z-50"
+              >
                 <div className="px-4 py-3 border-b border-surface">
                   <p className="text-sm text-text-main font-medium truncate">
                     {userData?.username || user.email}
@@ -184,47 +219,52 @@ const Header: React.FC = () => {
                 </div>
                 <div className="py-1">
                   <button
+                    role="menuitem"
                     onClick={() => {
                       setShowProfile(true);
                       setIsDropdownOpen(false);
                     }}
                     className="w-full text-left px-4 py-2 text-sm text-text-muted hover:bg-primary-dim hover:text-primary transition-colors flex items-center gap-2"
                   >
-                    <span className="text-base">👤</span> Profile
+                    <span className="text-base">👤</span> {t("header.profile")}
                   </button>
                   <button
+                    role="menuitem"
                     onClick={() => {
                       setShowFriends(true);
                       setIsDropdownOpen(false);
                     }}
                     className="w-full text-left px-4 py-2 text-sm text-text-muted hover:bg-primary-dim hover:text-primary transition-colors flex items-center gap-2"
                   >
-                    <span className="text-base">👥</span> Friends
+                    <span className="text-base">👥</span> {t("header.friends")}
                   </button>
                   <button
+                    role="menuitem"
                     onClick={() => {
                       setShowChat(true);
                       setIsDropdownOpen(false);
                     }}
                     className="w-full text-left px-4 py-2 text-sm text-text-muted hover:bg-primary-dim hover:text-primary transition-colors flex items-center gap-2"
                   >
-                    <span className="text-base">💬</span> Messages
+                    <span className="text-base">💬</span> {t("header.messages")}
                   </button>
                   <button
+                    role="menuitem"
                     onClick={() => {
                       setShowSettings(true);
                       setIsDropdownOpen(false);
                     }}
                     className="w-full text-left px-4 py-2 text-sm text-text-muted hover:bg-primary-dim hover:text-primary transition-colors flex items-center gap-2"
                   >
-                    <span className="text-base">⚙️</span> Settings
+                    <span className="text-base">⚙️</span> {t("header.settings")}
                   </button>
                   <div className="border-t border-surface my-1"></div>
                   <button
+                    role="menuitem"
                     onClick={handleLogout}
                     className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/20 transition-colors flex items-center gap-2"
                   >
-                    <span className="text-base">🚪</span> Logout
+                    <span className="text-base">🚪</span> {t("header.logout")}
                   </button>
                 </div>
               </div>
@@ -298,7 +338,7 @@ const Header: React.FC = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-4 flex justify-between items-center border-b border-surface bg-panel/50">
-              <h2 className="text-xl font-bold text-text-main">Leaderboard</h2>
+              <h2 className="text-xl font-bold text-text-main">{t("header.leaderboard")}</h2>
               <button
                 onClick={() => setShowLeaderboard(false)}
                 className="text-text-muted hover:text-text-main"
@@ -308,13 +348,13 @@ const Header: React.FC = () => {
             </div>
             <div className="max-h-[60vh] overflow-y-auto custom-scrollbar">
               <div className="grid grid-cols-[1fr_80px_60px] px-6 py-2 text-xs text-text-muted font-bold uppercase tracking-wider">
-                <span>People</span>
-                <span className="text-right">Correct</span>
-                <span className="text-right">Wins</span>
+                <span>{t("header.people")}</span>
+                <span className="text-right">{t("header.correct")}</span>
+                <span className="text-right">{t("header.wins")}</span>
               </div>
               {loadingLeaderboard ? (
                 <div className="p-8 text-center text-text-muted">
-                  Loading...
+                  {t("header.loading")}
                 </div>
               ) : leaderboardData.length > 0 ? (
                 leaderboardData.map((p, i) => (
@@ -354,7 +394,7 @@ const Header: React.FC = () => {
                 ))
               ) : (
                 <div className="p-8 text-center text-text-muted">
-                  No data available
+                  {t("header.noData")}
                 </div>
               )}
             </div>
@@ -409,6 +449,7 @@ const MenuButtons: React.FC<{
   desktop?: boolean;
   compact?: boolean;
 }> = ({ onShop, onLeaderboard, onInventory, desktop, compact }) => {
+  const { t } = useTranslation();
   const baseClass =
     "flex items-center gap-3 p-3 rounded-xl bg-panel/90 backdrop-blur border border-surface text-text-main hover:bg-primary-dim hover:border-primary transition-all shadow-xl group";
 
@@ -431,14 +472,14 @@ const MenuButtons: React.FC<{
       <button
         onClick={onShop}
         className={`${baseClass} ${widthClass} hover:scale-105`}
-        title="Shop"
+        title={t("header.shop")}
       >
         <span className="text-xl min-w-[24px]">🛒</span>
         {(!compact || !desktop) && (
           <span
             className={`font-bold text-sm ${desktop ? "opacity-0 group-hover:opacity-100 transition-opacity duration-300" : ""}`}
           >
-            Shop
+            {t("header.shop")}
           </span>
         )}
       </button>
@@ -446,14 +487,14 @@ const MenuButtons: React.FC<{
       <button
         onClick={onLeaderboard}
         className={`${baseClass} ${widthClass} hover:scale-105`}
-        title="Leaderboard"
+        title={t("header.leaderboard")}
       >
         <span className="text-xl min-w-[24px]">🏆</span>
         {(!compact || !desktop) && (
           <span
             className={`font-bold text-sm ${desktop ? "opacity-0 group-hover:opacity-100 transition-opacity duration-300" : ""}`}
           >
-            Leaderboard
+            {t("header.leaderboard")}
           </span>
         )}
       </button>
@@ -461,14 +502,14 @@ const MenuButtons: React.FC<{
       <button
         onClick={onInventory}
         className={`${baseClass} ${widthClass} hover:scale-105`}
-        title="Inventory"
+        title={t("header.inventory")}
       >
         <span className="text-xl min-w-[24px]">🎒</span>
         {(!compact || !desktop) && (
           <span
             className={`font-bold text-sm ${desktop ? "opacity-0 group-hover:opacity-100 transition-opacity duration-300" : ""}`}
           >
-            Inventory
+            {t("header.inventory")}
           </span>
         )}
       </button>

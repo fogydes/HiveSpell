@@ -6,6 +6,7 @@ import {
   query as dbQuery,
   ref as dbRef,
   serverTimestamp as dbServerTimestamp,
+  DataSnapshot,
 } from "firebase/database";
 import { db } from "../firebase";
 
@@ -37,17 +38,21 @@ export const useRoomChat = ({
     if (!roomId) return;
 
     const chatRef = dbQuery(dbRef(db, `rooms/${roomId}/chat`), dbLimitToLast(50));
-    const unsubscribeChat = dbOnValue(chatRef, (snapshot: any) => {
+    const unsubscribeChat = dbOnValue(chatRef, (snapshot: DataSnapshot) => {
       const data = snapshot.val();
       if (data) {
         const msgList = Object.entries(data)
-          .map(([key, val]: [string, any]) => ({
-            id: key,
-            sender: val.sender,
-            text: val.text,
-            timestamp: val.timestamp,
-            type: val.type || "user",
-          }))
+          .map(([key, val]): [string, unknown] => ([key, val]))
+          .map(([key, val]: [string, unknown]) => {
+            const v = val as Record<string, unknown>;
+            return {
+              id: key,
+              sender: (v.sender as string) || "",
+              text: (v.text as string) || "",
+              timestamp: (v.timestamp as number) || 0,
+              type: (v.type as "user" | "server") || "user",
+            };
+          })
           .filter((msg) => msg.timestamp && msg.timestamp >= joinTimeRef.current);
 
         setMessages(msgList);

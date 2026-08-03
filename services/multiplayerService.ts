@@ -14,10 +14,46 @@ import {
   remove,
   onDisconnect,
 } from "firebase/database";
+import { supabase } from "./supabase";
 import { Room, Player, GameSettings } from "../types/multiplayer";
 
 /** Maximum room age in ms before it's considered stale (1 hour). */
 const ROOM_MAX_AGE_MS = 60 * 60 * 1000;
+
+/**
+ * Check if a user is shadow banned via Supabase RPC.
+ * Returns { isShadowBanned: boolean, reason: string | null }.
+ */
+export const checkShadowBanStatus = async (
+  userId: string
+): Promise<{ isShadowBanned: boolean; reason: string | null }> => {
+  if (!supabase) {
+    return { isShadowBanned: false, reason: null };
+  }
+
+  try {
+    const { data, error } = await supabase.rpc("is_shadow_banned", {
+      p_user_id: userId,
+    });
+
+    if (error) {
+      console.error("[checkShadowBanStatus] RPC error:", error);
+      return { isShadowBanned: false, reason: null };
+    }
+
+    if (data && data.length > 0) {
+      return {
+        isShadowBanned: data[0].is_shadow_banned === true,
+        reason: data[0].reason || null,
+      };
+    }
+
+    return { isShadowBanned: false, reason: null };
+  } catch (err: any) {
+    console.error("[checkShadowBanStatus] Exception:", err);
+    return { isShadowBanned: false, reason: null };
+  }
+};
 
 export const createRoom = async (
   hostId: string,
@@ -45,7 +81,7 @@ export const createRoom = async (
     id: roomId,
     hostId,
     type,
-    status: "playing",
+    status: "waiting", // Changed from "playing" - game starts via RPC
     createdAt: Date.now(),
     settings,
     players: {},
@@ -248,4 +284,140 @@ export const findPublicRoom = async (
   }
 
   return null;
+};
+
+/**
+ * Find a public room for shadow-banned players.
+ * Shadow-banned players should only match with other shadow-banned players
+ * in a separate matchmaking pool.
+ */
+export const findShadowBanRoom = async (
+  difficulty: string,
+): Promise<string | null> => {
+  const roomsRef = ref(db, "rooms");
+  // Query for shadow-ban pool rooms (type = "shadow_ban").
+  const shadowBanRoomsQuery = query(
+    roomsRef,
+    orderByChild("type"),
+    equalTo("shadow_ban"),
+    limitToFirst(50),
+  );
+
+  const snapshot = await get(shadowBanRoomsQuery);
+
+  if (!snapshot.exists()) return null;
+
+  const now = Date.now();
+  const rooms = snapshot.val();
+  // Client-side filter for specificity
+  for (const [id, room] of Object.entries(rooms) as [string, any][]) {
+    const players = room.players || {};
+    const playerList = Object.values(players) as any[];
+    const activePlayers = playerList.filter((p) => p.status !== "disconnected");
+
+    // Proactive cleanup: stale rooms (>1h) or rooms with no active players
+    const isStale = room.createdAt && now - room.createdAt > ROOM_MAX_AGE_MS;
+
+    if (activePlayers.length === 0 || isStale) {
+      console.log(
+        `[FindShadowBanRoom] Cleaning up ${isStale ? "stale" : "zombie"} room: ${id}`,
+      );
+      remove(ref(db, `rooms/${id}`)).catch(() => {}); // Fire and forget
+      continue;
+    }
+
+    if (
+      room.settings?.difficulty === difficulty &&
+      room.status !== "finished" &&
+      activePlayers.length < (room.settings.maxPlayers || 10)
+    ) {
+      return id;
+    }
+  }
+
+  return null;
+};
+
+/**
+ * Create a room in the shadow-ban pool.
+ * These rooms only match with other shadow-banned players.
+ */
+export const createShadowBanRoom = async (
+  hostId: string,
+  hostName: string,
+  settings: GameSettings,
+  hostCorrects: number = 0,
+  hostWins: number = 0,
+): Promise<string> => {
+  const roomsRef = ref(db, "rooms");
+  const newRoomRef = push(roomsRef);
+  const roomId = newRoomRef.key as string;
+
+  const newRoom: any = {
+    id: roomId,
+    hostId,
+    type: "shadow_ban", // Special type for shadow-ban pool
+    status: "waiting",
+    createdAt: Date.now(),
+    settings,
+    players: {},
+    gameState: {
+      currentWord: "",
+      currentWordIndex: 0,
+      startTime: 0,
+    },
+  };
+
+  // Add host as player with their actual stats
+  newRoom.players[hostId] = {
+    id: hostId,
+    name: hostName,
+    isHost: true,
+    score: 0,
+    corrects: hostCorrects,
+    wins: hostWins,
+    status: "connected",
+  };
+
+  console.log("[CreateShadowBanRoom] Host stats in Firebase:", {
+    corrects: hostCorrects,
+    wins: hostWins,
+  });
+
+  await set(newRoomRef, newRoom);
+
+  // Register server-side cleanup
+  const playerRef = ref(db, `rooms/${roomId}/players/${hostId}`);
+  await onDisconnect(playerRef).update({ status: "disconnected" });
+
+  return roomId;
+};
+
+// Start game via Supabase RPC (Validated Driver pattern)
+export const startGame = async (
+  roomId: string,
+  locale: string,
+  difficulty: string,
+): Promise<{ success: boolean; gameState?: any; firstPlayer?: string; error?: string }> => {
+  if (!supabase) {
+    return { success: false, error: "Supabase not configured" };
+  }
+
+  try {
+    const { data, error } = await supabase.rpc("start_game", {
+      p_room_id: roomId,
+      p_locale: locale,
+      p_difficulty: difficulty,
+    });
+
+    if (error) {
+      console.error("[startGame] RPC error:", error);
+      return { success: false, error: error.message };
+    }
+
+    return data as { success: boolean; gameState?: any; firstPlayer?: string };
+  } catch (err: any) {
+    console.error("[startGame] Exception:", err);
+    return { success: false, error: err.message };
+  }
 };

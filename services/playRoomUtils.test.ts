@@ -19,6 +19,7 @@ const makePlayer = (
   score: 0,
   corrects: 0,
   wins: 0,
+  streak: 0,
   status,
   joinedAt,
 });

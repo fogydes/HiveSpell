@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
+import { useScene } from "../context/SceneContext";
 import { auth } from "../firebase";
 import {
   updatePassword,
@@ -10,6 +11,11 @@ import {
 import { useToast } from "../context/ToastContext";
 import { supabase } from "../services/supabase";
 import { THEME_PACKAGES, type ThemeId } from "../data/themePackages";
+import { SCENE_PACKAGES, type SceneId, getScenePackage } from "../data/themes/scenePackages";
+import { LOCALES, type LocaleId } from "../data/localization";
+import { changeLanguage } from "../i18n";
+import { useReduceMotion } from "../hooks/useAccessibility";
+import { useTranslation } from "react-i18next";
 
 type SettingsTab = "audio" | "display" | "privacy" | "account" | "about";
 
@@ -17,13 +23,6 @@ interface SettingsPanelProps {
   onClose: () => void;
 }
 
-const TABS: { key: SettingsTab; label: string; icon: string }[] = [
-  { key: "audio", label: "Audio", icon: "🔊" },
-  { key: "display", label: "Display", icon: "🎨" },
-  { key: "privacy", label: "Privacy", icon: "🔒" },
-  { key: "account", label: "Account", icon: "👤" },
-  { key: "about", label: "About", icon: "ℹ️" },
-];
 
 const REPLAY_SPEEDS = [
   { value: 0.7, label: "0.7x" },
@@ -38,6 +37,14 @@ const INPUT_FONT_SIZES = [
   { value: "text-3xl sm:text-6xl", label: "Large" },
 ];
 
+const SCENE_METADATA: Record<SceneId, { label: string; description: string }> = {
+  default: { label: "Hive Classic", description: "Warm gold & honey tones with organic pollen particles" },
+  neon: { label: "Neon Grid", description: "Electric cyan/pink with digital rain & circuit particles" },
+  nature: { label: "Forest Bloom", description: "Earthy greens with floating leaf & pollen particles" },
+  cyber: { label: "Cyber Core", description: "Dark tech with hexagonal & ember particles" },
+  minimal: { label: "Minimal Light", description: "Clean white with subtle ambient glow" },
+};
+
 const SectionLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <p className="text-[10px] uppercase tracking-[0.3em] text-text-muted/60 mb-3">
     {children}
@@ -47,6 +54,16 @@ const SectionLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
   const { user, userData } = useAuth();
   const { showToast } = useToast();
+  const { t } = useTranslation();
+
+  const TABS: { key: SettingsTab; label: string; icon: string }[] = [
+    { key: "audio", label: t("settings.tabs.audio"), icon: "🔊" },
+    { key: "display", label: t("settings.tabs.display"), icon: "🎨" },
+    { key: "privacy", label: t("settings.tabs.privacy"), icon: "🔒" },
+    { key: "account", label: t("settings.tabs.account"), icon: "👤" },
+    { key: "about", label: t("settings.tabs.about"), icon: "ℹ️" },
+  ];
+
   const {
     ttsVolume,
     setTtsVolume,
@@ -54,7 +71,11 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
     setSfxVolume,
     theme,
     setTheme,
+    locale,
+    setLocale,
   } = useSettings();
+  const { currentScene, setScene, performanceTier } = useScene();
+  const reduceMotionPref = useReduceMotion();
 
   const [activeTab, setActiveTab] = useState<SettingsTab>("audio");
 
@@ -64,9 +85,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
   );
 
   // Display settings
-  const [reduceMotion, setReduceMotion] = useState(() =>
+  const [localReduceMotion, setLocalReduceMotion] = useState(() =>
     localStorage.getItem("hive_reduce_motion") === "1",
   );
+  const reduceMotion = reduceMotionPref || localReduceMotion;
   const [inputFontSize, setInputFontSize] = useState(() =>
     localStorage.getItem("hive_input_font_size") || "text-2xl sm:text-5xl",
   );
@@ -86,13 +108,15 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
   const [newUsername, setNewUsername] = useState("");
   const [usernameLoading, setUsernameLoading] = useState(false);
 
+  const disableAnimations = performanceTier === "static" || reduceMotion;
+
   const handleReplaySpeedChange = (speed: number) => {
     setReplaySpeed(speed);
     localStorage.setItem("hive_replay_speed", speed.toString());
   };
 
   const handleReduceMotionChange = (enabled: boolean) => {
-    setReduceMotion(enabled);
+    setLocalReduceMotion(enabled);
     localStorage.setItem("hive_reduce_motion", enabled ? "1" : "0");
     document.documentElement.classList.toggle("reduce-motion", enabled);
   };
@@ -167,7 +191,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-surface">
-          <h2 className="text-xl font-bold text-text-main">Settings</h2>
+          <h2 className="text-xl font-bold text-text-main">{t("settings.title")}</h2>
           <button onClick={onClose} className="text-text-muted hover:text-text-main text-xl">✕</button>
         </div>
 
@@ -195,9 +219,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
             {activeTab === "audio" && (
               <div className="space-y-6">
                 <div>
-                  <SectionLabel>Voice playback</SectionLabel>
+                  <SectionLabel>{t("settings.audio.voicePlayback")}</SectionLabel>
                   <label className="flex justify-between text-sm font-medium text-text-muted mb-2">
-                    <span>TTS Volume</span>
+                    <span>{t("settings.audio.ttsVolume")}</span>
                     <span className="text-text-main">{Math.round(ttsVolume * 100)}%</span>
                   </label>
                   <input
@@ -210,7 +234,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
 
                 <div>
                   <label className="flex justify-between text-sm font-medium text-text-muted mb-2">
-                    <span>SFX Volume</span>
+                    <span>{t("settings.audio.sfxVolume")}</span>
                     <span className="text-text-main">{Math.round(sfxVolume * 100)}%</span>
                   </label>
                   <input
@@ -222,9 +246,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
                 </div>
 
                 <div>
-                  <SectionLabel>Word replay</SectionLabel>
+                  <SectionLabel>{t("settings.audio.wordReplay")}</SectionLabel>
                   <label className="text-sm font-medium text-text-muted mb-2 block">
-                    Replay Speed
+                    {t("settings.audio.replaySpeed")}
                   </label>
                   <div className="flex gap-2">
                     {REPLAY_SPEEDS.map((s) => (
@@ -241,7 +265,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
                       </button>
                     ))}
                   </div>
-                  <p className="mt-2 text-xs text-text-muted/60">Slower speeds give you more time to hear the word.</p>
+                  <p className="mt-2 text-xs text-text-muted/60">{t("settings.audio.replaySpeedHint")}</p>
                 </div>
               </div>
             )}
@@ -249,7 +273,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
             {activeTab === "display" && (
               <div className="space-y-6">
                 <div>
-                  <SectionLabel>Theme</SectionLabel>
+                  <SectionLabel>{t("settings.display.theme")}</SectionLabel>
                   <div className="grid grid-cols-3 gap-2">
                     {Object.entries(THEME_PACKAGES).map(([id, pkg]) => (
                       <button
@@ -273,11 +297,11 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
                 </div>
 
                 <div>
-                  <SectionLabel>Accessibility</SectionLabel>
+                  <SectionLabel>{t("settings.display.accessibility")}</SectionLabel>
                   <label className="flex items-center justify-between py-3 cursor-pointer">
                     <div>
-                      <p className="text-sm font-medium text-text-main">Reduce motion</p>
-                      <p className="text-xs text-text-muted">Disable animations and transitions</p>
+                      <p className="text-sm font-medium text-text-main">{t("settings.display.reduceMotion")}</p>
+                      <p className="text-xs text-text-muted">{t("settings.display.reduceMotionDesc")}</p>
                     </div>
                     <input
                       type="checkbox"
@@ -289,8 +313,32 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
                 </div>
 
                 <div>
+                  <SectionLabel>{t("settings.display.language")}</SectionLabel>
                   <label className="text-sm font-medium text-text-muted mb-2 block">
-                    Input font size
+                    {t("settings.display.wordBankLocale")}
+                  </label>
+                  <select
+                    value={locale}
+                    onChange={async (e) => {
+                      const newLocale = e.target.value as LocaleId;
+                      await setLocale(newLocale);
+                    }}
+                    className="w-full rounded-lg border border-surface bg-surface/40 px-4 py-2.5 text-sm text-text-main focus:outline-none focus:border-primary"
+                  >
+                    {Object.values(LOCALES).map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label} - {option.nativeLabel}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-2 text-xs text-text-muted/60">
+                    {t("settings.display.localeHint")}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-text-muted mb-2 block">
+                    {t("settings.display.inputFontSize")}
                   </label>
                   <div className="flex gap-2">
                     {INPUT_FONT_SIZES.map((s) => (
@@ -308,17 +356,46 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
                     ))}
                   </div>
                 </div>
+
+                <div>
+                  <SectionLabel>{t("settings.display.scene")}</SectionLabel>
+                  <p className="text-xs text-text-muted/60 mb-3">{t("settings.display.chooseAtmosphere")}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(SCENE_PACKAGES).map(([id, scene]) => {
+                      const isActive = id === currentScene.id;
+                      return (
+                        <button
+                          key={id}
+                          onClick={() => setScene(id as SceneId)}
+                          className={`relative px-4 py-3 rounded-xl border transition-all font-medium text-sm ${
+                            isActive
+                              ? "border-primary bg-primary/10 text-primary shadow-[0_0_20px_var(--color-primary)]"
+                              : "border-surface bg-panel/50 text-text-muted hover:border-primary/50 hover:text-text-main"
+                          }`}
+                          style={{
+                            background: isActive ? scene.ambient.panelGradient : undefined,
+                          }}
+                        >
+                          {SCENE_METADATA[id as SceneId].label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-2 text-center text-sm text-text-muted max-w-xs mx-auto">
+                    {SCENE_METADATA[currentScene.id].description}
+                  </p>
+                </div>
               </div>
             )}
 
             {activeTab === "privacy" && (
               <div className="space-y-6">
                 <div>
-                  <SectionLabel>Visibility</SectionLabel>
+                  <SectionLabel>{t("settings.privacy.visibility")}</SectionLabel>
                   <label className="flex items-center justify-between py-3 cursor-pointer">
                     <div>
-                      <p className="text-sm font-medium text-text-main">Show online status</p>
-                      <p className="text-xs text-text-muted">Let friends see when you're active</p>
+                      <p className="text-sm font-medium text-text-main">{t("settings.privacy.showOnlineStatus")}</p>
+                      <p className="text-xs text-text-muted">{t("settings.privacy.showOnlineStatusDesc")}</p>
                     </div>
                     <input
                       type="checkbox"
@@ -330,24 +407,24 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
                 </div>
 
                 <div>
-                  <SectionLabel>Friend requests</SectionLabel>
+                  <SectionLabel>{t("settings.privacy.friendRequests")}</SectionLabel>
                   <label className="text-sm font-medium text-text-muted mb-2 block">
-                    Who can send you requests
+                    {t("settings.privacy.whoCanSendRequests")}
                   </label>
                   <select
                     value={friendRequestPref}
                     onChange={(e) => handleFriendRequestPrefChange(e.target.value)}
                     className="w-full rounded-lg border border-surface bg-surface/40 px-4 py-2.5 text-sm text-text-main focus:outline-none focus:border-primary"
                   >
-                    <option value="everyone">Everyone</option>
-                    <option value="friends_of_friends">Friends of friends</option>
-                    <option value="nobody">Nobody</option>
+                    <option value="everyone">{t("settings.privacy.everyone")}</option>
+                    <option value="friends_of_friends">{t("settings.privacy.friendsOfFriends")}</option>
+                    <option value="nobody">{t("settings.privacy.nobody")}</option>
                   </select>
                 </div>
 
                 <div>
-                  <SectionLabel>Blocked users</SectionLabel>
-                  <p className="text-sm text-text-muted">No blocked users.</p>
+                  <SectionLabel>{t("settings.privacy.blockedUsers")}</SectionLabel>
+                  <p className="text-sm text-text-muted">{t("settings.privacy.noBlockedUsers")}</p>
                 </div>
               </div>
             )}
@@ -355,16 +432,16 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
             {activeTab === "account" && (
               <div className="space-y-6">
                 <div>
-                  <SectionLabel>Username</SectionLabel>
+                  <SectionLabel>{t("settings.account.username")}</SectionLabel>
                   <p className="text-sm text-text-muted mb-3">
-                    Current: <span className="text-text-main font-medium">{userData?.username}</span>
+                    {t("settings.account.current")}: <span className="text-text-main font-medium">{userData?.username}</span>
                   </p>
                   <div className="flex gap-2">
                     <input
                       type="text"
                       value={newUsername}
                       onChange={(e) => setNewUsername(e.target.value)}
-                      placeholder="New username"
+                      placeholder={t("settings.account.newUsernamePlaceholder")}
                       maxLength={15}
                       className="flex-1 rounded-lg border border-surface bg-surface/40 px-3 py-2 text-sm text-text-main placeholder:text-text-muted/50 focus:outline-none focus:border-primary"
                     />
@@ -373,26 +450,26 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
                       disabled={usernameLoading || !newUsername.trim()}
                       className="px-4 py-2 rounded-lg bg-primary/20 text-primary text-sm font-bold border border-primary/30 hover:bg-primary/30 disabled:opacity-50 transition-colors"
                     >
-                      {usernameLoading ? "..." : "Save"}
+                      {usernameLoading ? "..." : t("settings.account.save")}
                     </button>
                   </div>
                 </div>
 
                 <div>
-                  <SectionLabel>Change password</SectionLabel>
+                  <SectionLabel>{t("settings.account.changePassword")}</SectionLabel>
                   <div className="space-y-2">
                     <input
                       type="password"
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
-                      placeholder="Current password"
+                      placeholder={t("settings.account.currentPasswordPlaceholder")}
                       className="w-full rounded-lg border border-surface bg-surface/40 px-3 py-2 text-sm text-text-main placeholder:text-text-muted/50 focus:outline-none focus:border-primary"
                     />
                     <input
                       type="password"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="New password (min 6 chars)"
+                      placeholder={t("settings.account.newPasswordPlaceholder")}
                       className="w-full rounded-lg border border-surface bg-surface/40 px-3 py-2 text-sm text-text-main placeholder:text-text-muted/50 focus:outline-none focus:border-primary"
                     />
                     <button
@@ -400,16 +477,16 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
                       disabled={passwordLoading || !currentPassword || !newPassword}
                       className="px-4 py-2 rounded-lg bg-primary/20 text-primary text-sm font-bold border border-primary/30 hover:bg-primary/30 disabled:opacity-50 transition-colors"
                     >
-                      {passwordLoading ? "Updating..." : "Update Password"}
+                      {passwordLoading ? t("settings.account.updating") : t("settings.account.updatePassword")}
                     </button>
                   </div>
                 </div>
 
                 <div>
-                  <SectionLabel>Danger zone</SectionLabel>
-                  <p className="text-xs text-text-muted mb-2">Permanently delete your account and all data.</p>
+                  <SectionLabel>{t("settings.account.dangerZone")}</SectionLabel>
+                  <p className="text-xs text-text-muted mb-2">{t("settings.account.deleteAccountDesc")}</p>
                   <button className="px-4 py-2 rounded-lg border border-red-500/30 text-red-400 text-sm font-bold hover:bg-red-500/10 transition-colors">
-                    Delete Account
+                    {t("settings.account.deleteAccount")}
                   </button>
                 </div>
               </div>
@@ -418,39 +495,39 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
             {activeTab === "about" && (
               <div className="space-y-6">
                 <div>
-                  <SectionLabel>Application</SectionLabel>
+                  <SectionLabel>{t("settings.about.application")}</SectionLabel>
                   <div className="space-y-3">
                     <div className="flex justify-between text-sm">
-                      <span className="text-text-muted">Version</span>
+                      <span className="text-text-muted">{t("settings.about.version")}</span>
                       <span className="text-text-main font-mono">0.1.0</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-text-muted">Build</span>
+                      <span className="text-text-muted">{t("settings.about.build")}</span>
                       <span className="text-text-main font-mono">Production</span>
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <SectionLabel>Keyboard shortcuts</SectionLabel>
+                  <SectionLabel>{t("settings.about.keyboardShortcuts")}</SectionLabel>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-text-muted">Submit answer</span>
+                      <span className="text-text-muted">{t("settings.about.submitAnswer")}</span>
                       <kbd className="px-2 py-0.5 rounded bg-surface/60 text-text-main text-xs font-mono">Enter</kbd>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-text-muted">Replay word</span>
+                      <span className="text-text-muted">{t("settings.about.replayWord")}</span>
                       <kbd className="px-2 py-0.5 rounded bg-surface/60 text-text-main text-xs font-mono">Click 🔊</kbd>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-text-muted">Close modals</span>
+                      <span className="text-text-muted">{t("settings.about.closeModals")}</span>
                       <kbd className="px-2 py-0.5 rounded bg-surface/60 text-text-main text-xs font-mono">Esc</kbd>
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <SectionLabel>Links</SectionLabel>
+                  <SectionLabel>{t("settings.about.links")}</SectionLabel>
                   <div className="space-y-2">
                     <a
                       href="https://github.com/fogydes/HiveSpell/issues"
@@ -458,7 +535,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
                       rel="noopener noreferrer"
                       className="block text-sm text-primary hover:underline"
                     >
-                      Report a bug →
+                      {t("settings.about.reportBug")}
                     </a>
                   </div>
                 </div>

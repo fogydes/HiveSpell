@@ -1,8 +1,10 @@
 import { supabase } from "./supabase";
 import { LOCAL_DEFINITIONS } from "../data/words";
+import { getLocaleConfig, type LocaleId } from "../data/localization";
 
 // Re-export word data so existing imports from gameService continue to work
 export { wordBank, MODE_ORDER, getWordDifficulty } from "../data/words";
+export { getWordBankForLocale, LOCALES, type LocaleId } from "../data/localization";
 
 const HOMOPHONES: Record<string, string[]> = {
   air: ["heir"],
@@ -124,15 +126,23 @@ export const checkAnswer = (target: string, input: string): boolean => {
   return false;
 };
 
-export const fetchDefinition = async (word: string): Promise<string> => {
+export const fetchDefinition = async (
+  word: string,
+  locale: LocaleId = "en",
+): Promise<string> => {
+  const localeConfig = getLocaleConfig(locale);
   const lowerWord = word.toLowerCase().trim();
-  if (LOCAL_DEFINITIONS[lowerWord]) {
+  if (localeConfig.id === "en" && LOCAL_DEFINITIONS[lowerWord]) {
     return LOCAL_DEFINITIONS[lowerWord];
+  }
+
+  if (!localeConfig.dictionaryLang) {
+    return "Listen carefully to the pronunciation.";
   }
 
   try {
     const res = await fetch(
-      `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`,
+      `https://api.dictionaryapi.dev/api/v2/entries/${localeConfig.dictionaryLang}/${encodeURIComponent(word)}`,
     );
     if (!res.ok) throw new Error("No def");
     const data = await res.json();
@@ -307,9 +317,11 @@ export const speak = async (
   word: string,
   volume: number = 1.0,
   force: boolean = false,
+  locale: LocaleId = "en",
 ): Promise<void> => {
+  const localeConfig = getLocaleConfig(locale);
   const now = Date.now();
-  logAudioDebug("speak-requested", { force, volume, word });
+  logAudioDebug("speak-requested", { force, locale, volume, word });
   // Dedupe: If same word requested within 1s, and not forced, ignore
   if (!force && word === lastSpokenWord && now - lastSpokenTime < 1000) {
     console.log(`[Audio] Ignoring duplicate speak request for "${word}"`);
@@ -342,6 +354,7 @@ export const speak = async (
 
       const utterance = new SpeechSynthesisUtterance(word);
       activeUtterance = utterance;
+      utterance.lang = localeConfig.speechLang;
       utterance.volume = volume;
       utterance.rate = 0.9;
 

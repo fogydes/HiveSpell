@@ -2,6 +2,9 @@ import { useEffect } from "react";
 import { runTransaction, ref as dbRef } from "firebase/database";
 import { db } from "../firebase";
 import { awardProfileWin } from "../services/profileService";
+import { logError, logSupabaseRpcError, logFirebaseError } from "../services/logger";
+import { useGameplayEvents } from "./useGameplayEvents";
+import { useBattlePass } from "./useBattlePass";
 
 const WIN_AWARD_STORAGE_KEY = "hive_awarded_wins";
 
@@ -45,6 +48,9 @@ export const useWinnerAward = ({
   userId,
   winnerId,
 }: UseWinnerAwardArgs) => {
+  const { emit } = useGameplayEvents();
+  const { addXp } = useBattlePass();
+
   useEffect(() => {
     if (!userId || !roomId || !winnerId || !intermissionEndsAt) {
       return;
@@ -63,13 +69,31 @@ export const useWinnerAward = ({
 
     awardProfileWin(userId, userDisplayName || "Player")
       .then(() => refreshUser())
-      .catch((err: any) => console.error("Win award transaction failed:", err));
+      .catch((err: Error) => logSupabaseRpcError("awardProfileWin", err));
 
     runTransaction(
       dbRef(db, `rooms/${roomId}/players/${userId}/wins`),
-      (current: any) => (current || 0) + 1,
-    ).catch((err: any) =>
-      console.error("Room win award transaction failed:", err),
+      (current: number | null) => (current || 0) + 1,
+    ).catch((err: Error) =>
+      logFirebaseError("incrementRoomWins", err),
     );
-  }, [intermissionEndsAt, refreshUser, roomId, userDisplayName, userId, winnerId]);
+
+    // Award XP for winning a round
+    addXp(500); // Big XP bonus for winning
+
+    // Emit victory event
+    emit({
+      type: "VICTORY",
+      winnerId: userId,
+      winnerName: userDisplayName || "Player",
+      finalStats: {
+        wpm: 0,
+        streak: 0,
+        correctWords: 0,
+        durationMs: 0,
+        place: 1,
+      },
+      timestamp: Date.now(),
+    });
+  }, [intermissionEndsAt, refreshUser, roomId, userDisplayName, userId, winnerId, emit, addXp]);
 };

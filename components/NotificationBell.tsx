@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
+import { useScene } from "@/context/SceneContext";
+import { useReduceMotion } from "@/hooks/useAccessibility";
+import { useTranslation } from "react-i18next";
 import {
   Notification,
   getNotifications,
@@ -27,6 +30,10 @@ function timeAgo(dateStr: string): string {
 
 const NotificationBell: React.FC = () => {
   const { user, userData } = useAuth();
+  const { performanceTier } = useScene();
+  const reduceMotion = useReduceMotion();
+  const { t } = useTranslation();
+  const disableAnimations = performanceTier === "static" || reduceMotion;
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -157,11 +164,17 @@ const NotificationBell: React.FC = () => {
       <button
         onClick={handleOpen}
         className="relative w-10 h-10 flex items-center justify-center rounded-full bg-panel/60 border border-surface hover:border-primary/50 transition-all hover:scale-105"
-        title="Notifications"
+        title={t("common.settings")}
+        aria-expanded={isOpen}
+        aria-haspopup="menu"
+        aria-label={unreadCount > 0 ? `${unreadCount} ${t("common.notifications")}` : t("common.notifications")}
       >
         <span className="text-lg">🔔</span>
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1 animate-pop-in">
+          <span
+            className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1"
+            style={{ animation: disableAnimations ? "none" : "popIn 0.2s ease-out" }}
+          >
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
@@ -169,15 +182,19 @@ const NotificationBell: React.FC = () => {
 
       {/* Dropdown Panel */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 max-h-96 bg-panel border border-surface rounded-xl shadow-2xl overflow-hidden animate-fade-in z-[9999]">
+        <div
+          className="absolute right-0 mt-2 w-80 max-h-96 bg-panel border border-surface rounded-xl shadow-2xl overflow-hidden z-[9999]"
+          role="menu"
+          style={{ animation: disableAnimations ? "none" : "fadeIn 0.15s ease-out" }}
+        >
           {/* Header */}
           <div className="px-4 py-3 border-b border-surface flex items-center justify-between">
             <h3 className="text-sm font-bold text-text-main uppercase tracking-wider">
-              Notifications
+              {t("nav.notifications")}
             </h3>
             {notifications.length > 0 && (
               <span className="text-[10px] text-text-muted">
-                {notifications.length} total
+                {notifications.length} {t("common.total")}
               </span>
             )}
           </div>
@@ -187,7 +204,7 @@ const NotificationBell: React.FC = () => {
             {notifications.length === 0 ? (
               <div className="p-8 text-center">
                 <span className="text-3xl opacity-50 block mb-2">🐝</span>
-                <p className="text-text-muted text-sm">No notifications yet</p>
+                <p className="text-text-muted text-sm">{t("notifications.noNotifications")}</p>
               </div>
             ) : (
               notifications.map((notif) => (

@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "lib": ["deno.ns", "deno.window"],
+    "noCheck": true
+  },
+  "importMap": "import_map.json",
+  "fmt": {
+    "options": {
+      "indentWidth": 2,
+      "singleQuote": true,
+      "proseWrap": "never"
+    }
+  }
+}

@@ -5,6 +5,7 @@ import { auth, db } from "../firebase";
 
 import { supabase } from "../services/supabase";
 import type { ThemeId } from "../data/themePackages";
+import { getTierFromStats, type PlayerStats } from "../utils/tierRanking";
 
 export interface UserData {
   nectar: number;
@@ -18,6 +19,12 @@ export interface UserData {
   equippedBadge?: string | null;
   username: string;
   avatarUrl?: string;
+  // Premium currency
+  premium: number;
+  // Tier system
+  tier?: string;
+  tierProgress?: number;
+  nextTierName?: string;
 }
 
 interface AuthContextType {
@@ -65,6 +72,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       "equipped_badge",
     );
 
+    // Compute tier from stats
+    const playerStats: PlayerStats = {
+      wins: profile?.wins ?? 0,
+      corrects: profile?.corrects ?? 0,
+      lifetimeNectar: profile?.lifetime_nectar ?? 0,
+    };
+    const tierDef = getTierFromStats(playerStats);
+
     return {
       nectar: profile?.current_nectar ?? 0,
       lifetimeNectar: profile?.lifetime_nectar ?? 0,
@@ -77,6 +92,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       equippedBadge: hasEquippedBadge ? profile?.equipped_badge : undefined,
       username: profile?.username ?? firebaseData?.username ?? fallbackUsername,
       avatarUrl: profile?.avatar_url,
+      premium: profile?.premium ?? 0,
+      tier: tierDef.name,
+      tierProgress: 0, // Would need profile stats for full progress
+      nextTierName: tierDef.name,
     };
   };
 
@@ -89,6 +108,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         .single();
 
       if (profile) {
+        // Compute tier from refreshed stats
+        const playerStats: PlayerStats = {
+          wins: profile.wins ?? 0,
+          corrects: profile.corrects ?? 0,
+          lifetimeNectar: profile.lifetime_nectar ?? 0,
+        };
+        const tierDef = getTierFromStats(playerStats);
+
         setUserData((prev) =>
           prev
             ? {
@@ -115,6 +142,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                   ? profile.equipped_badge
                   : prev.equippedBadge,
                 avatarUrl: profile.avatar_url,
+                premium: profile.premium ?? prev.premium,
+                tier: tierDef.name,
+                tierProgress: 0,
+                nextTierName: tierDef.name,
               }
             : null,
         );

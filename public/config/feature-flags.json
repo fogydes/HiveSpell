@@ -1,0 +1,14 @@
+{
+  "scenePackages": true,
+  "feedbackTheater": true,
+  "onboardingDemo": true,
+  "rankedMode": true,
+  "spectatorMode": true,
+  "replaySystem": true,
+  "dailyChallenges": true,
+  "battlePass": true,
+  "friendInvites": true,
+  "shareReplay": true,
+  "adminPanel": true,
+  "debugMode": false
+}

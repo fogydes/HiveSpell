@@ -1,6 +1,10 @@
-import React from "react";
+import React, { useMemo } from "react";
 import type { Room, Player } from "../../types/multiplayer";
 import IntermissionStatus from "./IntermissionStatus";
+import { TierBadgeMini } from "../tier/TierBadge";
+import { getTierFromStats, type PlayerStats } from "../../utils/tierRanking";
+import { useScene } from "@/context/SceneContext";
+import { useReduceMotion } from "@/hooks/useAccessibility";
 
 interface GameplayStageProps {
   currentRoom: Room;
@@ -27,6 +31,10 @@ interface GameplayStageProps {
   timeLeft: number;
   totalTime: number;
   userId?: string;
+  // Player stats for tier computation
+  wins?: number;
+  corrects?: number;
+  lifetimeNectar?: number;
 }
 
 const GameplayStage: React.FC<GameplayStageProps> = ({
@@ -54,10 +62,26 @@ const GameplayStage: React.FC<GameplayStageProps> = ({
   timeLeft,
   totalTime,
   userId,
+  wins = 0,
+  corrects = 0,
+  lifetimeNectar = 0,
 }) => {
   const currentTurnPlayerName =
     playersList.find((player) => player.id === currentRoom?.gameState?.currentTurnPlayerId)
       ?.name || "...";
+
+  // Compute tier from player stats
+  const playerStats: PlayerStats = useMemo(() => ({
+    wins,
+    corrects,
+    lifetimeNectar,
+    currentStreak: streak,
+  }), [wins, corrects, lifetimeNectar, streak]);
+
+  const tier = useMemo(() => getTierFromStats(playerStats), [playerStats]);
+  const { currentScene, performanceTier } = useScene();
+  const reduceMotion = useReduceMotion();
+  const disableAnimations = performanceTier === "static" || reduceMotion;
 
   return (
     <div className="relative z-10 flex w-full max-w-[min(100%,38rem)] flex-col items-center rounded-[24px] border border-transparent bg-panel/30 p-3 transition-all duration-500 sm:rounded-3xl sm:p-8">
@@ -107,6 +131,10 @@ const GameplayStage: React.FC<GameplayStageProps> = ({
             {streak} {streak > 5 && "🔥"}
           </div>
           <div>STREAK</div>
+        </div>
+
+        <div className="text-center">
+          <TierBadgeMini tier={tier} showIcon={true} className="mb-1" />
         </div>
 
         <div className="text-center">

@@ -3,6 +3,7 @@ import { Message } from "../../services/messageService";
 import { ProfileIcon, SearchIcon, BellIcon, FileIcon } from "./ChatIcons";
 import { getAvatarUrl, formatTime, InfoSection, MediaTab } from "./ChatUtils";
 import { useToast } from "../../context/ToastContext";
+import { useTranslation } from "react-i18next";
 
 interface ChatInfoPanelProps {
   showInfoPanel: boolean;
@@ -26,6 +27,7 @@ export const ChatInfoPanel: React.FC<ChatInfoPanelProps> = ({
   onSearchThread,
 }) => {
   const { showToast } = useToast();
+  const { t } = useTranslation("chat");
   const [openSections, setOpenSections] = useState<Record<InfoSection, boolean>>({
     customise: false,
     media: false,
@@ -54,12 +56,12 @@ export const ChatInfoPanel: React.FC<ChatInfoPanelProps> = ({
       <div className="shrink-0 border-b border-surface/70 px-4 py-4 text-center md:px-5 md:py-4">
         <div className="mb-3 flex items-center justify-between pr-10 sm:pr-12">
           <p className="text-[11px] uppercase tracking-[0.28em] text-text-muted/55">
-            Chat Details
+            {t("chat.chatDetails")}
           </p>
           <button
             onClick={() => setShowInfoPanel(false)}
             className="flex h-9 w-9 items-center justify-center rounded-full border border-surface/70 bg-surface/30 text-text-muted transition-colors hover:border-primary/30 hover:text-text-main"
-            title="Hide details"
+            title={t("chat.hideDetails")}
           >
             <span className="text-xl">›</span>
           </button>
@@ -77,10 +79,10 @@ export const ChatInfoPanel: React.FC<ChatInfoPanelProps> = ({
           {selectedFriendInfo.username}
         </h3>
         <p className="mt-2 text-sm text-primary/70">
-          {selectedFriendInfo.title || "Hive contact"}
+          {selectedFriendInfo.title || t("chat.hiveContact")}
         </p>
         <div className="mt-3 inline-flex rounded-full border border-surface/80 bg-surface/35 px-4 py-1.5 text-[10px] font-semibold uppercase tracking-[0.24em] text-text-muted">
-          Direct chat
+          {t("chat.directChat")}
         </div>
 
         <div className="mt-4 grid grid-cols-3 gap-2">
@@ -91,7 +93,7 @@ export const ChatInfoPanel: React.FC<ChatInfoPanelProps> = ({
             <div className="mx-auto mb-1 flex h-10 w-10 items-center justify-center rounded-full bg-black/15 text-text-main">
               <ProfileIcon />
             </div>
-            <p className="text-[11px] font-medium text-text-main">Profile</p>
+            <p className="text-[11px] font-medium text-text-main">{t("chat.profile")}</p>
           </button>
           <button
             onClick={onSearchThread}
@@ -100,14 +102,13 @@ export const ChatInfoPanel: React.FC<ChatInfoPanelProps> = ({
             <div className="mx-auto mb-1 flex h-10 w-10 items-center justify-center rounded-full bg-black/15 text-text-main">
               <SearchIcon />
             </div>
-            <p className="text-[11px] font-medium text-text-main">Search</p>
+            <p className="text-[11px] font-medium text-text-main">{t("chat.search")}</p>
           </button>
           <button
             onClick={() =>
               showToast({
-                title: "Mute not wired",
-                message:
-                  "Mute controls are not implemented yet. This is still a placeholder action.",
+                title: t("chat.muteNotWired"),
+                message: t("chat.mutePlaceholder"),
                 variant: "info",
               })
             }
@@ -116,7 +117,7 @@ export const ChatInfoPanel: React.FC<ChatInfoPanelProps> = ({
             <div className="mx-auto mb-1 flex h-10 w-10 items-center justify-center rounded-full bg-black/15 text-text-main">
               <BellIcon />
             </div>
-            <p className="text-[11px] font-medium text-text-main">Mute</p>
+            <p className="text-[11px] font-medium text-text-main">{t("chat.mute")}</p>
           </button>
         </div>
       </div>
@@ -129,7 +130,7 @@ export const ChatInfoPanel: React.FC<ChatInfoPanelProps> = ({
               className="flex w-full items-center justify-between px-4 py-3 text-left"
             >
               <span className="text-sm font-semibold text-text-main">
-                Customise chat
+                {t("chat.customiseChat")}
               </span>
               <span className="text-text-muted">
                 {openSections.customise ? "−" : "+"}
@@ -165,7 +166,7 @@ export const ChatInfoPanel: React.FC<ChatInfoPanelProps> = ({
               className="flex w-full items-center justify-between px-4 py-3 text-left"
             >
               <span className="text-sm font-semibold text-text-main">
-                Media and files
+                {t("chat.mediaAndFiles")}
               </span>
               <span className="text-text-muted">
                 {openSections.media ? "−" : "+"}
@@ -269,7 +270,7 @@ export const ChatInfoPanel: React.FC<ChatInfoPanelProps> = ({
               className="flex w-full items-center justify-between px-4 py-3 text-left"
             >
               <span className="text-sm font-semibold text-text-main">
-                Privacy &amp; support
+                { t("chat.privacySupport") }
               </span>
               <span className="text-text-muted">
                 {openSections.privacy ? "−" : "+"}
@@ -281,21 +282,20 @@ export const ChatInfoPanel: React.FC<ChatInfoPanelProps> = ({
                   onClick={onCloseThread}
                   className="flex w-full items-center justify-between rounded-2xl border border-surface/60 bg-black/10 px-3 py-3 text-sm text-text-main transition-colors hover:border-primary/30"
                 >
-                  <span>Close current thread</span>
+                  <span>{ t("chat.closeCurrentThread") }</span>
                   <span>›</span>
                 </button>
                 <button
                   onClick={() =>
                     showToast({
-                      title: "Report flow not wired",
-                      message:
-                        "Report and block actions need backend support before they can be added safely.",
+                      title: t("chat.reportNotWired"),
+                      message: t("chat.reportPlaceholder"),
                       variant: "info",
                     })
                   }
                   className="flex w-full items-center justify-between rounded-2xl border border-red-500/20 bg-red-500/5 px-3 py-3 text-sm text-red-300 transition-colors hover:bg-red-500/10"
                 >
-                  <span>Report or block</span>
+                  <span>{ t("chat.reportBlock") }</span>
                   <span>›</span>
                 </button>
               </div>
@@ -306,3 +306,8 @@ export const ChatInfoPanel: React.FC<ChatInfoPanelProps> = ({
     </aside>
   );
 };
+
+
+
+
+

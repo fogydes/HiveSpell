@@ -1,17 +1,27 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { wordBank } from "../services/gameService";
+import { getWordBankForLocale } from "../services/gameService";
 import { useMultiplayer } from "../context/MultiplayerContext";
 import { useToast } from "../context/ToastContext";
-import { useSettings } from "../context/SettingsContext";
+import i18n from "../i18n";
+import { type LocaleId } from "../data/localization";
 import { db } from "../firebase";
 import { ref, get, query, orderByChild, equalTo } from "firebase/database";
+import { FriendsPanel } from "../components/friends";
+import { useScene } from "@/context/SceneContext";
+import { useSettings } from "../context/SettingsContext";
+import { useReduceMotion } from "@/hooks/useAccessibility";
 
 const Lobby: React.FC = () => {
-  const modes = Object.keys(wordBank);
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { themePackage } = useSettings();
+  const locale = i18n.language as LocaleId;
+  const wordBank = getWordBankForLocale(locale);
+  const modes = Object.keys(wordBank);
+  const { currentScene, performanceTier } = useScene();
+  const reduceMotion = useReduceMotion();
+  const disableAnimations = performanceTier === "static" || reduceMotion;
   const [joinCode, setJoinCode] = useState("");
   const { createGameRoom, joinGameRoom, joinPublicGame, loading } =
     useMultiplayer();
@@ -246,6 +256,16 @@ const Lobby: React.FC = () => {
             {loading ? "..." : "JOIN"}
           </button>
         </form>
+      </div>
+
+      {/* Friends Panel */}
+      <div className="mt-10 w-full max-w-5xl">
+        <FriendsPanel
+          variant="full"
+          onInviteToGame={(friendId) => console.log("Invite to game:", friendId)}
+          onSpectate={(friendId, roomId) => navigate(`/watch/${roomId}`)}
+          onJoin={(friendId, roomId) => navigate(`/play/lobby?room=${roomId}`)}
+        />
       </div>
       </div>
     </div>

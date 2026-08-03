@@ -1,0 +1,10 @@
+{
+  "status": "healthy",
+  "timestamp": "2026-08-03T14:16:54.954Z",
+  "version": "0.0.0",
+  "environment": "development",
+  "services": {
+    "firebase": "configured",
+    "supabase": "configured"
+  }
+}

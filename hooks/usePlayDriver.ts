@@ -1,17 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
-import { ref as dbRef, update as dbUpdate } from "firebase/database";
-import { db } from "../firebase";
-import { wordBank } from "../services/gameService";
-import {
-  buildIntermissionRoomUpdate,
-  buildNextTurnAfterEliminationUpdate,
-  buildRoundRestartUpdate,
-  buildWordAssignmentUpdate,
-} from "../services/playUpdateUtils";
-import {
-  findNextActiveTurnPlayer,
-  getActiveTurnPlayers,
-} from "../services/playRoomUtils";
+import { supabase } from "../services/supabase";
+import { getWordBankForLocale } from "../services/gameService";
+import i18n from "../i18n";
 import {
   appendRecentWord,
   pickRandomWord,
@@ -21,23 +11,45 @@ import type { Player, Room } from "../types/multiplayer";
 
 interface UsePlayDriverArgs {
   currentRoom?: Room | null;
-  isGameDriver: boolean;
+  isLocalDriver: boolean;
   paramMode?: string;
   playersList: Player[];
 }
 
 export const usePlayDriver = ({
   currentRoom,
-  isGameDriver,
+  isLocalDriver,
   paramMode,
   playersList,
 }: UsePlayDriverArgs) => {
+  const locale = i18n.language;
+  const wordBank = getWordBankForLocale(locale);
   const disconnectedTurnHandlerRef = useRef(false);
   const processingRef = useRef(false);
   const timerExpirationRef = useRef(false);
 
+  const callRpc = useCallback(async (rpcName: string, args: Record<string, any>) => {
+    if (!currentRoom?.id) return { success: false, error: "No room" };
+
+    const { data, error } = await supabase.rpc(rpcName, {
+      p_room_id: currentRoom.id,
+      ...args,
+    });
+
+    if (error) {
+      console.error(`[Driver RPC ${rpcName}] Error:`, error);
+      throw error;
+    }
+
+    return data;
+  }, [currentRoom?.id]);
+
+  // Driver no longer writes to Firebase directly.
+  // Instead, it calls Supabase RPCs that atomically validate and apply changes.
+  // The realtime subscription in MultiplayerContext will pick up the room changes.
+
   const handleDriverElimination = useCallback(
-    ({
+    async ({
       allowSoloIntermission,
       currentTurnPlayerId,
       fallbackResetsStreak = false,
@@ -50,64 +62,23 @@ export const usePlayDriver = ({
     }) => {
       if (!currentRoom) return;
 
-      const roomId = currentRoom.id;
-      const turnOrder = currentRoom.gameState?.turnOrder || [];
-      const alivePlayers = getActiveTurnPlayers(playersList).filter(
-        (player) => player.id !== currentTurnPlayerId,
-      );
-
-      console.log(
-        `[Driver] ${reason} - alive players after elimination:`,
-        alivePlayers.map((player) => player.name),
-      );
-
-      const shouldTriggerIntermission = allowSoloIntermission
-        ? alivePlayers.length <= 1 || playersList.length === 1
-        : alivePlayers.length <= 1 && playersList.length > 1;
-
-      if (shouldTriggerIntermission) {
-        const updates = buildIntermissionRoomUpdate({
-          eliminatedPlayerId: currentTurnPlayerId,
-          winner:
-            alivePlayers.length === 1
-              ? { id: alivePlayers[0].id, name: alivePlayers[0].name }
-              : undefined,
+      // For timer expiration/disconnection, we call eliminate_player RPC
+      // The RPC handles intermission logic atomically
+      try {
+        await callRpc("eliminate_player", {
+          p_player_id: currentTurnPlayerId,
+          p_reason: reason,
         });
-
-        return dbUpdate(dbRef(db, `rooms/${roomId}`), updates);
+      } catch (error) {
+        console.error("[Driver] Failed to eliminate player via RPC:", error);
+        throw error;
       }
-
-      const nextPlayerId = findNextActiveTurnPlayer(
-        turnOrder,
-        currentTurnPlayerId,
-        alivePlayers,
-      );
-
-      if (!nextPlayerId) {
-        const fallbackUpdates = buildIntermissionRoomUpdate({
-          eliminatedPlayerId: currentTurnPlayerId,
-          resetStreak: fallbackResetsStreak,
-        });
-        return dbUpdate(dbRef(db, `rooms/${roomId}`), fallbackUpdates);
-      }
-
-      const difficulty = currentRoom.settings?.difficulty || paramMode || "baby";
-      const newWord = pickRandomWord(wordBank[difficulty]);
-      const currentStreak = currentRoom.gameState?.streak || 0;
-      const updates = buildNextTurnAfterEliminationUpdate({
-        currentStreak,
-        eliminatedPlayerId: currentTurnPlayerId,
-        newWord,
-        nextPlayerId,
-      });
-
-      return dbUpdate(dbRef(db, `rooms/${roomId}`), updates);
     },
-    [currentRoom, paramMode, playersList],
+    [currentRoom, callRpc],
   );
 
   useEffect(() => {
-    if (!isGameDriver) return;
+    if (!isLocalDriver) return;
     if (!currentRoom || currentRoom.status !== "playing") return;
 
     const currentTurnPlayerId = currentRoom.gameState?.currentTurnPlayerId;
@@ -136,10 +107,10 @@ export const usePlayDriver = ({
         console.error("[Driver] Failed to process disconnected player:", error);
         disconnectedTurnHandlerRef.current = false;
       });
-  }, [currentRoom, handleDriverElimination, isGameDriver, playersList]);
+  }, [currentRoom, handleDriverElimination, isLocalDriver, playersList]);
 
   useEffect(() => {
-    if (!isGameDriver) return;
+    if (!isLocalDriver) return;
     if (!currentRoom || currentRoom.status !== "playing") return;
 
     const startTime = currentRoom.gameState?.startTime;
@@ -173,43 +144,15 @@ export const usePlayDriver = ({
     currentRoom?.gameState?.startTime,
     currentRoom?.status,
     handleDriverElimination,
-    isGameDriver,
+    isLocalDriver,
   ]);
 
   useEffect(() => {
-    if (!isGameDriver || !currentRoom?.id) return;
+    if (!isLocalDriver || !currentRoom?.id) return;
 
-    if (currentRoom.status === "waiting") {
-      dbUpdate(dbRef(db, `rooms/${currentRoom.id}`), { status: "playing" })
-        .catch((error) => console.error("[Driver] Failed to set status:", error));
-      return;
-    }
-
-    if (currentRoom.status === "playing" && !currentRoom.gameState?.currentWord) {
-      if (processingRef.current) return;
-      processingRef.current = true;
-
-      const difficulty = currentRoom.settings?.difficulty || paramMode || "baby";
-      const allWords = wordBank[difficulty];
-      const recentWords = currentRoom.gameState?.recentWords || [];
-      const newWord = pickWordAvoidingRecent(allWords, recentWords);
-      const updates = buildWordAssignmentUpdate({
-        currentStreak: currentRoom.gameState?.streak || 0,
-        existingTurnPlayerId: currentRoom.gameState?.currentTurnPlayerId,
-        newWord,
-        players: playersList,
-        recentWords: appendRecentWord(recentWords, newWord),
-      });
-
-      dbUpdate(dbRef(db, `rooms/${currentRoom.id}/gameState`), updates)
-        .then(() => {
-          processingRef.current = false;
-        })
-        .catch((error) => {
-          console.error("[Driver] Failed to set word:", error);
-          processingRef.current = false;
-        });
-    }
+    // Game start: when room transitions from waiting to playing
+    // The actual game start is now handled by the host calling start_game RPC
+    // This effect only handles intermission -> playing (round restart)
 
     if (
       currentRoom.status === "intermission" &&
@@ -219,22 +162,21 @@ export const usePlayDriver = ({
         currentRoom.intermissionEndsAt - Date.now(),
         1000,
       );
-      const timerId = setTimeout(() => {
-        const updates = buildRoundRestartUpdate({ players: playersList });
-        dbUpdate(dbRef(db, `rooms/${currentRoom.id}`), updates).catch((error) =>
-          console.error("[Driver] Failed to restart round:", error),
-        );
+      const timerId = setTimeout(async () => {
+        try {
+          await callRpc("restart_round", {});
+        } catch (error) {
+          console.error("[Driver] Failed to restart round via RPC:", error);
+        }
       }, safeTimeRemaining);
 
       return () => clearTimeout(timerId);
     }
   }, [
     currentRoom,
-    currentRoom?.gameState?.currentWord,
     currentRoom?.intermissionEndsAt,
     currentRoom?.status,
-    isGameDriver,
-    paramMode,
-    playersList,
+    isLocalDriver,
+    callRpc,
   ]);
 };

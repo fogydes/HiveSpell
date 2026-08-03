@@ -15,6 +15,9 @@ import { ChatSidebar } from "./chat/ChatSidebar";
 import { ChatThread } from "./chat/ChatThread";
 import { ChatInfoPanel } from "./chat/ChatInfoPanel";
 import { getAvatarUrl } from "./chat/ChatUtils";
+import { useScene } from "@/context/SceneContext";
+import { useReduceMotion } from "@/hooks/useAccessibility";
+import { useTranslation } from "react-i18next";
 
 interface ChatPanelProps {
   onClose: () => void;
@@ -22,6 +25,10 @@ interface ChatPanelProps {
 
 const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
   const { user, userData } = useAuth();
+  const { performanceTier } = useScene();
+  const reduceMotion = useReduceMotion();
+  const { t } = useTranslation("chat");
+  const disableAnimations = performanceTier === "static" || reduceMotion;
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [friends, setFriends] = useState<FriendWithProfile[]>([]);
   const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null);
@@ -132,17 +139,23 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
 
   return (
     <div
-      className="fixed inset-0 z-100 bg-black/88 backdrop-blur-md p-0 sm:p-4 animate-fade-in"
+      className="fixed inset-0 z-100 bg-black/88 backdrop-blur-md p-0 sm:p-4"
       onClick={onClose}
+      style={{
+        animation: disableAnimations ? "none" : "fadeIn 0.2s ease-out",
+      }}
     >
       <div
         className="relative mx-auto flex h-full w-full overflow-hidden rounded-none border border-surface/80 bg-panel shadow-[0_32px_120px_rgba(0,0,0,0.45)] animate-scale-in sm:h-[88vh] sm:w-[94vw] sm:max-w-380 sm:rounded-[28px]"
         onClick={(e) => e.stopPropagation()}
+        style={{
+          animation: disableAnimations ? "none" : "scaleIn 0.2s ease-out",
+        }}
       >
         <button
           onClick={onClose}
           className="absolute right-3 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-full border border-surface/80 bg-black/20 text-text-muted transition-colors hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-300 sm:right-4 sm:top-4"
-          title="Close chat"
+          title={t("chat.closeChatAria")}
         >
           <CloseIcon />
         </button>
@@ -168,10 +181,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
                 ✦
               </div>
               <h3 className="text-2xl font-black text-text-main">
-                Pick a conversation
+                {t("chat.emptyStateTitle")}
               </h3>
               <p className="mt-3 max-w-md text-sm leading-6 text-text-muted">
-                Select a thread or start a new one from the left rail.
+                {t("chat.emptyStateSubtitle")}
               </p>
             </div>
           ) : (

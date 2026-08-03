@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import { useTranslation } from "react-i18next";
 import ConfirmDialog from "./ConfirmDialog";
 import { SkeletonList } from "./Skeleton";
 import {
@@ -17,6 +18,8 @@ import {
   Friendship,
   FriendWithProfile,
 } from "../services/friendService";
+import { useScene } from "@/context/SceneContext";
+import { useReduceMotion } from "@/hooks/useAccessibility";
 
 type Tab = "friends" | "pending" | "search";
 
@@ -31,6 +34,10 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({
 }) => {
   const { user, userData } = useAuth();
   const { showToast } = useToast();
+  const { t } = useTranslation();
+  const { performanceTier } = useScene();
+  const reduceMotion = useReduceMotion();
+  const disableAnimations = performanceTier === "static" || reduceMotion;
   const [activeTab, setActiveTab] = useState<Tab>("friends");
   const [friends, setFriends] = useState<FriendWithProfile[]>([]);
   const [incoming, setIncoming] = useState<FriendWithProfile[]>([]);
@@ -259,27 +266,33 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({
     `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.avatar_seed || profile.id}`;
 
   const tabs: { key: Tab; label: string; count?: number }[] = [
-    { key: "friends", label: "Friends", count: friends.length },
+    { key: "friends", label: t("friends.title"), count: friends.length },
     {
       key: "pending",
-      label: "Pending",
+      label: t("common.pending"),
       count: incoming.length + outgoing.length,
     },
-    { key: "search", label: "Search" },
+    { key: "search", label: t("common.search") },
   ];
 
   return (
     <div
-      className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-fade-in"
+      className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-4"
       onClick={onClose}
+      style={{
+        animation: disableAnimations ? "none" : "fadeIn 0.2s ease-out",
+      }}
     >
       <div
         className="relative flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-surface bg-panel shadow-2xl animate-scale-in"
         onClick={(e) => e.stopPropagation()}
+        style={{
+          animation: disableAnimations ? "none" : "scaleIn 0.2s ease-out",
+        }}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-surface">
-          <h2 className="text-lg font-bold text-text-main">Friends</h2>
+          <h2 className="text-lg font-bold text-text-main">{t("friends.title")}</h2>
           <button
             onClick={onClose}
             className="text-text-muted hover:text-text-main transition-colors text-xl"
@@ -326,7 +339,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({
                     <div className="p-12 text-center">
                       <span className="text-4xl block mb-3 opacity-50">🐝</span>
                       <p className="text-text-muted text-sm">
-                        No friends yet. Search for players to add!
+                        {t("friends.noFriends")}
                       </p>
                     </div>
                   ) : (
@@ -354,7 +367,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({
                               onClick={() => onViewProfile(f.profile.id)}
                               className="px-2 py-1 text-[10px] font-bold text-text-muted border border-surface rounded-lg hover:bg-surface/50 transition-colors"
                             >
-                              Profile
+                              {t("friends.sendMessage")}
                             </button>
                           )}
                           <button
@@ -362,7 +375,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({
                             disabled={actionLoading === f.friendship.id}
                             className="px-2 py-1 text-[10px] font-bold text-red-400/60 border border-red-500/20 rounded-lg hover:bg-red-500/10 hover:text-red-400 transition-colors disabled:opacity-50"
                           >
-                            Remove
+                            {t("friends.remove")}
                           </button>
                         </div>
                       </div>
@@ -378,7 +391,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({
                     <div className="p-12 text-center">
                       <span className="text-4xl block mb-3 opacity-50">📭</span>
                       <p className="text-text-muted text-sm">
-                        No pending requests
+                        {t("friends.noRequests")}
                       </p>
                     </div>
                   ) : (
@@ -387,7 +400,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({
                         <>
                           <div className="px-4 py-2 bg-surface/20">
                             <p className="text-[10px] text-text-muted uppercase tracking-widest font-bold">
-                              Incoming Requests
+                              {t("friends.requestReceived")}
                             </p>
                           </div>
                           {incoming.map((f) => (
@@ -411,7 +424,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({
                                   disabled={actionLoading === f.friendship.id}
                                   className="px-3 py-1 text-xs font-bold bg-primary/20 text-primary border border-primary/30 rounded-lg hover:bg-primary/30 transition-colors disabled:opacity-50"
                                 >
-                                  Accept
+                                  {t("friends.accept")}
                                 </button>
                                 <button
                                   onClick={() => handleDecline(f.friendship.id)}
@@ -429,7 +442,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({
                         <>
                           <div className="px-4 py-2 bg-surface/20">
                             <p className="text-[10px] text-text-muted uppercase tracking-widest font-bold">
-                              Sent Requests
+                              {t("friends.sentRequests")}
                             </p>
                           </div>
                           {outgoing.map((f) => (
@@ -449,7 +462,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({
                               </div>
                               <div className="flex items-center gap-2">
                                 <span className="text-[10px] text-accent font-medium px-2 py-1 border border-accent/20 rounded-lg">
-                                  Pending...
+                                  {t("friends.pending")}
                                 </span>
                                 <button
                                   onClick={() =>
@@ -460,7 +473,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({
                                 >
                                   {actionLoading === f.friendship.id
                                     ? "..."
-                                    : "Cancel"}
+                                    : t("common.cancel")}
                                 </button>
                               </div>
                             </div>
@@ -482,7 +495,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                        placeholder="Search by username..."
+                        placeholder={t("friends.searchPlaceholder")}
                         className="flex-1 bg-surface/50 border border-surface rounded-lg px-3 py-2 text-sm text-text-main placeholder-text-muted/50 focus:outline-none focus:border-primary/50 transition-colors"
                       />
                       <button
@@ -499,8 +512,8 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({
                     <div className="p-8 text-center">
                       <p className="text-text-muted text-sm">
                         {searchQuery
-                          ? "No players found"
-                          : "Type a username and search"}
+                          ? t("friends.noPlayersFound")
+                          : t("friends.typeUsernameAndSearch")}
                       </p>
                     </div>
                   ) : (
@@ -524,7 +537,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({
                         </div>
                         {r.friendshipStatus === "accepted" ? (
                           <span className="text-xs text-primary font-medium px-2 py-1 border border-primary/20 rounded-lg">
-                            Friends ✓
+                            {t("friends.friendsCheck")}
                           </span>
                         ) : r.friendshipStatus === "pending" &&
                           r.friendship?.requester_id === user?.uid ? (
@@ -535,7 +548,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({
                           >
                             {actionLoading === r.friendship?.id
                               ? "..."
-                              : "Cancel"}
+                              : t("common.cancel")}
                           </button>
                         ) : r.friendshipStatus === "pending" &&
                           r.friendship?.addressee_id === user?.uid ? (
@@ -545,14 +558,14 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({
                               disabled={actionLoading === r.friendship?.id}
                               className="px-2 py-1 text-[11px] font-bold bg-primary/20 text-primary border border-primary/30 rounded-lg hover:bg-primary/30 transition-colors disabled:opacity-50"
                             >
-                              Accept
+                              {t("friends.accept")}
                             </button>
                             <button
                               onClick={() => handleDeclineFromSearch(r.friendship!)}
                               disabled={actionLoading === r.friendship?.id}
                               className="px-2 py-1 text-[11px] font-bold text-red-300 border border-red-500/25 rounded-lg hover:bg-red-500/10 transition-colors disabled:opacity-50"
                             >
-                              Decline
+                              {t("friends.decline")}
                             </button>
                           </div>
                         ) : (
@@ -561,7 +574,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({
                             disabled={actionLoading === r.id}
                             className="px-3 py-1 text-xs font-bold bg-primary/20 text-primary border border-primary/30 rounded-lg hover:bg-primary/30 transition-colors disabled:opacity-50"
                           >
-                            {actionLoading === r.id ? "..." : "Add Friend"}
+                            {actionLoading === r.id ? "..." : t("friends.addFriend")}
                           </button>
                         )}
                       </div>
@@ -576,9 +589,9 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({
 
       {confirmRemoveId && (
         <ConfirmDialog
-          title="Remove Friend"
-          message="Are you sure you want to remove this friend? You can always add them back later."
-          confirmLabel="Remove"
+          title={t("friends.remove")}
+          message={t("friends.confirmRemove")}
+          confirmLabel={t("friends.remove")}
           variant="danger"
           onConfirm={() => handleRemoveFriend(confirmRemoveId)}
           onCancel={() => setConfirmRemoveId(null)}

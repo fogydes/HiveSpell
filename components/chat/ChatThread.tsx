@@ -3,6 +3,7 @@ import { Message, updateMessage, deleteMessage, sendMessage, uploadAttachment } 
 import { PlusIcon, MicIcon, SendIcon, BackIcon, SearchIcon } from "./ChatIcons";
 import { getAvatarUrl, formatTime, formatDayLabel, MAX_FILE_SIZE, sanitizeAttachmentUrl } from "./ChatUtils";
 import { useToast } from "../../context/ToastContext";
+import { useTranslation } from "react-i18next";
 
 interface ChatThreadProps {
   messages: Message[];
@@ -36,6 +37,7 @@ export const ChatThread: React.FC<ChatThreadProps> = ({
   setShowThreadSearch,
 }) => {
   const { showToast } = useToast();
+  const { t } = useTranslation("chat");
   const [messageText, setMessageText] = useState("");
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -228,14 +230,14 @@ export const ChatThread: React.FC<ChatThreadProps> = ({
             <button
               onClick={onBack}
               className="flex h-10 w-10 items-center justify-center rounded-full border border-surface/70 bg-surface/30 text-text-main transition-colors hover:border-primary/30 hover:text-primary md:hidden"
-              title="Back to chats"
+              title={t("chat.backToChats")}
             >
               <BackIcon />
             </button>
             <button
               onClick={() => setShowInfoPanel(true)}
               className="flex min-w-0 items-center gap-3 text-left transition-opacity hover:opacity-85"
-              title="Open chat details"
+              title={t("chat.openChatDetails")}
             >
               <img
                 src={getAvatarUrl({
@@ -265,7 +267,7 @@ export const ChatThread: React.FC<ChatThreadProps> = ({
                   ? "border-primary/40 bg-primary/12 text-primary"
                   : "border-surface/80 bg-surface/35 text-text-main hover:border-primary/30 hover:text-primary"
               }`}
-              title="Search conversation"
+              title={t("chat.searchConversation")}
             >
               <SearchIcon />
             </button>
@@ -278,7 +280,7 @@ export const ChatThread: React.FC<ChatThreadProps> = ({
               type="text"
               value={threadSearch}
               onChange={(e) => setThreadSearch(e.target.value)}
-              placeholder="Search within this conversation..."
+              placeholder={t("chat.threadSearch")}
               className="w-full bg-transparent text-sm text-text-main placeholder-text-muted/45 focus:outline-none"
             />
           </div>
@@ -290,12 +292,12 @@ export const ChatThread: React.FC<ChatThreadProps> = ({
           <div className="flex h-full items-center justify-center text-center">
             <div>
               <p className="text-base font-semibold text-text-main">
-                {threadSearch ? "No messages matched" : "No messages yet"}
+                {threadSearch ? t("chat.noMessagesMatched") : t("chat.noMessages")}
               </p>
               <p className="mt-2 text-sm text-text-muted">
                 {threadSearch
-                  ? "Try a different keyword."
-                  : "Send the first message to start this thread."}
+                  ? t("chat.tryDifferentKeyword")
+                  : t("chat.sayHello")}
               </p>
             </div>
           </div>
@@ -361,14 +363,14 @@ export const ChatThread: React.FC<ChatThreadProps> = ({
                                 onClick={() => startEdit(message)}
                                 className="block w-full px-3 py-2 text-left text-xs text-text-muted transition-colors hover:bg-surface/40 hover:text-text-main"
                               >
-                                Edit
+                                {t("chat.edit")}
                               </button>
                             )}
                             <button
                               onClick={() => handleDelete(message.id)}
                               className="block w-full px-3 py-2 text-left text-xs text-red-300 transition-colors hover:bg-red-500/10"
                             >
-                              Delete
+                              {t("chat.delete")}
                             </button>
                           </div>
                         )}
@@ -448,7 +450,7 @@ export const ChatThread: React.FC<ChatThreadProps> = ({
                             onClick={handleSaveEdit}
                             className="text-xs font-bold text-primary"
                           >
-                            Save
+                            {t("chat.save")}
                           </button>
                           <button
                             onClick={() => {
@@ -457,7 +459,7 @@ export const ChatThread: React.FC<ChatThreadProps> = ({
                             }}
                             className="text-xs text-text-muted"
                           >
-                            Cancel
+                            {t("chat.cancel")}
                           </button>
                         </div>
                       ) : (
@@ -498,7 +500,7 @@ export const ChatThread: React.FC<ChatThreadProps> = ({
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
             className="flex h-10 w-10 items-center justify-center rounded-full border border-surface/80 bg-black/10 text-lg text-text-main transition-colors hover:border-primary/30 hover:text-primary disabled:opacity-50"
-            title="Upload image or file"
+            title={t("chat.uploadFile")}
           >
             {uploading ? "⏳" : <PlusIcon />}
           </button>
@@ -521,7 +523,7 @@ export const ChatThread: React.FC<ChatThreadProps> = ({
                 ? "scale-105 border-red-500/60 bg-red-500/20 text-red-200"
                 : "border-surface/80 bg-black/10 text-text-main hover:border-primary/30 hover:text-primary"
             }`}
-            title="Hold to record"
+            title={t("chat.holdToRecord")}
           >
             <MicIcon />
           </button>
@@ -537,7 +539,7 @@ export const ChatThread: React.FC<ChatThreadProps> = ({
                 handleSend();
               }
             }}
-            placeholder="Aa"
+            placeholder={t("chat.messageInputPlaceholder")}
             disabled={sending || isRecording}
             className="min-w-0 flex-1 bg-transparent px-1 py-2 text-sm text-text-main placeholder-text-muted/45 focus:outline-none disabled:opacity-50 sm:px-2"
           />
@@ -546,7 +548,7 @@ export const ChatThread: React.FC<ChatThreadProps> = ({
             onClick={handleSend}
             disabled={sending || !messageText.trim()}
             className="flex h-11 w-11 items-center justify-center rounded-full border border-primary/35 bg-primary/15 text-lg text-primary transition-colors hover:bg-primary/25 disabled:opacity-45"
-            title="Send message"
+            title={t("chat.sendMessage")}
           >
             {sending ? "⏳" : <SendIcon />}
           </button>

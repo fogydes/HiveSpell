@@ -7,6 +7,10 @@ import {
   leaveRoom,
   subscribeToRoom,
   findPublicRoom,
+  startGame,
+  createShadowBanRoom,
+  findShadowBanRoom,
+  checkShadowBanStatus,
 } from "../services/multiplayerService";
 import { db } from "../firebase";
 import { useAuth } from "./AuthContext";
@@ -23,6 +27,7 @@ interface MultiplayerContextType {
   joinGameRoom: (roomId: string) => Promise<void>;
   joinPublicGame: (difficulty: string) => Promise<void>;
   leaveGameRoom: () => Promise<void>;
+  startGameRoom: (locale: string, difficulty: string) => Promise<void>;
 }
 
 const MultiplayerContext = createContext<MultiplayerContextType>({
@@ -34,6 +39,7 @@ const MultiplayerContext = createContext<MultiplayerContextType>({
   joinGameRoom: async () => {},
   joinPublicGame: async () => {},
   leaveGameRoom: async () => {},
+  startGameRoom: async () => {},
 });
 
 export const useMultiplayer = () => useContext(MultiplayerContext);
@@ -204,6 +210,7 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
         score: 0,
         corrects: profileCorrects,
         wins: profileWins,
+        streak: 0,
         status: "connected",
       };
       console.log("[JoinRoom] Player object:", player);
@@ -239,28 +246,88 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
     setLoading(true);
     setError(null);
     try {
-      // 1. Try to find an existing room
-      console.log("[JoinPublic] Searching for existing room...");
-      const existingRoomId = await findPublicRoom(difficulty);
+      // 1. Check shadow-ban status
+      const { isShadowBanned, reason } = await checkShadowBanStatus(user.uid);
 
-      if (existingRoomId) {
-        console.log("[JoinPublic] Found room:", existingRoomId);
-        // 2. Join it
-        await joinGameRoom(existingRoomId);
-        console.log("[JoinPublic] Joined room successfully.");
+      if (isShadowBanned) {
+        console.log("[JoinPublic] User is shadow banned, using shadow-ban pool. Reason:", reason);
+        // 2a. Try to find an existing shadow-ban room
+        console.log("[JoinPublic] Searching for existing shadow-ban room...");
+        const existingRoomId = await findShadowBanRoom(difficulty);
+
+        if (existingRoomId) {
+          console.log("[JoinPublic] Found shadow-ban room:", existingRoomId);
+          await joinGameRoom(existingRoomId);
+          console.log("[JoinPublic] Joined shadow-ban room successfully.");
+        } else {
+          console.log("[JoinPublic] No shadow-ban room found, creating new...");
+          // Create new shadow-ban room
+          const { corrects: profileCorrects, wins: profileWins } =
+            getProfileSnapshotStats();
+
+          const hostName = userData?.username || "Player";
+          const newRoomId = await createShadowBanRoom(
+            user.uid,
+            hostName,
+            { difficulty, maxPlayers: 10 },
+            profileCorrects,
+            profileWins,
+          );
+          console.log("[JoinPublic] Created shadow-ban room:", newRoomId);
+
+          // Join the newly created shadow-ban room
+          const player: Player = {
+            id: user.uid,
+            name: hostName,
+            isHost: true,
+            score: 0,
+            corrects: profileCorrects,
+            wins: profileWins,
+            streak: 0,
+            status: "connected",
+          };
+          await joinRoom(newRoomId, player);
+          setCurrentRoom({ id: newRoomId } as Room);
+        }
       } else {
-        console.log("[JoinPublic] No room found, creating new...");
-        // 3. Create new one
-        const newRoomId = await createGameRoom(
-          { difficulty, maxPlayers: 10 },
-          "public",
-        );
-        console.log("[JoinPublic] Created room:", newRoomId);
+        // Normal matchmaking for non-shadow-banned users
+        console.log("[JoinPublic] Searching for existing room...");
+        const existingRoomId = await findPublicRoom(difficulty);
+
+        if (existingRoomId) {
+          console.log("[JoinPublic] Found room:", existingRoomId);
+          await joinGameRoom(existingRoomId);
+          console.log("[JoinPublic] Joined room successfully.");
+        } else {
+          console.log("[JoinPublic] No room found, creating new...");
+          const newRoomId = await createGameRoom(
+            { difficulty, maxPlayers: 10 },
+            "public",
+          );
+          console.log("[JoinPublic] Created room:", newRoomId);
+        }
       }
     } catch (err: any) {
       console.error("[JoinPublic] ERROR:", err);
       setError(err.message);
       throw err; // Re-throw so Lobby's catch block sees it
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const startGameRoom = async (locale: string, difficulty: string) => {
+    if (!currentRoom?.id) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await startGame(currentRoom.id, locale, difficulty);
+      if (!result.success) {
+        setError(result.error || "Failed to start game");
+      }
+      // Room will update via realtime subscription
+    } catch (err: any) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -279,6 +346,7 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
     joinGameRoom,
     joinPublicGame,
     leaveGameRoom,
+    startGameRoom,
   }), [currentRoom, players, loading, error]);
 
   return (

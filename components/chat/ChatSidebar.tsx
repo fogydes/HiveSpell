@@ -3,6 +3,7 @@ import { Conversation } from "../../services/messageService";
 import { FriendWithProfile } from "../../services/friendService";
 import { ComposeIcon } from "./ChatIcons";
 import { getAvatarUrl, timeAgo } from "./ChatUtils";
+import { useTranslation } from "react-i18next";
 
 interface ChatSidebarProps {
   conversations: Conversation[];
@@ -23,6 +24,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   onSelectConversation,
   loadFriends,
 }) => {
+  const { t } = useTranslation("chat");
   const [showNewChat, setShowNewChat] = useState(false);
   const [friendSearch, setFriendSearch] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -54,10 +56,10 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         <div className="mb-4 flex items-center justify-between">
           <div>
             <p className="text-[11px] uppercase tracking-[0.35em] text-text-muted/55">
-              Direct Messages
+              {t("chat.directMessages")}
             </p>
             <h2 className="mt-1 text-[2.1rem] font-black leading-none text-text-main">
-              Chats
+              {t("chat.title")}
             </h2>
           </div>
           <div className="flex items-center gap-2">
@@ -78,7 +80,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                   ? "border-primary/50 bg-primary/15 text-primary"
                   : "border-surface/80 bg-surface/40 text-text-main hover:border-primary/40 hover:text-primary"
               }`}
-              title="Start new chat"
+              title={t("chat.startNewChat")}
             >
               <ComposeIcon />
             </button>
@@ -90,7 +92,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search Messenger-style inbox..."
+            placeholder={t("chat.searchInbox")}
             className="w-full bg-transparent text-sm text-text-main placeholder-text-muted/45 focus:outline-none"
           />
         </div>
@@ -99,9 +101,9 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
       {showNewChat && (
         <div className="border-b border-surface/70 bg-primary/5 px-4 py-4">
           <div className="mb-3">
-            <p className="text-sm font-bold text-text-main">New chat</p>
+            <p className="text-sm font-bold text-text-main">{t("chat.newChat")}</p>
             <p className="text-xs text-text-muted">
-              Pick a friend to open a thread.
+              {t("chat.pickFriend")}
             </p>
           </div>
 
@@ -110,7 +112,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
               type="text"
               value={friendSearch}
               onChange={(e) => setFriendSearch(e.target.value)}
-              placeholder="Search friends..."
+              placeholder={t("chat.searchFriends")}
               className="w-full bg-transparent text-sm text-text-main placeholder-text-muted/45 focus:outline-none"
               autoFocus
             />
@@ -119,11 +121,11 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           <div className="max-h-56 space-y-1 overflow-y-auto custom-scrollbar pr-1">
             {loadingFriends ? (
               <div className="py-8 text-center text-text-muted">
-                Loading friends...
+                {t("chat.loadingFriends")}
               </div>
             ) : filteredFriends.length === 0 ? (
               <div className="py-8 text-center text-sm text-text-muted">
-                No matching friends.
+                {t("chat.noMatchingFriends")}
               </div>
             ) : (
               filteredFriends.map((friend) => (
@@ -163,7 +165,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
       <div className="flex-1 overflow-y-auto px-3 py-3 custom-scrollbar">
         {loading ? (
           <div className="py-12 text-center text-text-muted">
-            Loading inbox...
+            {t("chat.loadingInbox")}
           </div>
         ) : filteredConversations.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center px-5 text-center">
@@ -171,10 +173,10 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
               <ComposeIcon />
             </div>
             <p className="text-base font-semibold text-text-main">
-              No conversations yet
+              {t("chat.noConversations")}
             </p>
             <p className="mt-2 text-sm text-text-muted">
-              Start a new thread from your friends list.
+              {t("chat.startNewThread")}
             </p>
           </div>
         ) : (

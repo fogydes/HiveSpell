@@ -12,6 +12,8 @@ import {
   primeWordAudio,
   stopAudio,
 } from "../services/gameService";
+import i18n from "../i18n";
+import { type LocaleId } from "../data/localization";
 import { db } from "../firebase";
 import {
   ref as dbRef,
@@ -29,6 +31,22 @@ import { usePlayRoomLifecycle } from "../hooks/usePlayRoomLifecycle";
 import { useWinnerAward } from "../hooks/useWinnerAward";
 import { usePlayDriver } from "../hooks/usePlayDriver";
 import { usePlayTurn } from "../hooks/usePlayTurn";
+import { useGameplayEvents, useOnGameplayEvent } from "../hooks/useGameplayEvents";
+import { useSessionState } from "../hooks/useSessionState";
+import { useBattlePass } from "../hooks/useBattlePass";
+import { useChallengeProgress } from "../hooks/useChallenges";
+import { useLeaderboardStats } from "../hooks/useLeaderboards";
+import { useCompetitiveIntegrity } from "../hooks/useCompetitiveIntegrity";
+import { useReplayCreator } from "../hooks/useReplayCreator";
+import {
+  WordReveal,
+  SuccessTheater,
+  FailureTheater,
+  TurnTransition,
+  VictorySequence,
+  IntermissionCard,
+  StreakMilestone,
+} from "../components/theater";
 import {
   getChatPanelClasses,
   getPlayerPanelClasses,
@@ -45,11 +63,93 @@ const Play: React.FC = () => {
   const navigate = useNavigate();
   const { user, userData, refreshUser } = useAuth();
   const { ttsVolume, playTypingSound } = useSettings();
+  const locale = i18n.language as LocaleId;
   const {
     currentRoom,
     players: playersList,
     loading: contextLoading,
+    startGameRoom,
   } = useMultiplayer();
+
+  const { recordGamePlayed } = useSessionState();
+  const { addXp } = useBattlePass();
+  const { recordCorrectWord, recordGameStart, recordGameEnd } = useChallengeProgress(user?.uid || null);
+  const { incrementDailyStats, incrementModeStats } = useLeaderboardStats(user?.uid || null);
+  const {
+    enableKeystrokeLogging,
+    disableKeystrokeLogging,
+    startWord,
+    recordKeystroke,
+    submitKeystrokeLog,
+    verifyKeystrokeLog,
+    updateRankedRating
+  } = useCompetitiveIntegrity();
+
+  // Determine if this is a ranked game (must be before useReplayCreator)
+  const isRanked = window.location.search.includes("ranked=true");
+
+  // Replay Creator - records game events for post-game replay playback
+  const {
+    recordGameStart: recordReplayGameStart,
+    recordTurnStart,
+    recordTurnEnd,
+    recordWordSpoken,
+    recordWordCorrect,
+    recordWordIncorrect,
+    recordPlayerEliminated,
+    recordGameEnd: recordReplayGameEnd,
+  } = useReplayCreator({
+    roomId: currentRoom?.id || null,
+    userId: user?.uid || null,
+    isRanked,
+    mode: paramMode || 'baby',
+    seasonId: isRanked ? '2026-s1' : null,
+    currentRoom,
+  });
+
+  // --- HELPER: Identify Roles ---
+  // isGameDriver is now isLocalDriver - for optimistic UI only
+  // Server is authoritative via Supabase RPCs (Validated Driver pattern)
+  // Only the "driver" client calls RPCs; all clients receive updates via Supabase Realtime
+  const isLocalDriver = React.useMemo(() => {
+    if (!currentRoom || playersList.length === 0 || !user) return false;
+
+    // During intermission, eliminated players can also be driver (to restart the round)
+    const isIntermission = currentRoom.status === "intermission";
+
+    // Check if host is still in the game (connected, alive, or eliminated but not disconnected)
+    const host = playersList.find((p) => p.id === currentRoom.hostId);
+    const hostIsActive =
+      host &&
+      (host.status === "connected" ||
+        host.status === "alive" ||
+        (isIntermission && host.status === "eliminated"));
+
+    // If host is active and I am the host, I am driver
+    if (hostIsActive && currentRoom.hostId === user.uid) {
+      console.log("[Driver] I am HOST and active, so I am local driver (optimistic UI).");
+      return true;
+    }
+
+    // If host is not active, first ACTIVE player becomes driver (host migration)
+    if (!hostIsActive) {
+      // During intermission, include eliminated players in the pool
+      const activePlayers = playersList.filter(
+        (p) =>
+          p.status === "connected" ||
+          p.status === "alive" ||
+          (isIntermission && p.status === "eliminated"),
+      );
+      if (activePlayers.length > 0 && activePlayers[0].id === user.uid) {
+        console.log(
+          "[Driver] HOST INACTIVE - I am first active player, becoming local driver (optimistic UI).",
+        );
+        return true;
+      }
+    }
+
+    return false;
+  }, [currentRoom, playersList, user]);
 
   usePlayRoomLifecycle({
     contextLoading,
@@ -57,6 +157,30 @@ const Play: React.FC = () => {
     onMissingRoom: () => navigate("/lobby"),
     userId: user?.uid,
   });
+
+  // Start game via RPC when room is waiting and I'm the host/local driver
+  useEffect(() => {
+    if (!currentRoom || !user || !isLocalDriver) return;
+    if (currentRoom.status !== "waiting") return;
+    if (contextLoading) return;
+    if (gameStartAttemptedRef.current) return;
+
+    gameStartAttemptedRef.current = true;
+
+    // Host starts the game
+    startGameRoom(locale, currentRoom.settings?.difficulty || paramMode || "baby")
+      .catch((err) => {
+        console.error("[Play] Failed to start game:", err);
+        gameStartAttemptedRef.current = false;
+      });
+  }, [currentRoom?.status, isLocalDriver, locale, paramMode, contextLoading, startGameRoom]);
+
+  // Reset game start flag when room leaves waiting status
+  useEffect(() => {
+    if (currentRoom && currentRoom.status !== "waiting") {
+      gameStartAttemptedRef.current = false;
+    }
+  }, [currentRoom?.status]);
 
   // Save last played mode for the home page quick-play button
   useEffect(() => {
@@ -73,6 +197,15 @@ const Play: React.FC = () => {
   const [avgWpm, setAvgWpm] = useState(0);
   const [lastBurstWpm, setLastBurstWpm] = useState(0);
   const [isInputEnabled, setIsInputEnabled] = useState(false);
+
+  // Game stats for leaderboard tracking
+  const [gameStats, setGameStats] = useState({
+    correctWords: 0,
+    totalXpEarned: 0,
+    maxStreak: 0,
+    gameEnded: false,
+    isWin: false,
+  });
 
   const [currentWord, setCurrentWord] = useState("");
   const [definition, setDefinition] = useState("");
@@ -95,6 +228,8 @@ const Play: React.FC = () => {
 
   const lastSpokenWordRef = useRef<string>("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const gameRecordedRef = useRef(false);
+  const gameStartAttemptedRef = useRef(false);
 
   const { chatEndRef, chatInput, messages, sendMessage, setChatInput } =
     useRoomChat({
@@ -141,46 +276,98 @@ const Play: React.FC = () => {
     }
   }, [isInputEnabled, status]);
 
-  // --- HELPER: Identify Roles ---
-  const isGameDriver = React.useMemo(() => {
-    if (!currentRoom || playersList.length === 0 || !user) return false;
-
-    // During intermission, eliminated players can also be driver (to restart the round)
-    const isIntermission = currentRoom.status === "intermission";
-
-    // Check if host is still in the game (connected, alive, or eliminated but not disconnected)
-    const host = playersList.find((p) => p.id === currentRoom.hostId);
-    const hostIsActive =
-      host &&
-      (host.status === "connected" ||
-        host.status === "alive" ||
-        (isIntermission && host.status === "eliminated"));
-
-    // If host is active and I am the host, I am driver
-    if (hostIsActive && currentRoom.hostId === user.uid) {
-      console.log("[Driver] I am HOST and active, so I am driver.");
-      return true;
-    }
-
-    // If host is not active, first ACTIVE player becomes driver (host migration)
-    if (!hostIsActive) {
-      // During intermission, include eliminated players in the pool
-      const activePlayers = playersList.filter(
-        (p) =>
-          p.status === "connected" ||
-          p.status === "alive" ||
-          (isIntermission && p.status === "eliminated"),
-      );
-      if (activePlayers.length > 0 && activePlayers[0].id === user.uid) {
-        console.log(
-          "[Driver] HOST INACTIVE - I am first active player, becoming driver.",
-        );
-        return true;
+  // Track turn changes for replay
+  const lastTurnPlayerRef = useRef<string | null>(null);
+  useEffect(() => {
+    const currentTurnPlayerId = currentRoom?.gameState?.currentTurnPlayerId;
+    if (currentTurnPlayerId && currentTurnPlayerId !== lastTurnPlayerRef.current) {
+      // Turn changed - record end of previous turn and start of new turn
+      if (lastTurnPlayerRef.current) {
+        recordTurnEnd(lastTurnPlayerRef.current);
       }
+      recordTurnStart(currentTurnPlayerId);
+      lastTurnPlayerRef.current = currentTurnPlayerId;
     }
+  }, [currentRoom?.gameState?.currentTurnPlayerId, recordTurnStart, recordTurnEnd]);
 
-    return false;
-  }, [currentRoom, playersList, user]);
+  // Track game end for leaderboard stats
+  useEffect(() => {
+    if (status === "intermission" && !gameStats.gameEnded && gameStats.correctWords > 0) {
+      // Game ended, record final stats
+      const isWin = currentRoom?.gameState?.winnerId === user?.uid;
+      setGameStats((prev) => ({ ...prev, gameEnded: true, isWin }));
+
+      // Increment daily stats with game completion
+      incrementDailyStats(
+        1, // games_played
+        isWin ? 1 : 0, // games_won
+        gameStats.correctWords, // correct_words
+        gameStats.totalXpEarned, // xp_earned
+        0, // nectar_earned (not tracked here)
+        avgWpm, // best_wpm
+        gameStats.maxStreak // max_streak
+      );
+
+      // Increment mode stats with game completion
+      incrementModeStats(
+        paramMode as any,
+        1, // games_played
+        isWin ? 1 : 0, // games_won
+        gameStats.correctWords, // correct_words
+        avgWpm, // wpm
+        gameStats.maxStreak // streak
+      );
+
+      // Update ranked rating if this is a ranked game
+      if (isRanked && currentRoom && user) {
+        const opponentIds = playersList
+          .filter(p => p.id !== user.uid)
+          .map(p => p.id);
+
+        const place = isWin ? 1 : playersList.length; // Simplified
+
+        updateRankedRating(
+          user.uid,
+          // Get active season from somewhere - we'll need to fetch it
+          // For now use a default season
+          "2026-s1",
+          paramMode as string,
+          opponentIds,
+          isWin ? "win" : "loss",
+          place,
+          playersList.length,
+          Date.now() - (startTime || Date.now()),
+          gameStats.correctWords,
+          gameStats.maxStreak > 0 ? 600 : 0, // maxWpm
+          gameStats.maxStreak
+        ).then(result => {
+          if (result) {
+            console.log(`[Ranked] Rating updated: ${result.rating_change > 0 ? '+' : ''}${result.rating_change} (${result.new_rating})`);
+          }
+        }).catch(err => {
+          console.error("[Ranked] Failed to update rating:", err);
+        });
+      }
+
+      // Record game end for replay
+      const winnerId = currentRoom?.gameState?.winnerId || null;
+      recordReplayGameEnd(winnerId);
+    } else if (status === "playing") {
+      // Reset game ended flag when new game starts
+      setGameStats((prev) => {
+        if (prev.gameEnded) {
+          return {
+            correctWords: 0,
+            totalXpEarned: 0,
+            maxStreak: 0,
+            gameEnded: false,
+            isWin: false,
+          };
+        }
+        return prev;
+      });
+    }
+  }, [status, gameStats, avgWpm, paramMode, currentRoom?.gameState?.winnerId, user?.uid, incrementDailyStats, incrementModeStats]);
 
   // Determine MY status from the list
   const myStatus = React.useMemo(() => {
@@ -190,7 +377,19 @@ const Play: React.FC = () => {
 
   const isMyTurn = currentRoom?.gameState?.currentTurnPlayerId === user?.uid;
 
-  const { passTurn, updateCompetitiveRoomCorrects } = usePlayTurn({
+  // Initialize competitive integrity for ranked games
+  useEffect(() => {
+    if (isRanked && currentRoom && user) {
+      enableKeystrokeLogging(currentRoom.id, user.uid);
+    } else {
+      disableKeystrokeLogging();
+    }
+    return () => {
+      disableKeystrokeLogging();
+    };
+  }, [isRanked, currentRoom, user, enableKeystrokeLogging, disableKeystrokeLogging]);
+
+  const { passTurn } = usePlayTurn({
     currentRoom,
     currentWord,
     playersList,
@@ -199,6 +398,13 @@ const Play: React.FC = () => {
     username: userData?.username,
     userId: user?.uid,
   });
+
+  const { emit } = useGameplayEvents();
+
+  // Record player eliminations for replay
+  useOnGameplayEvent("PLAYER_ELIMINATED", (event) => {
+    recordPlayerEliminated(event.playerId, event.place);
+  }, [recordPlayerEliminated]);
 
   const handleTurnExpired = useCallback(() => {
     if (
@@ -235,7 +441,7 @@ const Play: React.FC = () => {
 
   usePlayDriver({
     currentRoom,
-    isGameDriver,
+    isLocalDriver,
     paramMode,
     playersList,
   });
@@ -250,21 +456,42 @@ const Play: React.FC = () => {
     );
 
     if (syncedWord !== lastSpokenWordRef.current) {
+      // Record that a game was started (only once per game session)
+      if (!gameRecordedRef.current) {
+        recordGamePlayed();
+        recordGameStart();
+        // Record replay game start
+        recordReplayGameStart();
+        gameRecordedRef.current = true;
+      }
+
       console.log(`[Audio] New word detected, will speak: "${syncedWord}"`);
       lastSpokenWordRef.current = syncedWord;
       setCurrentWord(syncedWord);
+
+      // Record the word being spoken for replay
+      const turnPlayerId = currentRoom?.gameState?.currentTurnPlayerId;
+      if (turnPlayerId) {
+        recordWordSpoken(syncedWord, turnPlayerId);
+      }
+
+      // Start keystroke tracking for ranked games
+      if (isRanked) {
+        startWord(syncedWord);
+      }
+
       primeWordAudio(syncedWord);
 
       setInputValue("");
       setFeedback(null);
       setDefinition("Loading...");
-      fetchDefinition(syncedWord).then(setDefinition);
+      fetchDefinition(syncedWord, locale).then(setDefinition);
 
       // Only play audio if we are in 'playing' state or transitioning to it
       if (currentRoom.status === "playing") {
         setStatus("speaking");
         stopAudio();
-        speak(syncedWord, ttsVolume).then(() => {
+        speak(syncedWord, ttsVolume, false, locale).then(() => {
           setTimeout(() => {
             // Check if we are still on the same word before enabling input
             if (lastSpokenWordRef.current === syncedWord) {
@@ -292,7 +519,16 @@ const Play: React.FC = () => {
     }
 
     setInputValue(val);
-    if (val.length > inputValue.length) playTypingSound();
+    if (val.length > inputValue.length) {
+      playTypingSound();
+      // Record keystrokes for ranked anti-cheat
+      if (isRanked && val.length > inputValue.length) {
+        const addedChars = val.slice(inputValue.length);
+        for (const char of addedChars) {
+          recordKeystroke(char);
+        }
+      }
+    }
 
     // Sync typing to Firebase if it's my turn
     if (isMyTurn && currentRoom?.id) {
@@ -363,9 +599,32 @@ const Play: React.FC = () => {
 
         setLastBurstWpm(wpm);
         setCorrectWords((prev) => [...prev, { word: currentWord, wpm }]);
-      }
 
-      setFeedback({ type: "success", msg: "Correct!" });
+        // Submit keystroke log for ranked anti-cheat
+        if (isRanked && startTime) {
+          const timeTakenMs = Date.now() - startTime;
+          submitKeystrokeLog(currentWord, wpm, timeTakenMs);
+
+          // Trigger server-side verification for suspicious patterns
+          // (We'll verify on the server side for statistical analysis)
+          if (currentRoom?.id && user?.uid) {
+            verifyKeystrokeLog(currentRoom.id, user.uid, currentWord).then(result => {
+              if (result?.is_suspicious) {
+                console.warn(`[Anti-Cheat] Server flagged suspicious activity: ${result.anomaly_reasons?.join(", ")}`);
+              }
+            }).catch(err => {
+              console.error("[Anti-Cheat] Verification failed:", err);
+            });
+          }
+        }
+
+        // Record correct word for replay
+        const replayTimeTakenMs = startTime ? Date.now() - startTime : 0;
+        const currentStreak = currentRoom?.gameState?.streak || 0;
+        recordWordCorrect(user?.uid || '', currentWord, wpm, replayTimeTakenMs, currentStreak + 1);
+
+        setFeedback({ type: "success", msg: "Correct!" });
+      }
       // Increment room-wide streak and sync WPM in Firebase
       const currentStreak = currentRoom?.gameState?.streak || 0;
       await dbUpdate(dbRef(db, `rooms/${currentRoom?.id}/gameState`), {
@@ -373,10 +632,36 @@ const Play: React.FC = () => {
         currentPlayerWpm: wpm,
       });
 
-      await updateCompetitiveRoomCorrects();
+      // Award XP for correct answer
+      await addXp(50); // Base XP per correct word
+
+      // Record challenge progress for correct word
+      await recordCorrectWord(currentWord, wpm);
+
+      // Increment leaderboard stats for correct word
+      await incrementDailyStats(0, 0, 1, 0, 0, wpm, currentStreak + 1);
+      await incrementModeStats(paramMode as any, 0, 0, 1, wpm, currentStreak + 1);
+
+      // Update game stats
+      setGameStats((prev) => ({
+        correctWords: prev.correctWords + 1,
+        totalXpEarned: prev.totalXpEarned + 50,
+        maxStreak: Math.max(prev.maxStreak, currentStreak + 1),
+        gameEnded: false,
+        isWin: false,
+      }));
+
       await passTurn(false); // Advances turn to next player
     } else {
       console.warn("Incorrect Answer");
+      // Emit ANSWER_INCORRECT event for FailureTheater
+      emit({
+        type: "ANSWER_INCORRECT",
+        word: currentWord,
+        typed: inputValue,
+        timeTakenMs: 0, // Would need to track this from input timing
+        timestamp: Date.now(),
+      });
       await handleFail("Incorrect!", inputValue, currentWord);
     }
   };
@@ -385,6 +670,11 @@ const Play: React.FC = () => {
     console.log(`[Death] ${msg}`);
 
     setFeedback({ type: "error", msg, typed, correct });
+    // Record incorrect word for replay
+    const timeTakenMs = startTime ? Date.now() - startTime : 0;
+    recordWordIncorrect(user?.uid || '', currentWord, timeTakenMs);
+    // Record challenge progress for game end (lost)
+    await recordGameEnd(false, false);
     await passTurn(true);
   }
 
@@ -393,6 +683,9 @@ const Play: React.FC = () => {
     if (currentRoom?.id && user?.uid) {
       await leaveRoom(currentRoom.id, user.uid);
     }
+    // Record challenge progress for game end (won or lost, but not perfect - that's tracked elsewhere)
+    await recordGameEnd(false, false);
+    gameRecordedRef.current = false;
     navigate("/lobby");
   };
 
@@ -400,12 +693,13 @@ const Play: React.FC = () => {
     setActiveTab(activeTab === tab ? "none" : tab);
   };
 
-  if (!currentRoom)
+  if (!currentRoom) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-900 text-emerald-500">
         Connecting...
       </div>
     );
+  }
 
   return (
     <div
@@ -459,7 +753,7 @@ const Play: React.FC = () => {
         lastBurstWpm={lastBurstWpm}
         myStatus={myStatus}
         onExitArena={exitArena}
-        onReplayWord={() => speak(currentWord, ttsVolume, true)}
+        onReplayWord={() => speak(currentWord, ttsVolume, true, locale)}
         paramMode={paramMode}
         playersList={playersList}
         status={status}
@@ -469,6 +763,28 @@ const Play: React.FC = () => {
         totalTime={totalTime}
         userId={user?.uid}
       />
+
+      {/* Theater Components - Phase 2b */}
+      {/* Word reveal when new word is spoken */}
+      <WordReveal word={currentWord} />
+
+      {/* Success theater on correct answer */}
+      <SuccessTheater />
+
+      {/* Failure theater on incorrect answer */}
+      <FailureTheater />
+
+      {/* Turn transition when turn passes */}
+      <TurnTransition />
+
+      {/* Victory sequence when player wins */}
+      <VictorySequence />
+
+      {/* Intermission card between rounds */}
+      <IntermissionCard />
+
+      {/* Streak milestone celebrations */}
+      <StreakMilestone />
 
       {/* Profile Modal */}
       {selectedProfileId && (

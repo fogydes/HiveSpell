@@ -1,10 +1,10 @@
 import { useRef } from "react";
-import { ref as dbRef, runTransaction, update as dbUpdate } from "firebase/database";
-import { db } from "../firebase";
+import { supabase } from "../services/supabase";
 import { applyCorrectAnswerReward } from "../services/profileService";
 import { hasOtherConnectedRoomPlayer } from "../services/playRoomUtils";
 import { getCorrectAnswerNectarReward } from "../services/playRewardUtils";
-import { buildPassTurnRoomUpdate } from "../services/playUpdateUtils";
+import { logInfo, logSupabaseRpcError } from "../services/logger";
+import { useGameplayEvents } from "./useGameplayEvents";
 import type { Player, Room } from "../types/multiplayer";
 
 interface UsePlayTurnArgs {
@@ -27,9 +27,10 @@ export const usePlayTurn = ({
   userId,
 }: UsePlayTurnArgs) => {
   const passingTurnRef = useRef(false);
+  const { emit } = useGameplayEvents();
 
-  const passTurn = async (wasEliminated: boolean) => {
-    if (!currentRoom?.id) return;
+  const passTurn = async (wasEliminated: boolean, wpm?: number, newStreak?: number) => {
+    if (!currentRoom?.id || !userId) return;
 
     if (passingTurnRef.current) {
       console.warn("[PassTurn] Already in progress, skipping.");
@@ -37,23 +38,22 @@ export const usePlayTurn = ({
     }
 
     passingTurnRef.current = true;
-    const roomId = currentRoom.id;
-    const currentScore = playersList.find((player) => player.id === userId)?.score || 0;
-    const updates = buildPassTurnRoomUpdate({
-      currentScore,
-      currentTurnPlayerId: currentRoom.gameState?.currentTurnPlayerId,
-      currentUserId: userId,
-      players: playersList,
-      startTime: currentRoom.gameState?.startTime || Date.now(),
-      timerDuration: currentRoom.gameState?.timerDuration || 10,
-      turnOrder: currentRoom.gameState?.turnOrder || [],
-      wasEliminated,
-    });
 
     try {
-      await dbUpdate(dbRef(db, `rooms/${roomId}`), updates);
+      // Call advance_turn RPC instead of Firebase RTDB update
+      const { data, error } = await supabase.rpc("advance_turn", {
+        p_room_id: currentRoom.id,
+        p_player_id: userId,
+        p_was_correct: !wasEliminated,
+        p_new_streak: newStreak || 0,
+      });
+
+      if (error) {
+        logSupabaseRpcError("advance_turn", error);
+        throw error;
+      }
     } catch (error) {
-      console.error("[PassTurn] Firebase update failed:", error);
+      logSupabaseRpcError("advance_turn", error);
     }
     passingTurnRef.current = false;
 
@@ -68,7 +68,7 @@ export const usePlayTurn = ({
         currentWord,
       );
 
-      console.log(`[Stats] Adding ${nectarToAdd} nectar for difficulty: ${difficulty}`);
+      logInfo(`Adding ${nectarToAdd} nectar for difficulty: ${difficulty}`);
 
       applyCorrectAnswerReward(
         userId,
@@ -76,34 +76,99 @@ export const usePlayTurn = ({
         nectarToAdd,
       )
         .then(() => refreshUser())
-        .catch((error: any) =>
-          console.error("Persistent reward update failed:", error),
+        .catch((error: Error) =>
+          logSupabaseRpcError("applyCorrectAnswerReward", error),
         );
-    }
-  };
 
-  const updateCompetitiveRoomCorrects = async () => {
-    const isCompetitiveRoom = hasOtherConnectedRoomPlayer(playersList, userId);
-    if (!isCompetitiveRoom || !userId || !currentRoom?.id) {
-      return;
-    }
-
-    try {
-      const playerRef = dbRef(db, `rooms/${currentRoom.id}/players/${userId}`);
-      await runTransaction(playerRef, (player: any) => {
-        if (player) {
-          player.corrects = (player.corrects || 0) + 1;
-          player.score = (player.score || 0) + 10;
-        }
-        return player;
+      // Emit correct answer event
+      const streak = playersList.find((p) => p.id === userId)?.streak || 0;
+      emit({
+        type: "ANSWER_CORRECT",
+        word: currentWord,
+        wpm: wpm || 0,
+        streak,
+        timeTakenMs: 0,
+        timestamp: Date.now(),
       });
-    } catch (error) {
-      console.error("Failed to update room player stats:", error);
+
+      // Emit streak milestone event if this is a milestone
+      const milestones = [5, 10, 15, 20, 25, 30, 40, 50] as const;
+      if (milestones.includes(streak as 5 | 10 | 15 | 20 | 25 | 30 | 40 | 50)) {
+        emit({
+          type: "STREAK_MILESTONE",
+          streak,
+          milestone: streak as 5 | 10 | 15 | 20 | 25 | 30 | 40 | 50,
+          timestamp: Date.now(),
+        });
+      }
+    } else if (wasEliminated) {
+      // Emit elimination event
+      const playerIndex = playersList.findIndex((p) => p.id === userId);
+      const place = playerIndex >= 0 ? playersList.length - playerIndex : 0;
+      emit({
+        type: "PLAYER_ELIMINATED",
+        playerId: userId || "",
+        playerName: username || userDisplayName || "Player",
+        place,
+        totalPlayers: playersList.length,
+        timestamp: Date.now(),
+      });
     }
+
+    // Emit turn handoff event (for both correct answers and eliminations)
+    const turnOrder = currentRoom.gameState?.turnOrder || [];
+    const alivePlayers = playersList.filter((p) => p.status !== "disconnected");
+    let nextPlayerId = currentRoom.gameState?.currentTurnPlayerId;
+    let remainingTime = currentRoom.gameState?.timerDuration || 10;
+
+    if (!wasEliminated) {
+      const currentIndex = turnOrder.indexOf(userId ?? "");
+      for (let i = 1; i <= turnOrder.length; i++) {
+        const nextIndex = (currentIndex + i) % turnOrder.length;
+        const candidateId = turnOrder[nextIndex];
+        const candidate = alivePlayers.find(p => p.id === candidateId);
+        if (candidate && candidate.status !== "eliminated") {
+          nextPlayerId = candidateId;
+          break;
+        }
+      }
+    } else if (alivePlayers.length > 0) {
+      nextPlayerId = alivePlayers[0]?.id || "";
+    }
+
+    emit({
+      type: "TURN_HANDOFF",
+      from: userId ?? "",
+      to: nextPlayerId ?? "",
+      timeLeft: remainingTime,
+      round: currentRoom?.gameState?.roundNumber || 1,
+      timestamp: Date.now(),
+    });
   };
+
+  // updateCompetitiveRoomCorrects deprecated - room score now handled via RPC
+  // const updateCompetitiveRoomCorrects = async () => {
+  //   const isCompetitiveRoom = hasOtherConnectedRoomPlayer(playersList, userId);
+  //   if (!isCompetitiveRoom || !userId || !currentRoom?.id) {
+  //     return;
+  //   }
+  //
+  //   try {
+  //     const playerRef = dbRef(db, `rooms/${currentRoom.id}/players/${userId}`);
+  //     await runTransaction(playerRef, (player: Player | null) => {
+  //       if (player) {
+  //         player.corrects = (player.corrects || 0) + 1;
+  //         player.score = (player.score || 0) + 10;
+  //       }
+  //       return player;
+  //     });
+  //   } catch (error) {
+  //     logFirebaseError("updateCompetitiveRoomCorrects", error);
+  //   }
+  // };
 
   return {
     passTurn,
-    updateCompetitiveRoomCorrects,
+    // updateCompetitiveRoomCorrects deprecated - room score now handled via RPC
   };
 };

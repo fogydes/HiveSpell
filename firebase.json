@@ -22,6 +22,10 @@
     ],
     "rewrites": [
       {
+        "source": "/api/health",
+        "destination": "/health.json"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

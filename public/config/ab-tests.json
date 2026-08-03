@@ -1,0 +1,10 @@
+{
+  "experiments": {
+    "onboarding-flow": "control",
+    "difficulty-selection": "control",
+    "battle-pass-upsell": "control",
+    "daily-challenge-rewards": "control",
+    "shop-pricing": "control",
+    "reengagement-timing": "control"
+  }
+}

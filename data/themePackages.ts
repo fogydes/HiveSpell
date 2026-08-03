@@ -4,7 +4,11 @@ export type ThemeId =
   | "ice"
   | "forest"
   | "theme_honey"
-  | "theme_night";
+  | "theme_night"
+  | "theme_royal"
+  | "theme_ice"
+  | "theme_forest"
+  | "theme_void";
 
 export interface ThemeColors {
   app: string;
@@ -444,6 +448,239 @@ export const THEME_PACKAGES: Record<ThemeId, ThemePackage> = {
       overlayPatternSvg: "/themes/theme_night/overlay-pattern.svg",
       panelFrameSvg: "/themes/theme_night/panel-frame.svg",
       cursorSvg: "/themes/theme_night/cursor.svg",
+    },
+  },
+  theme_royal: {
+    id: "theme_royal",
+    name: "Royal Nectar",
+    colors: {
+      app: "#160d08",
+      panel: "#29170c",
+      surface: "#432212",
+      primary: "#f59e0b",
+      primaryRgb: "245, 158, 11",
+      primaryDim: "rgba(245, 158, 11, 0.2)",
+      accent: "#fcd34d",
+      textMain: "#fff7ed",
+      textMuted: "#fdba74",
+    },
+    typography: {
+      ...DEFAULT_TYPOGRAPHY,
+      displayFamily: '"Cinzel Variable", "Georgia", serif',
+      headingTracking: "0.18em",
+    },
+    scene: {
+      appGradient:
+        "radial-gradient(circle at top, rgba(245,158,11,0.16), transparent 24%), radial-gradient(circle at bottom right, rgba(251,191,36,0.12), transparent 30%), linear-gradient(180deg, #160d08 0%, #0d0704 100%)",
+      panelGradient:
+        "linear-gradient(180deg, rgba(41,23,12,0.98) 0%, rgba(22,13,8,0.95) 100%)",
+      surfaceGradient:
+        "linear-gradient(180deg, rgba(67,34,18,0.88) 0%, rgba(41,23,12,0.92) 100%)",
+      ambientGlow:
+        "radial-gradient(circle, rgba(249,115,22,0.18) 0%, rgba(249,115,22,0) 72%)",
+      overlayPattern:
+        "linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.04) 1px, transparent 1px, transparent 20px), linear-gradient(90deg, rgba(249,115,22,0.06) 0%, rgba(249,115,22,0.06) 1px, transparent 1px, transparent 20px)",
+      borderStrong: "rgba(251, 191, 36, 0.32)",
+      panelShadow: "0 24px 54px rgba(22, 10, 4, 0.46)",
+      glowShadow: "0 0 40px rgba(249, 115, 22, 0.18)",
+    },
+    motion: {
+      ...DEFAULT_MOTION,
+      durationSlow: "640ms",
+      easingEmphasis: "cubic-bezier(0.22, 1, 0.36, 1)",
+    },
+    cursor: {
+      defaultItemId: "theme_royal_default",
+      assetPath: "/themes/royal/cursor-default.svg",
+      pointerAssetPath: "/themes/royal/cursor-pointer.svg",
+      activeAssetPath: "/themes/royal/cursor-active.svg",
+      hotspotX: 3,
+      hotspotY: 3,
+      trailOffsetX: 1,
+      trailOffsetY: 1,
+      fallbackCursor: "pointer",
+      trailColor: "#fb923c",
+      trailGlow: "rgba(249, 115, 22, 0.72)",
+      trailStyle: "arcade",
+    },
+    assets: {
+      heroPatternSvg: null,
+      overlayPatternSvg: null,
+      panelFrameSvg: null,
+      cursorSvg: "/themes/royal/cursor.svg",
+    },
+  },
+  theme_ice: {
+    id: "theme_ice",
+    name: "Glacier Drift",
+    colors: {
+      app: "#082f49",
+      panel: "#0c4a6e",
+      surface: "#075985",
+      primary: "#38bdf8",
+      primaryRgb: "56, 189, 248",
+      primaryDim: "rgba(56, 189, 248, 0.2)",
+      accent: "#e0f2fe",
+      textMain: "#f0f9ff",
+      textMuted: "#7dd3fc",
+    },
+    typography: DEFAULT_TYPOGRAPHY,
+    scene: {
+      appGradient:
+        "radial-gradient(circle at top right, rgba(224,242,254,0.16), transparent 24%), radial-gradient(circle at bottom left, rgba(56,189,248,0.12), transparent 34%), linear-gradient(180deg, #082f49 0%, #031722 100%)",
+      panelGradient:
+        "linear-gradient(180deg, rgba(12,74,110,0.96) 0%, rgba(8,47,73,0.94) 100%)",
+      surfaceGradient:
+        "linear-gradient(180deg, rgba(7,89,133,0.9) 0%, rgba(12,74,110,0.94) 100%)",
+      ambientGlow:
+        "radial-gradient(circle, rgba(56,189,248,0.16) 0%, rgba(56,189,248,0) 72%)",
+      overlayPattern:
+        "repeating-linear-gradient(165deg, rgba(125,211,252,0.11) 0px, rgba(125,211,252,0.11) 1px, transparent 1px, transparent 18px)",
+      borderStrong: "rgba(56, 189, 248, 0.28)",
+      panelShadow: "0 20px 44px rgba(3, 23, 34, 0.42)",
+      glowShadow: "0 0 34px rgba(56, 189, 248, 0.18)",
+    },
+    motion: {
+      ...DEFAULT_MOTION,
+      durationBase: "320ms",
+      easingStandard: "cubic-bezier(0.16, 1, 0.3, 1)",
+    },
+    cursor: {
+      defaultItemId: "theme_ice_default",
+      assetPath: "/themes/ice/cursor-default.svg",
+      pointerAssetPath: "/themes/ice/cursor-pointer.svg",
+      activeAssetPath: "/themes/ice/cursor-active.svg",
+      hotspotX: 3,
+      hotspotY: 3,
+      trailOffsetX: 2,
+      trailOffsetY: 1,
+      fallbackCursor: "pointer",
+      trailColor: "#7dd3fc",
+      trailGlow: "rgba(125, 211, 252, 0.68)",
+      trailStyle: "storm",
+    },
+    assets: {
+      heroPatternSvg: null,
+      overlayPatternSvg: null,
+      panelFrameSvg: null,
+      cursorSvg: "/themes/ice/cursor.svg",
+    },
+  },
+  theme_forest: {
+    id: "theme_forest",
+    name: "Forest Bloom",
+    colors: {
+      app: "#14532d",
+      panel: "#166534",
+      surface: "#15803d",
+      primary: "#bef264",
+      primaryRgb: "190, 242, 100",
+      primaryDim: "rgba(190, 242, 100, 0.2)",
+      accent: "#facc15",
+      textMain: "#ecfccb",
+      textMuted: "#86efac",
+    },
+    typography: DEFAULT_TYPOGRAPHY,
+    scene: {
+      appGradient:
+        "radial-gradient(circle at top left, rgba(190,242,100,0.14), transparent 28%), radial-gradient(circle at bottom right, rgba(250,204,21,0.1), transparent 24%), linear-gradient(180deg, #14532d 0%, #0f3c21 100%)",
+      panelGradient:
+        "linear-gradient(180deg, rgba(22,101,52,0.96) 0%, rgba(20,83,45,0.94) 100%)",
+      surfaceGradient:
+        "linear-gradient(180deg, rgba(21,128,61,0.9) 0%, rgba(22,101,52,0.94) 100%)",
+      ambientGlow:
+        "radial-gradient(circle, rgba(190,242,100,0.16) 0%, rgba(190,242,100,0) 70%)",
+      overlayPattern:
+        "radial-gradient(circle at 20% 20%, rgba(236,252,203,0.08) 0 1.2px, transparent 1.2px), radial-gradient(circle at 72% 68%, rgba(190,242,100,0.07) 0 1.2px, transparent 1.2px)",
+      borderStrong: "rgba(190, 242, 100, 0.24)",
+      panelShadow: "0 22px 48px rgba(7, 30, 16, 0.4)",
+      glowShadow: "0 0 32px rgba(190, 242, 100, 0.16)",
+    },
+    motion: {
+      ...DEFAULT_MOTION,
+      durationSlow: "700ms",
+    },
+    cursor: {
+      defaultItemId: "theme_forest_default",
+      assetPath: "/themes/forest/cursor-default.svg",
+      pointerAssetPath: "/themes/forest/cursor-pointer.svg",
+      activeAssetPath: "/themes/forest/cursor-active.svg",
+      hotspotX: 3,
+      hotspotY: 3,
+      trailOffsetX: 1,
+      trailOffsetY: 1,
+      fallbackCursor: "pointer",
+      trailColor: "#bef264",
+      trailGlow: "rgba(190, 242, 100, 0.64)",
+      trailStyle: "mycelium",
+    },
+    assets: {
+      heroPatternSvg: null,
+      overlayPatternSvg: null,
+      panelFrameSvg: null,
+      cursorSvg: "/themes/forest/cursor.svg",
+    },
+  },
+  theme_void: {
+    id: "theme_void",
+    name: "Void Walker",
+    colors: {
+      app: "#030712",
+      panel: "#111827",
+      surface: "#1f2937",
+      primary: "#8b5cf6",
+      primaryRgb: "139, 92, 246",
+      primaryDim: "rgba(139, 92, 246, 0.18)",
+      accent: "#a78bfa",
+      textMain: "#f3f4f6",
+      textMuted: "#9ca3af",
+    },
+    typography: {
+      ...DEFAULT_TYPOGRAPHY,
+      displayFamily: '"Syne", "Space Grotesk", sans-serif',
+      headingTracking: "0.22em",
+    },
+    scene: {
+      appGradient:
+        "radial-gradient(circle at 50% 30%, rgba(139,92,246,0.14), transparent 22%), radial-gradient(circle at 50% 80%, rgba(167,139,250,0.08), transparent 28%), linear-gradient(180deg, #030712 0%, #000000 100%)",
+      panelGradient:
+        "linear-gradient(180deg, rgba(17,24,39,0.98) 0%, rgba(3,7,18,0.96) 100%)",
+      surfaceGradient:
+        "linear-gradient(180deg, rgba(31,41,55,0.9) 0%, rgba(17,24,39,0.94) 100%)",
+      ambientGlow:
+        "radial-gradient(circle, rgba(139,92,246,0.14) 0%, rgba(139,92,246,0) 72%)",
+      overlayPattern:
+        "radial-gradient(ellipse at 30% 20%, rgba(167,139,250,0.08) 1px, transparent 1px), radial-gradient(ellipse at 70% 80%, rgba(139,92,246,0.1) 1px, transparent 1px)",
+      borderStrong: "rgba(139, 92, 246, 0.26)",
+      panelShadow: "0 28px 64px rgba(0, 0, 0, 0.6)",
+      glowShadow: "0 0 48px rgba(139, 92, 246, 0.14)",
+    },
+    motion: {
+      ...DEFAULT_MOTION,
+      durationBase: "280ms",
+      durationSlow: "600ms",
+      easingEmphasis: "cubic-bezier(0.16, 1, 0.3, 1)",
+      hoverScale: "1.05",
+    },
+    cursor: {
+      defaultItemId: "theme_void_default",
+      assetPath: "/themes/void/cursor-default.svg",
+      pointerAssetPath: "/themes/void/cursor-pointer.svg",
+      activeAssetPath: "/themes/void/cursor-active.svg",
+      hotspotX: 3,
+      hotspotY: 3,
+      trailOffsetX: 1,
+      trailOffsetY: 1,
+      fallbackCursor: "pointer",
+      trailColor: "#8b5cf6",
+      trailGlow: "rgba(139, 92, 246, 0.72)",
+      trailStyle: "astral",
+    },
+    assets: {
+      heroPatternSvg: "/themes/void/hero-pattern.svg",
+      overlayPatternSvg: "/themes/void/overlay-pattern.svg",
+      panelFrameSvg: "/themes/void/panel-frame.svg",
+      cursorSvg: "/themes/void/cursor.svg",
     },
   },
 };

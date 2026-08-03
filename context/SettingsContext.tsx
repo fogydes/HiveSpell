@@ -18,8 +18,12 @@ import {
   type ThemeId,
   type ThemePackage,
 } from "../data/themePackages";
+import { type LocaleId } from "../data/localization";
+// i18n handles language, direction, and persistence
+import i18n, { changeLanguage } from "../i18n";
 
 export type { ThemeId, ThemePackage };
+export type { LocaleId } from "../data/localization";
 export const THEMES = THEME_COLORS;
 export { THEME_PACKAGES, getThemePackage };
 
@@ -32,6 +36,8 @@ interface SettingsContextType {
   theme: ThemeId;
   themePackage: ThemePackage;
   setTheme: (t: ThemeId) => void;
+  locale: LocaleId;
+  setLocale: (locale: LocaleId) => Promise<void>;
   activeCursorId: string | null;
   equippedCursor: string | null;
   setEquippedCursor: (cursorId: string | null) => void;
@@ -48,6 +54,8 @@ const SettingsContext = createContext<SettingsContextType>({
   theme: DEFAULT_THEME_ID,
   themePackage: THEME_PACKAGES[DEFAULT_THEME_ID],
   setTheme: () => {},
+  locale: i18n.language as LocaleId || "en",
+  setLocale: async () => {},
   activeCursorId: null,
   equippedCursor: null,
   setEquippedCursor: () => {},
@@ -81,6 +89,19 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     () => localStorage.getItem("hive_equipped_badge") || null,
   );
 
+  // Sync locale from i18n on mount and language changes
+  const [locale, setLocaleState] = useState<LocaleId>(() => {
+    return (i18n.language as LocaleId) || "en";
+  });
+
+  useEffect(() => {
+    const handleLanguageChange = (lng: string) => {
+      setLocaleState(lng as LocaleId);
+    };
+    i18n.on("languageChanged", handleLanguageChange);
+    return () => i18n.off("languageChanged", handleLanguageChange);
+  }, []);
+
   useEffect(() => {
     if (userData?.equippedTheme && userData.equippedTheme !== theme) {
       setThemeState(userData.equippedTheme);
@@ -107,6 +128,9 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const themePackage = getThemePackage(theme);
   const activeCursorId = equippedCursor ?? themePackage.cursor.defaultItemId;
+
+  // i18n handles document.lang and document.dir automatically
+  // No need for localeConfig effect here
 
   // Apply Theme CSS Variables
   useEffect(() => {
@@ -285,6 +309,12 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     })();
   };
 
+  const updateLocale = async (nextLocale: LocaleId) => {
+    setLocaleState(nextLocale);
+    localStorage.setItem("hive_locale", nextLocale);
+    await changeLanguage(nextLocale);
+  };
+
   const updateCustomizationSlot = (
     slot: "equipped_cursor" | "equipped_badge",
     value: string | null,
@@ -327,6 +357,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
         theme,
         themePackage,
         setTheme: updateTheme,
+        locale,
+        setLocale: updateLocale,
         activeCursorId,
         equippedCursor,
         setEquippedCursor: (cursorId) =>

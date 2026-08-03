@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { supabase, isSupabaseConfigured } from "../services/supabase";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
@@ -12,6 +12,11 @@ import {
 } from "../services/friendService";
 import { ITEM_CATALOG } from "../data/customizationCatalog";
 import { THEME_PACKAGES, ThemeId } from "../data/themePackages";
+import { TierBadge, TierBadgeMini, TierProgressBar } from "./tier/TierBadge";
+import { getTierFromStats, getTierProgress, getNextTierName, type PlayerStats } from "../utils/tierRanking";
+import { useScene } from "@/context/SceneContext";
+import { useReduceMotion } from "@/hooks/useAccessibility";
+import { useTranslation } from "react-i18next";
 
 interface ProfileData {
   id: string;
@@ -87,6 +92,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 }) => {
   const { user, userData, refreshUser } = useAuth();
   const { showToast } = useToast();
+  const { performanceTier } = useScene();
+  const reduceMotion = useReduceMotion();
+  const { t } = useTranslation("profileModal");
+  const disableAnimations = performanceTier === "static" || reduceMotion;
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -105,7 +114,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       if (!isSupabaseConfigured) {
         setLoading(false);
         setError(
-          "Setup Required: Add Supabase Keys to your Hosting Environment.",
+          t("profileModal.setupRequired"),
         );
         return;
       }
@@ -121,7 +130,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         setProfile(data);
       } catch (err: any) {
         console.error("Failed to fetch profile:", err);
-        setError("Could not load profile.");
+        setError(t("profileModal.errorLoadingProfile"));
       } finally {
         setLoading(false);
       }
@@ -144,7 +153,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     try {
       setUploading(true);
       if (!event.target.files || event.target.files.length === 0) {
-        throw new Error("You must select an image to upload.");
+        throw new Error(t("profileModal.selectImageToUpload"));
       }
 
       const file = event.target.files[0];
@@ -155,7 +164,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
       if (!fileExt || !allowedExtensions.includes(fileExt)) {
         throw new Error(
-          "Invalid file type. Please upload an image (PNG, JPG, JPEG, WEBP, or GIF).",
+          t("profileModal.invalidFileType"),
         );
       }
 
@@ -193,8 +202,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     } catch (error: any) {
       console.error("Error uploading avatar:", error);
       showToast({
-        title: "Avatar upload failed",
-        message: error.message || "Error uploading avatar!",
+        title: t("profileModal.avatarUploadFailed"),
+        message: error.message || t("profileModal.errorUploadingAvatar"),
         variant: "error",
       });
     } finally {
@@ -231,10 +240,25 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const profileAvatar =
     profile?.avatar_url ||
     `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile?.avatar_seed || profile?.id || userId}`;
+
+  // Compute tier from profile stats
+  const playerStats: PlayerStats = useMemo(() => ({
+    wins: profile?.wins ?? 0,
+    corrects: profile?.corrects ?? 0,
+    lifetimeNectar: profile?.lifetime_nectar ?? 0,
+    gamesPlayed: 0, // Not tracked in profile currently
+  }), [profile]);
+
+  const tier = useMemo(() => getTierFromStats(playerStats), [playerStats]);
+  const tierProgress = useMemo(() => getTierProgress(playerStats), [playerStats]);
+  const nextTierName = useMemo(() => getNextTierName(playerStats), [playerStats]);
   return (
     <div
       className="fixed inset-0 z-[100] overflow-y-auto bg-black/90 p-2 backdrop-blur-md animate-fade-in sm:p-4"
       onClick={onClose}
+      style={{
+        animation: disableAnimations ? "none" : "fadeIn 0.2s ease-out",
+      }}
     >
       <div className="flex min-h-full items-start justify-center touch-pan-y">
         <div
@@ -254,7 +278,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           <div className="flex min-h-full items-center justify-center p-12 text-center">
             <div>
               <div className="mb-4 text-4xl animate-spin">🐝</div>
-              <p className="text-text-muted">Loading profile...</p>
+              <p className="text-text-muted">{t("profileModal.loadingProfile")}</p>
             </div>
           </div>
         ) : error ? (
@@ -280,7 +304,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   />
                   <div className="absolute -left-10 top-6 h-28 w-28 rounded-full bg-primary/10 blur-3xl" />
                   <div className="absolute right-4 top-4 rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.28em] text-amber-200">
-                    {isOwnProfile ? "Your dossier" : "Player dossier"}
+                    {isOwnProfile ? t("profileModal.yourDossier") : t("profileModal.playerDossier")}
                   </div>
                 </div>
 
@@ -299,7 +323,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                             htmlFor="avatar-upload"
                             className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center bg-black/65 text-[10px] font-bold uppercase tracking-[0.2em] text-white opacity-0 transition-opacity group-hover:opacity-100"
                           >
-                            {uploading ? "Uploading" : "Change photo"}
+                            {uploading ? t("profileModal.uploading") : t("profileModal.changePhoto")}
                             <input
                               id="avatar-upload"
                               type="file"
@@ -314,19 +338,29 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
                       <div className="min-w-0 pb-1">
                         <p className="text-[10px] uppercase tracking-[0.34em] text-text-muted/55">
-                          HiveSpell profile
+                          {t("profileModal.hiveSpellProfile")}
                         </p>
                         <h2 className="mt-2 truncate text-[2rem] font-black leading-none text-text-main sm:text-[2.7rem]">
                           {profile.username}
                         </h2>
                         <div className="mt-3 flex flex-wrap items-center gap-2">
+                          {/* Tier Badge */}
+                          <TierBadge tier={tier} size="md" showProgress={true} progress={tierProgress} nextTierName={nextTierName} animate={true} />
                           <span className="rounded-full border border-primary/25 bg-primary/12 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.24em] text-primary">
-                            {profile.title || "Novice Bee"}
+                            {profile.title || t("profileModal.newbee")}
                           </span>
                           <span className="rounded-full border border-surface/70 bg-surface/30 px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-text-muted">
-                            {collectionCount} relics logged
+                            {collectionCount} {t("profileModal.relicsLogged")}
                           </span>
                         </div>
+                        {/* Tier progress bar */}
+                        <TierProgressBar
+                          tier={tier}
+                          progress={tierProgress}
+                          nextTierName={nextTierName}
+                          showLabels={true}
+                          className="mt-3 max-w-sm"
+                        />
                       </div>
                     </div>
                     {!isOwnProfile && (
@@ -334,7 +368,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                         <div className="flex flex-wrap gap-2">
                           {friendshipStatus === "accepted" ? (
                             <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-primary">
-                              🤝 Friends
+                              🤝 {t("profileModal.friends")}
                             </span>
                           ) : friendshipStatus === "pending" &&
                             friendship?.requester_id === user?.uid ? (
@@ -351,10 +385,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                                   setFriendshipStatus(null);
                                 } else {
                                   showToast({
-                                    title: "Cancel failed",
+                                    title: t("profileModal.cancelFailed"),
                                     message:
                                       result.error ||
-                                      "Failed to cancel friend request",
+                                      t("profileModal.failedToCancelRequest"),
                                     variant: "error",
                                   });
                                 }
@@ -364,8 +398,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                               className="rounded-full border border-red-500/30 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-red-300 transition-colors hover:bg-red-500/10 disabled:opacity-50"
                             >
                               {friendActionLoading
-                                ? "Cancelling..."
-                                : "Cancel Request"}
+                                ? t("profileModal.cancelling")
+                                : t("profileModal.cancelRequest")}
                             </button>
                           ) : friendshipStatus === "pending" &&
                             friendship?.addressee_id === user?.uid ? (
@@ -386,10 +420,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                                     setFriendshipStatus("accepted");
                                   } else {
                                     showToast({
-                                      title: "Accept failed",
+                                      title: t("profileModal.acceptFailed"),
                                       message:
                                         result.error ||
-                                        "Failed to accept friend request",
+                                        t("profileModal.failedToAcceptRequest"),
                                       variant: "error",
                                     });
                                   }
@@ -398,7 +432,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                                 disabled={friendActionLoading}
                                 className="rounded-full border border-primary/30 bg-primary/20 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-primary transition-colors hover:bg-primary/30 disabled:opacity-50"
                               >
-                                Accept
+                                {t("profileModal.acceptRequest")}
                               </button>
                               <button
                                 onClick={async () => {
@@ -411,10 +445,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                                     setFriendshipStatus(null);
                                   } else {
                                     showToast({
-                                      title: "Decline failed",
+                                      title: t("profileModal.declineFailed"),
                                       message:
                                         result.error ||
-                                        "Failed to decline friend request",
+                                        t("profileModal.failedToDeclineRequest"),
                                       variant: "error",
                                     });
                                   }
@@ -423,7 +457,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                                 disabled={friendActionLoading}
                                 className="rounded-full border border-red-500/30 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-red-300 transition-colors hover:bg-red-500/10 disabled:opacity-50"
                               >
-                                Decline
+                                {t("profileModal.declineRequest")}
                               </button>
                             </div>
                           ) : (
@@ -447,9 +481,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                                   setFriendshipStatus("pending");
                                 } else {
                                   showToast({
-                                    title: "Friend request failed",
+                                    title: t("profileModal.friendRequestFailed"),
                                     message:
-                                      result.error || "Failed to send request",
+                                      result.error || t("profileModal.failedToSendRequest"),
                                     variant: "error",
                                   });
                                 }
@@ -458,7 +492,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                               disabled={friendActionLoading}
                               className="rounded-full border border-primary/30 bg-primary/20 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-primary transition-colors hover:bg-primary/30 disabled:opacity-50"
                             >
-                              {friendActionLoading ? "Sending..." : "👋 Add Friend"}
+                              {friendActionLoading ? t("profileModal.sending") : t("profileModal.sendFriendRequest")}
                             </button>
                           )}
                         </div>
@@ -470,26 +504,26 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     <div className="space-y-6">
                       <div className="grid gap-3 grid-cols-2 xl:grid-cols-4">
                         <StatCard
-                          label="Wins"
+                          label={t("profileModal.wins")}
                           value={(profile.wins ?? 0).toLocaleString()}
                           accent="primary"
-                          detail="Round victories secured in live play."
+                          detail={t("profileModal.roundVictories")}
                         />
                         <StatCard
-                          label="Corrects"
+                          label={t("profileModal.corrects")}
                           value={(profile.corrects ?? 0).toLocaleString()}
-                          detail="Accepted answers across tracked matches."
+                          detail={t("profileModal.acceptedAnswers")}
                         />
                         <StatCard
-                          label="Current Nectar"
+                          label={t("profileModal.currentNectar")}
                           value={currentNectar.toLocaleString()}
                           accent="accent"
-                          detail="Available balance for purchases and unlocks."
+                          detail={t("profileModal.availableBalance")}
                         />
                         <StatCard
-                          label="Corrects / Win"
+                          label={t("profileModal.correctsPerWin")}
                           value={correctsPerWin}
-                          detail="Efficiency ratio based on persistent stats."
+                          detail={t("profileModal.efficiencyRatio")}
                         />
                       </div>
 
@@ -497,10 +531,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                           <div>
                             <p className="text-[10px] uppercase tracking-[0.32em] text-text-muted/55">
-                              Active loadout
+                              {t("profileModal.activeLoadout")}
                             </p>
                             <h3 className="mt-2 text-xl font-black text-text-main">
-                              Current customization package
+                              {t("profileModal.currentCustomizationPackage")}
                             </h3>
                           </div>
                           <div
@@ -516,18 +550,18 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
                         <div className="mt-5 grid gap-3 lg:grid-cols-3">
                           <LoadoutCard
-                            label="Theme"
+                            label={t("profileModal.theme")}
                             value={activeTheme.name}
                             tone="primary"
                           />
                           <LoadoutCard
-                            label="Cursor"
-                            value={equippedCursor?.name || "Standard pointer"}
+                            label={t("profileModal.cursor")}
+                            value={equippedCursor?.name || t("profileModal.standardPointer")}
                             tone="accent"
                           />
                           <LoadoutCard
-                            label="Badge"
-                            value={equippedBadge?.name || "No badge equipped"}
+                            label={t("profileModal.badge")}
+                            value={equippedBadge?.name || t("profileModal.noBadgeEquipped")}
                             tone="primary"
                           />
                         </div>
@@ -537,10 +571,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                           <div>
                             <p className="text-[10px] uppercase tracking-[0.32em] text-text-muted/55">
-                              Collection vault
+                              {t("profileModal.collectionVault")}
                             </p>
                             <h3 className="mt-2 text-xl font-black text-text-main">
-                              Owned relics and cosmetics
+                              {t("profileModal.ownedRelicsAndCosmetics")}
                             </h3>
                           </div>
                           <p className="text-sm text-text-muted">
@@ -577,19 +611,17 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                         ) : (
                           <div className="mt-5 rounded-[22px] border border-dashed border-surface/70 bg-panel/35 px-5 py-8 text-center">
                             <p className="text-sm font-semibold text-text-main">
-                              No relics equipped yet
+                              {t("profileModal.noRelicsEquipped")}
                             </p>
                             <p className="mt-2 text-sm leading-6 text-text-muted">
-                              Purchases from the bazaar and stash unlocks will appear
-                              here once they are collected.
+                              {t("profileModal.purchasesAppearHere")}
                             </p>
                           </div>
                         )}
 
                         {ownedItems.length > 6 && (
                           <p className="mt-4 text-sm text-text-muted">
-                            +{ownedItems.length - 6} more item
-                            {ownedItems.length - 6 === 1 ? "" : "s"} in storage
+                            {t("profileModal.moreItemsInStorage", { count: ownedItems.length - 6, count_plural: ownedItems.length - 6 === 1 ? "" : "s" })}
                           </p>
                         )}
                       </div>
@@ -598,15 +630,15 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     <div className="space-y-6">
                       <div className="rounded-[22px] border border-surface/80 bg-black/20 p-4 backdrop-blur-md sm:rounded-[26px] sm:p-5">
                         <p className="text-[10px] uppercase tracking-[0.32em] text-text-muted/55">
-                          Dossier summary
+                          {t("profileModal.dossierSummary")}
                         </p>
                         <h3 className="mt-2 text-xl font-black text-text-main">
-                          Progress and reserve balance
+                          {t("profileModal.progressAndReserveBalance")}
                         </h3>
 
                         <div className="mt-5 rounded-[24px] border border-surface/70 bg-panel/55 p-4">
                           <div className="flex items-center justify-between text-sm text-text-muted">
-                            <span>Reserve ratio</span>
+                            <span>{t("profileModal.reserveRatio")}</span>
                             <span>{Math.round(nectarProgress)}%</span>
                           </div>
                           <div className="mt-3 h-3 overflow-hidden rounded-full bg-surface/60">
@@ -621,7 +653,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                           <div className="mt-4 grid gap-3 sm:grid-cols-2">
                             <div>
                               <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted/55">
-                                Current reserve
+                                {t("profileModal.currentReserve")}
                               </p>
                               <p className="mt-2 text-2xl font-black text-primary">
                                 {currentNectar.toLocaleString()}
@@ -629,7 +661,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                             </div>
                             <div>
                               <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted/55">
-                                Lifetime nectar
+                                {t("profileModal.lifetimeNectar")}
                               </p>
                               <p className="mt-2 text-2xl font-black text-accent">
                                 {lifetimeNectar.toLocaleString()}
@@ -640,21 +672,21 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
                         <div className="mt-5 space-y-3 text-sm text-text-muted">
                           <div className="flex items-center justify-between rounded-[18px] border border-surface/70 bg-panel/45 px-4 py-3">
-                            <span>Theme package</span>
+                            <span>{t("profileModal.themePackage")}</span>
                             <span className="font-semibold text-text-main">
                               {activeTheme.name}
                             </span>
                           </div>
                           <div className="flex items-center justify-between rounded-[18px] border border-surface/70 bg-panel/45 px-4 py-3">
-                            <span>Badge state</span>
+                            <span>{t("profileModal.badgeState")}</span>
                             <span className="font-semibold text-text-main">
-                              {equippedBadge?.name || "Inactive"}
+                              {equippedBadge?.name || t("profileModal.inactive")}
                             </span>
                           </div>
                           <div className="flex items-center justify-between rounded-[18px] border border-surface/70 bg-panel/45 px-4 py-3">
-                            <span>Cursor effect</span>
+                            <span>{t("profileModal.cursorEffect")}</span>
                             <span className="font-semibold text-text-main">
-                              {equippedCursor?.name || "Default"}
+                              {equippedCursor?.name || t("profileModal.default")}
                             </span>
                           </div>
                         </div>
@@ -662,27 +694,20 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
                       <div className="rounded-[22px] border border-surface/80 bg-black/20 p-4 backdrop-blur-md sm:rounded-[26px] sm:p-5">
                         <p className="text-[10px] uppercase tracking-[0.32em] text-text-muted/55">
-                          Archivist notes
+                          {t("profileModal.archivistNotes")}
                         </p>
                         <h3 className="mt-2 text-xl font-black text-text-main">
-                          How this dossier reads
+                          {t("profileModal.howThisDossierReads")}
                         </h3>
                         <div className="mt-5 space-y-4 text-sm leading-6 text-text-muted">
                           <p>
-                            This profile surfaces persistent multiplayer
-                            progression, active customization choices, and the
-                            current collection state pulled from the live
-                            profile record.
+                            {t("profileModal.dossierNote1")}
                           </p>
                           <p>
-                            Wins and correct answers reflect tracked matches,
-                            while nectar separates what is currently spendable
-                            from the total amount earned over time.
+                            {t("profileModal.dossierNote2")}
                           </p>
                           <p>
-                            The next phase is to bring the same visual system to
-                            the bazaar and relic vault so profile, shop, and
-                            stash feel like one connected experience.
+                            {t("profileModal.dossierNote3")}
                           </p>
                         </div>
                       </div>
@@ -693,7 +718,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             </div>
         ) : (
           <div className="flex min-h-full items-center justify-center p-12 text-center">
-            <p className="text-text-muted">No profile data found.</p>
+            <p className="text-text-muted">{t("profileModal.noProfileData")}</p>
           </div>
         )}
         </div>
