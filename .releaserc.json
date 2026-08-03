@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json.schemastore.org/release.config.json",
+  "branches": ["main", "develop"],
+  "plugins": [
+    "@semantic-release/commit-analyzer",
+    "@semantic-release/release-notes-generator",
+    "@semantic-release/changelog",
+    "@semantic-release/npm",
+    "@semantic-release/github",
+    "@semantic-release/git"
+  ],
+  "commitAnalyzer": {
+    "preset": "conventionalcommits",
+    "releaseRules": [
+      { "type": "feat", "release": "minor" },
+      { "type": "fix", "release": "patch" },
+      { "type": "perf", "release": "patch" },
+      { "type": "refactor", "release": "patch" },
+      { "type": "docs", "release": "patch" },
+      { "type": "style", "release": false },
+      { "type": "chore", "release": false },
+      { "type": "test", "release": false },
+      { "type": "build", "release": "patch" },
+      { "type": "ci", "release": false },
+      { "breaking": true, "release": "major" }
+    ]
+  },
+  "releaseNotesGenerator": {
+    "preset": "conventionalcommits",
+    "presetConfig": {
+      "types": [
+        { "type": "feat", "section": "✨ Features" },
+        { "type": "fix", "section": "🐛 Bug Fixes" },
+        { "type": "perf", "section": "⚡ Performance" },
+        { "type": "refactor", "section": "♻️ Refactoring" },
+        { "type": "docs", "section": "📚 Documentation" },
+        { "type": "build", "section": "🏗️ Build System" },
+        { "type": "ci", "section": "🔧 CI/CD" }
+      ]
+    }
+  },
+  "changelog": {
+    "file": "CHANGELOG.md"
+  },
+  "git": {
+    "assets": ["CHANGELOG.md", "package.json", "package-lock.json"]
+  },
+  "github": {
+    "successComment": false,
+    "failComment": false,
+    "releasedLabels": ["released"],
+    "releasedLabels": ["released"],
+    "assets": ["dist/**/*"]
+  }
+}

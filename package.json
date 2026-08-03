@@ -7,27 +7,46 @@
     "dev": "vite",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "build": "vite build",
-    "preview": "vite preview"
+    "build": "vite build && node scripts/generate-health.mjs",
+    "preview": "vite preview",
+    "release": "semantic-release",
+    "release:dry": "semantic-release --dry-run --no-ci"
   },
   "dependencies": {
+    "@playwright/test": "^1.62.1",
     "@supabase/supabase-js": "^2.104.1",
     "firebase": "^12.10.0",
+    "i18next": "^26.3.6",
+    "i18next-browser-languagedetector": "^8.2.1",
+    "i18next-http-backend": "^4.0.1",
+    "lucide-react": "^1.28.0",
+    "posthog-js": "^1.409.5",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "react-router-dom": "^7.14.0"
+    "react-i18next": "^17.0.11",
+    "react-router-dom": "^7.11.0"
   },
   "devDependencies": {
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/commit-analyzer": "^13.0.0",
+    "@semantic-release/git": "^10.0.1",
+    "@semantic-release/github": "^11.0.0",
+    "@semantic-release/npm": "^13.0.0",
+    "@semantic-release/release-notes-generator": "^14.0.0",
     "@tailwindcss/vite": "^4.2.2",
     "@types/node": "^25.6.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "commitlint": "^19.0.0",
+    "semantic-release": "^24.0.0",
     "supabase": "^2.91.1",
     "tailwindcss": "^4.2.1",
     "tsx": "^4.21.0",
     "typescript": "~6.0.3",
     "vite": "^8.0.0",
-    "vitest": "^4.1.5"
+    "vite-plugin-pwa": "^1.3.0",
+    "vitest": "^4.1.5",
+    "workbox-window": "^7.4.1"
   }
 }

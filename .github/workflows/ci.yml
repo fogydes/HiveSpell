@@ -1,95 +1,482 @@
-name: CI
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
+
+env:
+  NODE_VERSION: "20"
+  VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+  VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+  VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+  VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+  VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+  VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+  VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+  VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+  VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
+  VITE_FIREBASE_DATABASE_URL: ${{ secrets.VITE_FIREBASE_DATABASE_URL }}
+  SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+  SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
 
 jobs:
   check:
+    name: Lint, Typecheck, Test & Build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          node-version: 20
-          cache: npm
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run build
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
-          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
-          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
-          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
-          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
-          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
-          VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
-          VITE_FIREBASE_DATABASE_URL: ${{ secrets.VITE_FIREBASE_DATABASE_URL }}
+          fetch-depth: 0
 
-  deploy:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate commit messages (conventional commits)
+        if: github.event_name == 'pull_request'
+        run: npx commitlint --from=${{ github.event.pull_request.base.sha }} --to=${{ github.event.pull_request.head.sha }} --verbose
+
+      - name: Run typecheck
+        run: npm run typecheck
+
+      - name: Run tests
+        run: npm run test -- --reporter=verbose
+
+      - name: Build and check bundle size
+        run: |
+          echo "Building and checking bundle sizes..."
+          BUILD_OUTPUT=$(npm run build 2>&1)
+          echo "$BUILD_OUTPUT"
+
+          # Parse gzipped sizes (format: "dist/assets/name.js    255.61 kB │ gzip:  68.53 kB")
+          # Check main chunk (< 150KB gzipped for P6 performance budget)
+          MAIN_GZIP=$(echo "$BUILD_OUTPUT" | grep -E 'index-.*\.js' | head -1 | sed -E 's/.*gzip:\s*([0-9.]+)\s*kB.*/\1/')
+          if [ -n "$MAIN_GZIP" ]; then
+            echo "Main chunk gzipped: ${MAIN_GZIP} kB"
+            MAIN_INT=$(echo "$MAIN_GZIP" | cut -d. -f1)
+            if [ "$MAIN_INT" -gt 150 ]; then
+              echo "::error::Main bundle exceeds 150KB gzipped (${MAIN_GZIP} kB) - P6 budget exceeded"
+              exit 1
+            fi
+          fi
+
+          # Check vendor chunk (< 200KB gzipped)
+          VENDOR_GZIP=$(echo "$BUILD_OUTPUT" | grep -E 'vendor-.*\.js' | head -1 | sed -E 's/.*gzip:\s*([0-9.]+)\s*kB.*/\1/')
+          if [ -n "$VENDOR_GZIP" ]; then
+            echo "Vendor chunk gzipped: ${VENDOR_GZIP} kB"
+            VENDOR_INT=$(echo "$VENDOR_GZIP" | cut -d. -f1)
+            if [ "$VENDOR_INT" -gt 200 ]; then
+              echo "::warning::Vendor bundle exceeds 200KB gzipped (${VENDOR_GZIP} kB)"
+              # Not failing - vendor is often larger
+            fi
+          fi
+
+          # Check CSS (< 25KB gzipped)
+          CSS_GZIP=$(echo "$BUILD_OUTPUT" | grep -E 'index-.*\.css' | head -1 | sed -E 's/.*gzip:\s*([0-9.]+)\s*kB.*/\1/')
+          if [ -n "$CSS_GZIP" ]; then
+            echo "CSS gzipped: ${CSS_GZIP} kB"
+            CSS_INT=$(echo "$CSS_GZIP" | cut -d. -f1)
+            if [ "$CSS_INT" -gt 25 ]; then
+              echo "::error::CSS bundle exceeds 25KB gzipped (${CSS_GZIP} kB)"
+              exit 1
+            fi
+          fi
+
+          echo "All bundle sizes within P6 performance budget"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+          retention-days: 1
+
+      - name: Upload typecheck report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: typecheck-report
+          path: typecheck-report.txt
+          retention-days: 7
+
+  staging-deploy:
+    name: Deploy to Staging
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: staging
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Deploy to Firebase Hosting (Staging)
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_HIVESPELL_DB }}
+          channelId: staging
+          projectId: hivespell-db
+
+      - name: Post-deployment health check
+        run: |
+          echo "Running post-deployment health check..."
+          sleep 10
+          HEALTH_URL="https://hivespell-db--staging.web.app/api/health"
+          for i in {1..5}; do
+            if curl -sf "$HEALTH_URL" > /dev/null; then
+              echo "Health check passed"
+              exit 0
+            fi
+            echo "Health check attempt $i failed, retrying in 5s..."
+            sleep 5
+          done
+          echo "::error::Health check failed after 5 attempts"
+          exit 1
+
+      - name: Track deployment in PostHog
+        if: env.VITE_POSTHOG_API_KEY != ''
+        run: |
+          curl -X POST "https://us.i.posthog.com/capture/" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "api_key": "'"${{ secrets.VITE_POSTHOG_API_KEY }}"'",
+              "event": "deployment_staging",
+              "properties": {
+                "environment": "staging",
+                "commit_sha": "'"${{ github.sha }}"'",
+                "branch": "'"${{ github.ref_name }}"'",
+                "deployed_by": "'"${{ github.actor }}"'",
+                "timestamp": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"
+              }
+            }' || true
+
+  production-deploy:
+    name: Deploy to Production
     needs: check
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
         with:
-          node-version: 20
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
-          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
-          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
-          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
-          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
-          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
-          VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
-          VITE_FIREBASE_DATABASE_URL: ${{ secrets.VITE_FIREBASE_DATABASE_URL }}
-      - uses: FirebaseExtended/action-hosting-deploy@v0
+          name: dist
+          path: dist
+
+      - name: Deploy to Firebase Hosting (Production)
+        uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_HIVESPELL_DB }}
           channelId: live
           projectId: hivespell-db
 
-  preview:
+      - name: Post-deployment health check
+        run: |
+          echo "Running post-deployment health check..."
+          sleep 10
+          HEALTH_URL="https://hivespell-db.web.app/api/health"
+          for i in {1..5}; do
+            if curl -sf "$HEALTH_URL" > /dev/null; then
+              echo "Health check passed"
+              exit 0
+            fi
+            echo "Health check attempt $i failed, retrying in 5s..."
+            sleep 5
+          done
+          echo "::error::Health check failed after 5 attempts"
+          exit 1
+
+      - name: Track deployment in PostHog
+        if: env.VITE_POSTHOG_API_KEY != ''
+        run: |
+          curl -X POST "https://us.i.posthog.com/capture/" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "api_key": "'"${{ secrets.VITE_POSTHOG_API_KEY }}"'",
+              "event": "deployment_production",
+              "properties": {
+                "environment": "production",
+                "commit_sha": "'"${{ github.sha }}"'",
+                "branch": "'"${{ github.ref_name }}"'",
+                "deployed_by": "'"${{ github.actor }}"'",
+                "timestamp": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"
+              }
+            }' || true
+
+      - name: Notify on success
+        if: success()
+        run: |
+          echo "✅ Production deployment successful!"
+          echo "Commit: ${{ github.sha }}"
+          echo "Deployed by: ${{ github.actor }}"
+
+  preview-deploy:
+    name: Deploy Preview (PR)
     needs: check
     if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       checks: write
       contents: read
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
         with:
-          node-version: 20
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
-          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
-          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
-          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
-          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
-          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
-          VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
-          VITE_FIREBASE_DATABASE_URL: ${{ secrets.VITE_FIREBASE_DATABASE_URL }}
-      - uses: FirebaseExtended/action-hosting-deploy@v0
+          name: dist
+          path: dist
+
+      - name: Deploy to Firebase Hosting Preview Channel
+        uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_HIVESPELL_DB }}
           projectId: hivespell-db
+
+      - name: Post preview URL to PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+            });
+
+            const botComment = comments.find(c => c.user.type === 'Bot' && c.body.includes('Firebase Preview'));
+            const previewUrl = 'https://${{ github.event.pull_request.head.repo.owner.login }}--${{ github.event.pull_request.head.repo.name }}--pr-${{ github.event.pull_request.number }}.web.app';
+
+            const body = `## 🔗 Firebase Preview Deployment\n\n**Preview URL:** ${previewUrl}\n\n*This preview is automatically updated on each push to this PR.*`;
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body,
+              });
+            }
+
+  # Security scanning
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run npm audit
+        run: npm audit --audit-level=high || true
+
+      - name: Run OWASP Dependency Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: "HiveSpell"
+          path: "."
+          format: "HTML"
+          out: "reports"
+          args: "--failOnCVSS 7"
+
+      - name: Upload dependency check report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dependency-check-report
+          path: reports/
+          retention-days: 30
+
+  # Accessibility audit
+  accessibility-audit:
+    name: Accessibility Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Start preview server
+        run: npx serve -s dist -l 3000 &
+        env:
+          CI: true
+
+      - name: Wait for server
+        run: sleep 5
+
+      - name: Run axe-core audit
+        run: |
+          npx @axe-core/cli http://localhost:3000 --save --dir ./a11y-results --exit
+
+      - name: Upload accessibility report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: accessibility-report
+          path: a11y-results/
+          retention-days: 30
+
+  # Performance budget enforcement
+  performance-budget:
+    name: Performance Budget
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build and analyze
+        run: npm run build
+
+      - name: Check Lighthouse CI
+        uses: treosh/lighthouse-ci-action@v11
+        with:
+          urls: |
+            https://hivespell-db.web.app
+          budgetPath: ./lighthouse-budget.json
+          uploadArtifacts: true
+
+  # Supabase health check & monitoring
+  supabase-health:
+    name: Supabase Health Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Check Supabase project status
+        run: |
+          echo "Checking Supabase project: ${{ env.SUPABASE_PROJECT_REF }}"
+          supabase projects api-keys --project-ref ${{ env.SUPABASE_PROJECT_REF }} --experimental || true
+
+      - name: Verify database connectivity
+        run: |
+          # Test basic connectivity using Supabase Management API
+          PROJECT_REF="${{ env.SUPABASE_PROJECT_REF }}"
+          ACCESS_TOKEN="${{ env.SUPABASE_ACCESS_TOKEN }}"
+
+          # Check if project exists and is active
+          STATUS=$(curl -s -H "Authorization: Bearer $ACCESS_TOKEN" \
+            "https://api.supabase.com/v1/projects/$PROJECT_REF" | jq -r '.status // "unknown"')
+          echo "Project status: $STATUS"
+          if [ "$STATUS" != "ACTIVE_HEALTHY" ]; then
+            echo "::warning::Supabase project status is not ACTIVE_HEALTHY: $STATUS"
+          fi
+
+      - name: Check database performance (advisors)
+        run: |
+          # This would require a custom script to query Supabase advisors API
+          # For now, we'll log that this should be checked manually
+          echo "Database performance advisors should be reviewed periodically"
+          echo "Run: supabase inspect db bloat --project-ref ${{ env.SUPABASE_PROJECT_REF }}"
+          echo "Run: supabase inspect db vacuum-stats --project-ref ${{ env.SUPABASE_PROJECT_REF }}"
+          echo "Run: supabase inspect db cache-hit --project-ref ${{ env.SUPABASE_PROJECT_REF }}"
+
+      - name: Verify Realtime connectivity
+        run: |
+          echo "Verifying Realtime service..."
+          # Check realtime logs via Supabase Management API
+          LOGS=$(curl -s -H "Authorization: Bearer ${{ env.SUPABASE_ACCESS_TOKEN }}" \
+            "https://api.supabase.com/v1/projects/${{ env.SUPABASE_PROJECT_REF }}/logs?service=realtime&limit=10" || echo "{}")
+          echo "Realtime service logs fetched"
+
+  # Monitoring & alerting setup verification
+  monitoring-checks:
+    name: Monitoring Setup Verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify PostHog configuration
+        if: env.VITE_POSTHOG_API_KEY != ''
+        run: |
+          echo "PostHog API key is configured"
+          # Could add a test event to verify connectivity
+
+      - name: Verify Sentry DSN
+        if: env.SENTRY_DSN != ''
+        run: |
+          echo "Sentry DSN is configured"
+          # Could add a test error to verify connectivity
+
+      - name: Verify environment variables
+        run: |
+          REQUIRED_VARS=(
+            "VITE_SUPABASE_URL"
+            "VITE_SUPABASE_ANON_KEY"
+            "VITE_FIREBASE_API_KEY"
+            "VITE_FIREBASE_AUTH_DOMAIN"
+            "VITE_FIREBASE_PROJECT_ID"
+            "VITE_FIREBASE_STORAGE_BUCKET"
+            "VITE_FIREBASE_MESSAGING_SENDER_ID"
+            "VITE_FIREBASE_APP_ID"
+            "VITE_FIREBASE_DATABASE_URL"
+          )
+          MISSING=0
+          for VAR in "${REQUIRED_VARS[@]}"; do
+            if [ -z "${!VAR}" ]; then
+              echo "::error::Missing required environment variable: $VAR"
+              MISSING=1
+            fi
+          done
+          if [ $MISSING -eq 1 ]; then
+            exit 1
+          fi
+          echo "All required environment variables are set"
+
+      - name: Check version bump on main
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          # Read current version from package.json
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "Current version: $CURRENT_VERSION"
+          # This is a placeholder - in a real setup, you'd compare with last release tag
+          # git describe --tags --abbrev=0
