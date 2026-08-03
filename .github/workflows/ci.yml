@@ -54,8 +54,8 @@ jobs:
       - name: Build and check bundle size
         run: |
           echo "Building and checking bundle sizes..."
-          # Disable colors to avoid ANSI codes breaking regex parsing
-          BUILD_OUTPUT=$(FORCE_COLOR=0 npm run build 2>&1)
+          # Strip ANSI escape codes to avoid breaking regex parsing
+          BUILD_OUTPUT=$(npm run build 2>&1 | sed 's/\x1b\[[0-9;]*m//g')
           echo "$BUILD_OUTPUT"
 
           # Parse gzipped sizes (format: "dist/assets/name.js    255.61 kB │ gzip:  68.53 kB")
