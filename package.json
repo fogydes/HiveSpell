@@ -43,7 +43,7 @@
     "commitlint": "^19.0.0",
     "semantic-release": "^24.0.0",
     "supabase": "^2.91.1",
-    "tailwindcss": "^4.2.1",
+    "tailwindcss": "^4.3.3",
     "tsx": "^4.21.0",
     "typescript": "~6.0.3",
     "vite": "^8.0.0",
