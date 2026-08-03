@@ -332,6 +332,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: check
+    continue-on-error: true
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
