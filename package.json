@@ -41,7 +41,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "commitlint": "^19.0.0",
-    "semantic-release": "^24.0.0",
+    "semantic-release": "^25.0.9",
     "supabase": "^2.111.0",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.21.0",
