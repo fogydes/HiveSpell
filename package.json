@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@playwright/test": "^1.62.1",
-    "@supabase/supabase-js": "^2.111.0",
+    "@supabase/supabase-js": "^2.112.2",
     "esbuild": "^0.28.1",
     "firebase": "^12.10.0",
     "i18next": "^26.3.6",
