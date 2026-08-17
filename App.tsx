@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, Suspense, lazy } from "react";
 import "./i18n"; // Initialize i18n before other components
 import {
   BrowserRouter as Router,
@@ -21,23 +21,31 @@ import {
   AuthErrorBoundary,
   LobbyErrorBoundary,
   PlayErrorBoundary,
+  LeaderboardsErrorBoundary,
+  BattlePassErrorBoundary,
+  ChallengesErrorBoundary,
 } from "./components/RouteErrorBoundary";
 import Header from "./components/Header";
 import { InviteHandler, PendingInviteHandler } from "./components/InviteHandler";
 import { PWAUpdateHandler } from "./hooks/usePWA";
 import Home from "./views/Home";
-import Auth from "./views/Auth";
-import Lobby from "./views/Lobby";
-import Play from "./views/Play";
-import ScenePreview from "./views/ScenePreview";
-import BattlePass from "./views/BattlePass";
-import Challenges from "./views/Challenges";
-import Leaderboards from "./views/Leaderboards";
-import Watch from "./views/Watch";
-import Ranked from "./views/Ranked";
-import Tournaments from "./views/Tournaments";
 import NotFound from "./views/NotFound";
+
+// Lazily-loaded route views — each ships as its own code-split chunk so the
+// initial bundle only carries the shell + Home.
+const Auth = lazy(() => import("./views/Auth"));
+const Lobby = lazy(() => import("./views/Lobby"));
+const Play = lazy(() => import("./views/Play"));
+const ScenePreview = lazy(() => import("./views/ScenePreview"));
+const BattlePass = lazy(() => import("./views/BattlePass"));
+const Challenges = lazy(() => import("./views/Challenges"));
+const Leaderboards = lazy(() => import("./views/Leaderboards"));
+const Watch = lazy(() => import("./views/Watch"));
+const Ranked = lazy(() => import("./views/Ranked"));
+const Tournaments = lazy(() => import("./views/Tournaments"));
 import { AdminPanel } from "./components/AdminPanel";
+import { FriendsPanel } from "@/components/friends";
+
 
 // Skip link component for accessibility
 const SkipLink: React.FC = () => (
@@ -49,6 +57,13 @@ const SkipLink: React.FC = () => (
   </a>
 );
 
+// Fallback shown while a lazily-loaded route chunk is fetched
+const RouteFallback: React.FC = () => (
+  <div className="min-h-screen flex items-center justify-center text-primary bg-app">
+    Loading Hive...
+  </div>
+);
+
 // 3. Protected Route Wrapper
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -58,7 +73,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
   // Track user in logger and analytics
   useEffect(() => {
     if (!loading) {
-      logger.setUser(user?.uid || null, user?.email || undefined, user?.displayName || undefined);
+      logger.setUser(user?.uid || null);
       setAnalyticsUser(user?.uid || null, user ? { email: user.email, username: user.displayName } : undefined);
     }
   }, [user, loading]);
@@ -76,13 +91,8 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
 const AppRoutes: React.FC = () => {
   const location = useLocation();
 
-  // Initialize Sentry and Analytics on first render (client-side only)
+  // Initialize Analytics on first render (client-side only)
   useEffect(() => {
-    const dsn = import.meta.env.VITE_SENTRY_DSN;
-    if (dsn && dsn !== "YOUR_SENTRY_DSN_HERE") {
-      logger.initSentry(dsn);
-    }
-
     // Initialize PostHog Analytics
     analytics.init();
   }, []);
@@ -105,6 +115,7 @@ const AppRoutes: React.FC = () => {
       {/* PWA update notifications */}
       <PWAUpdateHandler />
       <main id="main-content" role="main" className="min-h-screen">
+        <Suspense fallback={<RouteFallback />}>
         <Routes>
         <Route
           path="/"
@@ -146,9 +157,9 @@ const AppRoutes: React.FC = () => {
           path="/battle-pass"
           element={
             <ProtectedRoute>
-              <HomeErrorBoundary>
+              <BattlePassErrorBoundary>
                 <BattlePass />
-              </HomeErrorBoundary>
+              </BattlePassErrorBoundary>
             </ProtectedRoute>
           }
         />
@@ -156,9 +167,9 @@ const AppRoutes: React.FC = () => {
           path="/challenges"
           element={
             <ProtectedRoute>
-              <HomeErrorBoundary>
+              <ChallengesErrorBoundary>
                 <Challenges />
-              </HomeErrorBoundary>
+              </ChallengesErrorBoundary>
             </ProtectedRoute>
           }
         />
@@ -166,9 +177,9 @@ const AppRoutes: React.FC = () => {
           path="/leaderboards"
           element={
             <ProtectedRoute>
-              <HomeErrorBoundary>
+              <LeaderboardsErrorBoundary>
                 <Leaderboards />
-              </HomeErrorBoundary>
+              </LeaderboardsErrorBoundary>
             </ProtectedRoute>
           }
         />
@@ -209,6 +220,16 @@ const AppRoutes: React.FC = () => {
           }
         />
         <Route
+          path="/friends"
+          element={
+            <ProtectedRoute>
+              <HomeErrorBoundary>
+                <FriendsPanel variant="full" />
+              </HomeErrorBoundary>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/admin"
           element={
             <ProtectedRoute>
@@ -221,6 +242,7 @@ const AppRoutes: React.FC = () => {
         {/* 404 Fallback Route - Catch all unmatched paths */}
         <Route path="*" element={<NotFound />} />
       </Routes>
+        </Suspense>
     </main>
     </>
   );

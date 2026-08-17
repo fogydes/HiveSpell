@@ -16,13 +16,6 @@ interface LogEntry {
   userAgent?: string;
 }
 
-interface SentryLikeCapture {
-  captureException: (error: Error, context?: Record<string, unknown>) => void;
-  captureMessage: (message: string, level?: LogLevel, context?: Record<string, unknown>) => void;
-  addBreadcrumb: (breadcrumb: { category: string; message: string; level: LogLevel; data?: Record<string, unknown> }) => void;
-  setUser: (user: { id: string; username?: string; email?: string } | null) => void;
-}
-
 class Logger {
   private sessionId: string;
   private userId?: string;
@@ -30,7 +23,6 @@ class Logger {
   private buffers: LogEntry[] = [];
   private flushInterval: ReturnType<typeof setInterval> | null = null;
   private isInitialized = false;
-  private sentry?: SentryLikeCapture;
 
   constructor() {
     this.sessionId = this.generateSessionId();
@@ -74,84 +66,12 @@ class Logger {
     this.debug("Logger initialized", { sessionId: this.sessionId });
   }
 
-  setUser(userId: string | null, username?: string, email?: string) {
+  setUser(userId: string | null) {
     this.userId = userId || undefined;
-    if (this.sentry) {
-      this.sentry.setUser(userId ? { id: userId, username, email } : null);
-    }
   }
 
   setRoute(route: string) {
     this.route = route;
-  }
-
-  /**
-   * Initialize Sentry (optional - loads dynamically to avoid bundle size if not needed)
-   */
-  async initSentry(dsn: string) {
-    try {
-      // Dynamic import to avoid bundling Sentry if not used
-      // Use a variable to prevent Vite from statically analyzing the import
-      const sentryPackage = "@sentry/react";
-      // /* @vite-ignore */
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const SentryModule = await import(sentryPackage) as any;
-      const Sentry = SentryModule.default ?? SentryModule;
-
-      Sentry.init({
-        dsn,
-        environment: import.meta.env.MODE,
-        release: import.meta.env.VITE_APP_VERSION || "dev",
-        integrations: [
-          Sentry.browserTracingIntegration?.(),
-          Sentry.replayIntegration?.({
-            maskAllText: true,
-            blockAllMedia: true,
-          }),
-        ].filter(Boolean),
-        tracesSampleRate: 0.1,
-        replaysOnErrorSampleRate: 1.0,
-        replaysSessionSampleRate: 0.1,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        beforeSend(event: any, hint: any) {
-          // Filter out noise
-          if (event.exception) {
-            const error = hint.originalException;
-            if (error instanceof Error) {
-              // Ignore network errors that are likely user's connection
-              if (error.name === "TypeError" && error.message.includes("NetworkError")) {
-                return null;
-              }
-              // Ignore non-Error objects
-              if (error.name === "ChunkLoadError") {
-                return null;
-              }
-            }
-          }
-          return event;
-        },
-      });
-
-      // Create a wrapper to match our interface
-      this.sentry = {
-        captureException: (error: Error, context?: Record<string, unknown>) => {
-          Sentry.captureException(error, { extra: context });
-        },
-        captureMessage: (message: string, level: LogLevel = "error", context?: Record<string, unknown>) => {
-          Sentry.captureMessage(message, level, { extra: context });
-        },
-        addBreadcrumb: (breadcrumb) => {
-          Sentry.addBreadcrumb(breadcrumb);
-        },
-        setUser: (user) => {
-          Sentry.setUser(user);
-        },
-      };
-
-      this.info("Sentry initialized");
-    } catch (error) {
-      this.warn("Failed to initialize Sentry", { error: String(error) });
-    }
   }
 
   private log(level: LogLevel, message: string, context?: Record<string, unknown>) {
@@ -185,15 +105,6 @@ class Logger {
         case "error":
           console.error(prefix, message, ctx);
           break;
-      }
-    }
-
-    // Send to Sentry for errors
-    if (level === "error" && this.sentry) {
-      if (context?.error instanceof Error) {
-        this.sentry.captureException(context.error, context);
-      } else {
-        this.sentry.captureMessage(message, "error", context);
       }
     }
 
@@ -241,15 +152,6 @@ class Logger {
       stack: error instanceof Error ? error.stack : undefined,
       ...context,
     });
-  }
-
-  /**
-   * Add breadcrumb for debugging
-   */
-  addBreadcrumb(category: string, message: string, level: LogLevel = "info", data?: Record<string, unknown>) {
-    if (this.sentry) {
-      this.sentry.addBreadcrumb({ category, message, level, data });
-    }
   }
 
   private async flush(sync = false) {

@@ -64,7 +64,7 @@ export function useLeaderboards(userId: string | null): UseLeaderboardsReturn {
   const [playerRanks, setPlayerRanks] = useState<PlayerRankInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentMode, setCurrentMode] = useState<GameMode | null>('medium');
+  const [currentMode, setCurrentMode] = useState<GameMode | null>('baby');
 
   const [globalPage, setGlobalPage] = useState(0);
   const [friendsPage, setFriendsPage] = useState(0);
@@ -94,7 +94,7 @@ export function useLeaderboards(userId: string | null): UseLeaderboardsReturn {
       const offset = page * LEADERBOARD_PAGE_SIZE;
 
       const { data, error: rpcError } = await supabase.rpc('get_global_leaderboard', {
-        p_viewer_id: userId || '00000000-0000-0000-0000-000000000000',
+        p_viewer_id: userId,
         p_limit: LEADERBOARD_PAGE_SIZE,
         p_offset: offset,
       });
@@ -182,7 +182,7 @@ export function useLeaderboards(userId: string | null): UseLeaderboardsReturn {
       const offset = page * LEADERBOARD_PAGE_SIZE;
 
       const { data, error: rpcError } = await supabase.rpc('get_daily_leaderboard', {
-        p_viewer_id: userId || '00000000-0000-0000-0000-000000000000',
+        p_viewer_id: userId,
         p_limit: LEADERBOARD_PAGE_SIZE,
         p_offset: offset,
       });
@@ -226,7 +226,7 @@ export function useLeaderboards(userId: string | null): UseLeaderboardsReturn {
       const offset = page * LEADERBOARD_PAGE_SIZE;
 
       const { data, error: rpcError } = await supabase.rpc('get_mode_leaderboard', {
-        p_viewer_id: userId || '00000000-0000-0000-0000-000000000000',
+        p_viewer_id: userId,
         p_mode: mode,
         p_limit: LEADERBOARD_PAGE_SIZE,
         p_offset: offset,

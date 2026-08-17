@@ -1,18 +1,17 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import { Shop } from "../views/Shop";
-import { Stash } from "../views/Stash";
 import { ProfileModal } from "./ProfileModal";
 import CustomizationEffects from "./CustomizationEffects";
 import NotificationBell from "./NotificationBell";
-import FriendsPanel from "./FriendsPanel";
+import { FriendsPanel } from "@/components/friends";
 import ChatPanel from "./ChatPanel";
 import SettingsPanel from "./SettingsPanel";
+import { StashModal } from "./StashModal";
 import { auth } from "../firebase";
 import { signOut } from "firebase/auth";
 import { useNavigate, useLocation } from "react-router-dom";
-import { supabase } from "../services/supabase";
 import { ITEM_CATALOG } from "../data/customizationCatalog";
 import { useFocusTrap, useRestoreFocus } from "../hooks/useAccessibility";
 import { useTranslation } from "react-i18next";
@@ -27,9 +26,7 @@ const Header: React.FC = () => {
   const { t } = useTranslation();
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showShop, setShowShop] = useState(false);
-  const [showInventory, setShowInventory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(
@@ -37,45 +34,36 @@ const Header: React.FC = () => {
   );
   const [showFriends, setShowFriends] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const [showStash, setShowStash] = useState(false);
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [leaderboardData, setLeaderboardData] = useState<
-    Array<{
-      uid: string;
-      name: string;
-      corrects: number;
-      wins: number;
-      avatarUrl?: string;
-    }>
-  >([]);
-  const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
 
   const isPlayMode = location.pathname.startsWith("/play");
   const equippedBadgeItem = equippedBadge ? ITEM_CATALOG[equippedBadge] : null;
 
   // Refs for focus management
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const leaderboardRef = useRef<HTMLDivElement>(null);
   const friendsRef = useRef<HTMLDivElement>(null);
   const chatRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const stashRef = useRef<HTMLDivElement>(null);
 
   // Focus traps for modals
   useFocusTrap(isDropdownOpen, { current: dropdownRef.current });
-  useFocusTrap(showLeaderboard, leaderboardRef);
   useFocusTrap(showFriends, friendsRef);
   useFocusTrap(showChat, chatRef);
+  useFocusTrap(showStash, stashRef);
   useFocusTrap(isMenuOpen, mobileMenuRef);
 
   // Restore focus when modals close
   useRestoreFocus(isDropdownOpen);
-  useRestoreFocus(showLeaderboard);
   useRestoreFocus(showFriends);
   useRestoreFocus(showChat);
+  useRestoreFocus(showStash);
   useRestoreFocus(isMenuOpen);
 
   // Close dropdown when clicking outside
-  React.useEffect(() => {
+  useEffect(() => {
     if (!isDropdownOpen) return;
     const handleClick = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -87,22 +75,21 @@ const Header: React.FC = () => {
   }, [isDropdownOpen]);
 
   // Global Escape key handler for all modals
-  React.useEffect(() => {
+  useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       if (showShop) { setShowShop(false); return; }
-      if (showInventory) { setShowInventory(false); return; }
-      if (showLeaderboard) { setShowLeaderboard(false); return; }
       if (showSettings) { setShowSettings(false); return; }
       if (showProfile) { setShowProfile(false); return; }
       if (selectedProfileId) { setSelectedProfileId(null); return; }
       if (showFriends) { setShowFriends(false); return; }
       if (showChat) { setShowChat(false); return; }
+      if (showStash) { setShowStash(false); return; }
       if (isDropdownOpen) { setIsDropdownOpen(false); return; }
     };
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
-  }, [showShop, showInventory, showLeaderboard, showSettings, showProfile, selectedProfileId, showFriends, showChat, isDropdownOpen]);
+  }, [showShop, showSettings, showProfile, selectedProfileId, showFriends, showChat, showStash, isDropdownOpen]);
 
   if (!user) return null;
 
@@ -110,38 +97,6 @@ const Header: React.FC = () => {
     signOut(auth);
     setIsDropdownOpen(false);
     navigate("/auth");
-  };
-
-  const fetchLeaderboard = async () => {
-    setShowLeaderboard(true);
-    setLoadingLeaderboard(true);
-    setLeaderboardData([]);
-
-    try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, username, corrects, wins, avatar_url")
-        .order("corrects", { ascending: false })
-        .limit(25);
-
-      if (error) throw error;
-
-      if (data) {
-        const entries = data.map((profile: any) => ({
-          uid: profile.id,
-          name: profile.username || "Unknown Bee",
-          corrects: profile.corrects || 0,
-          wins: profile.wins || 0,
-          avatarUrl: profile.avatar_url,
-        }));
-        setLeaderboardData(entries);
-      }
-    } catch (error) {
-      console.error("Leaderboard fetch failed:", error);
-      // Fallback or error state
-    } finally {
-      setLoadingLeaderboard(false);
-    }
   };
 
   // Dynamic positioning for desktop sidebar
@@ -303,11 +258,11 @@ const Header: React.FC = () => {
                 setIsMenuOpen(false);
               }}
               onLeaderboard={() => {
-                fetchLeaderboard();
+                navigate("/leaderboards");
                 setIsMenuOpen(false);
               }}
-              onInventory={() => {
-                setShowInventory(true);
+              onStash={() => {
+                setShowStash(true);
                 setIsMenuOpen(false);
               }}
             />
@@ -319,97 +274,18 @@ const Header: React.FC = () => {
       <div className={desktopContainerClasses}>
         <MenuButtons
           onShop={() => setShowShop(true)}
-          onLeaderboard={() => fetchLeaderboard()}
-          onInventory={() => setShowInventory(true)}
+          onLeaderboard={() => navigate("/leaderboards")}
+          onStash={() => setShowStash(true)}
           desktop
           compact={isPlayMode}
         />
       </div>
-
-      {/* Leaderboard Modal */}
-      {showLeaderboard && (
-        <div
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 pointer-events-auto"
-          onClick={() => setShowLeaderboard(false)}
-          onKeyDown={(e) => e.key === "Escape" && setShowLeaderboard(false)}
-        >
-          <div
-            className="bg-panel w-full max-w-md rounded-2xl border border-surface shadow-2xl overflow-hidden animate-scale-in"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-4 flex justify-between items-center border-b border-surface bg-panel/50">
-              <h2 className="text-xl font-bold text-text-main">{t("header.leaderboard")}</h2>
-              <button
-                onClick={() => setShowLeaderboard(false)}
-                className="text-text-muted hover:text-text-main"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="max-h-[60vh] overflow-y-auto custom-scrollbar">
-              <div className="grid grid-cols-[1fr_80px_60px] px-6 py-2 text-xs text-text-muted font-bold uppercase tracking-wider">
-                <span>{t("header.people")}</span>
-                <span className="text-right">{t("header.correct")}</span>
-                <span className="text-right">{t("header.wins")}</span>
-              </div>
-              {loadingLeaderboard ? (
-                <div className="p-8 text-center text-text-muted">
-                  {t("header.loading")}
-                </div>
-              ) : leaderboardData.length > 0 ? (
-                leaderboardData.map((p, i) => (
-                  <button
-                    key={p.uid}
-                    onClick={() => {
-                      setSelectedProfileId(p.uid);
-                      setShowLeaderboard(false);
-                    }}
-                    className={`grid grid-cols-[1fr_80px_60px] px-6 py-4 border-b border-surface hover:bg-surface/50 transition-colors items-center w-full text-left cursor-pointer ${p.uid === user?.uid ? "bg-primary/10" : ""}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className={`text-xs font-bold w-5 text-center ${i < 3 ? "text-primary" : "text-text-muted"}`}>
-                        {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`}
-                      </span>
-                      <div className="w-8 h-8 rounded bg-surface flex items-center justify-center">
-                        <img
-                          src={
-                            p.avatarUrl ||
-                            `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.uid}`
-                          }
-                          className="w-full h-full object-cover"
-                          alt="avatar"
-                        />
-                      </div>
-                      <span className={`font-medium ${p.uid === user?.uid ? "text-primary" : "text-text-main"}`}>
-                        {p.name}
-                      </span>
-                    </div>
-                    <div className="text-right font-mono text-primary">
-                      {p.corrects.toLocaleString()}
-                    </div>
-                    <div className="text-right font-mono text-text-muted">
-                      {p.wins.toLocaleString()}
-                    </div>
-                  </button>
-                ))
-              ) : (
-                <div className="p-8 text-center text-text-muted">
-                  {t("header.noData")}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Settings Panel */}
       {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
 
       {/* Shop Modal */}
       {showShop && <Shop onClose={() => setShowShop(false)} />}
-
-      {/* Inventory Modal */}
-      {showInventory && <Stash onClose={() => setShowInventory(false)} />}
 
       {/* Profile Modal (Self) */}
       {showProfile && (
@@ -427,6 +303,7 @@ const Header: React.FC = () => {
       {/* Friends Panel */}
       {showFriends && (
         <FriendsPanel
+          variant="modal"
           onClose={() => setShowFriends(false)}
           onViewProfile={(userId) => {
             setShowFriends(false);
@@ -437,6 +314,9 @@ const Header: React.FC = () => {
 
       {/* Chat Panel */}
       {showChat && <ChatPanel onClose={() => setShowChat(false)} />}
+
+      {/* Stash Modal */}
+      {showStash && <StashModal onClose={() => setShowStash(false)} />}
     </>
   );
 };
@@ -445,10 +325,10 @@ const Header: React.FC = () => {
 const MenuButtons: React.FC<{
   onShop: () => void;
   onLeaderboard: () => void;
-  onInventory: () => void;
+  onStash: () => void;
   desktop?: boolean;
   compact?: boolean;
-}> = ({ onShop, onLeaderboard, onInventory, desktop, compact }) => {
+}> = ({ onShop, onLeaderboard, onStash, desktop, compact }) => {
   const { t } = useTranslation();
   const baseClass =
     "flex items-center gap-3 p-3 rounded-xl bg-panel/90 backdrop-blur border border-surface text-text-main hover:bg-primary-dim hover:border-primary transition-all shadow-xl group";
@@ -500,16 +380,16 @@ const MenuButtons: React.FC<{
       </button>
 
       <button
-        onClick={onInventory}
+        onClick={onStash}
         className={`${baseClass} ${widthClass} hover:scale-105`}
-        title={t("header.inventory")}
+        title={t("header.stash")}
       >
-        <span className="text-xl min-w-[24px]">🎒</span>
+        <span className="text-xl min-w-[24px]">📦</span>
         {(!compact || !desktop) && (
           <span
             className={`font-bold text-sm ${desktop ? "opacity-0 group-hover:opacity-100 transition-opacity duration-300" : ""}`}
           >
-            {t("header.inventory")}
+            {t("header.stash")}
           </span>
         )}
       </button>

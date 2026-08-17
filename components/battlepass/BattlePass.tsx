@@ -36,6 +36,42 @@ export const BattlePass: React.FC<BattlePassProps> = ({
   const [selectedTier, setSelectedTier] = useState<number | null>(null);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
 
+  // NOTE: All hooks must run unconditionally on every render (Rules of Hooks).
+  // These were previously declared after the early returns below, which crashed
+  // whenever loading/error toggled the render path. Guard against null data instead.
+
+  // Generate visible tier range (centered on current tier)
+  const visibleTiers = useMemo(() => {
+    if (!season || !progress) return [];
+    const current = Math.max(1, progress.state.currentTier);
+    const start = Math.max(1, current - 2);
+    const end = Math.min(season.totalTiers, start + 6);
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+  }, [season, progress]);
+
+  // Check if tier has unclaimed rewards
+  const hasUnclaimedFree = useCallback(
+    (tier: number) => {
+      if (!progress) return false;
+      const { state } = progress;
+      return tier <= state.currentTier && !state.claimedFreeTiers.includes(tier);
+    },
+    [progress]
+  );
+
+  const hasUnclaimedPremium = useCallback(
+    (tier: number) => {
+      if (!progress) return false;
+      const { state } = progress;
+      return (
+        state.isPremium &&
+        tier <= state.currentTier &&
+        !state.claimedPremiumTiers.includes(tier)
+      );
+    },
+    [progress]
+  );
+
   if (loading) {
     return (
       <div className="theme-panel-shell flex items-center justify-center min-h-[400px]">
@@ -52,25 +88,8 @@ export const BattlePass: React.FC<BattlePassProps> = ({
     );
   }
 
-  const { state, season: progressSeason } = progress;
+  const { state } = progress;
   const isActive = isSeasonActive(season);
-
-  // Generate visible tier range (centered on current tier)
-  const visibleTiers = useMemo(() => {
-    const current = Math.max(1, state.currentTier);
-    const start = Math.max(1, current - 2);
-    const end = Math.min(season.totalTiers, start + 6);
-    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
-  }, [state.currentTier, season.totalTiers]);
-
-  // Check if tier has unclaimed rewards
-  const hasUnclaimedFree = useCallback((tier: number) =>
-    tier <= state.currentTier && !state.claimedFreeTiers.includes(tier),
-  [state.currentTier, state.claimedFreeTiers]);
-
-  const hasUnclaimedPremium = useCallback((tier: number) =>
-    state.isPremium && tier <= state.currentTier && !state.claimedPremiumTiers.includes(tier),
-  [state.isPremium, state.currentTier, state.claimedPremiumTiers]);
 
   return (
     <div className={`theme-panel-shell flex flex-col overflow-hidden ${className}`}>

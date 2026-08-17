@@ -16,7 +16,7 @@ declare
   v_profile profiles%rowtype;
   v_user_id text;
 begin
-  v_user_id := auth.uid()::text;
+  v_user_id := auth.jwt()->>'sub';
   if v_user_id is null then
     return jsonb_build_object('error', 'Unauthorized');
   end if;
@@ -79,7 +79,7 @@ declare
   v_profile profiles%rowtype;
   v_user_id text;
 begin
-  v_user_id := auth.uid()::text;
+  v_user_id := auth.jwt()->>'sub';
   if v_user_id is null then
     return jsonb_build_object('error', 'Unauthorized');
   end if;
@@ -144,7 +144,7 @@ DECLARE
   v_current_inventory JSONB;
   v_user_id text;
 BEGIN
-  v_user_id := auth.uid()::text;
+  v_user_id := auth.jwt()->>'sub';
   IF v_user_id IS NULL THEN
     RETURN jsonb_build_object('success', false, 'message', 'Unauthorized');
   END IF;
@@ -193,54 +193,54 @@ GRANT EXECUTE ON FUNCTION public.purchase_item(text, integer, text) TO authentic
 -- Profiles
 DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
 CREATE POLICY "Users can insert own profile" ON public.profiles FOR INSERT
-WITH CHECK (id = (select auth.uid()::text));
+WITH CHECK (id = (select auth.jwt()->>'sub'));
 
 DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE
-USING (id = (select auth.uid()::text));
+USING (id = (select auth.jwt()->>'sub'));
 
 -- Friendships
 DROP POLICY IF EXISTS "Users can view own friendships" ON public.friendships;
 CREATE POLICY "Users can view own friendships" ON public.friendships FOR SELECT
-USING (requester_id = (select auth.uid()::text) OR addressee_id = (select auth.uid()::text));
+USING (requester_id = (select auth.jwt()->>'sub') OR addressee_id = (select auth.jwt()->>'sub'));
 
 DROP POLICY IF EXISTS "Users can send friend requests" ON public.friendships;
 CREATE POLICY "Users can send friend requests" ON public.friendships FOR INSERT
-WITH CHECK (requester_id = (select auth.uid()::text));
+WITH CHECK (requester_id = (select auth.jwt()->>'sub'));
 
 DROP POLICY IF EXISTS "Addressee can respond to requests" ON public.friendships;
 CREATE POLICY "Addressee can respond to requests" ON public.friendships FOR UPDATE
-USING (addressee_id = (select auth.uid()::text));
+USING (addressee_id = (select auth.jwt()->>'sub'));
 
 DROP POLICY IF EXISTS "Users can remove friendships" ON public.friendships;
 CREATE POLICY "Users can remove friendships" ON public.friendships FOR DELETE
-USING (requester_id = (select auth.uid()::text) OR addressee_id = (select auth.uid()::text));
+USING (requester_id = (select auth.jwt()->>'sub') OR addressee_id = (select auth.jwt()->>'sub'));
 
 -- Notifications
 DROP POLICY IF EXISTS "Users can view own notifications" ON public.notifications;
 CREATE POLICY "Users can view own notifications" ON public.notifications FOR SELECT
-USING (user_id = (select auth.uid()::text));
+USING (user_id = (select auth.jwt()->>'sub'));
 
 DROP POLICY IF EXISTS "Users can update own notifications" ON public.notifications;
 CREATE POLICY "Users can update own notifications" ON public.notifications FOR UPDATE
-USING (user_id = (select auth.uid()::text));
+USING (user_id = (select auth.jwt()->>'sub'));
 
 DROP POLICY IF EXISTS "Users can delete own notifications" ON public.notifications;
 CREATE POLICY "Users can delete own notifications" ON public.notifications FOR DELETE
-USING (user_id = (select auth.uid()::text));
+USING (user_id = (select auth.jwt()->>'sub'));
 
 -- Messages
 DROP POLICY IF EXISTS "Users can view own messages" ON public.messages;
 CREATE POLICY "Users can view own messages" ON public.messages FOR SELECT
-USING (sender_id = (select auth.uid()::text) OR receiver_id = (select auth.uid()::text));
+USING (sender_id = (select auth.jwt()->>'sub') OR receiver_id = (select auth.jwt()->>'sub'));
 
 DROP POLICY IF EXISTS "Users can send messages" ON public.messages;
 CREATE POLICY "Users can send messages" ON public.messages FOR INSERT
-WITH CHECK (sender_id = (select auth.uid()::text));
+WITH CHECK (sender_id = (select auth.jwt()->>'sub'));
 
 DROP POLICY IF EXISTS "Receiver can update messages" ON public.messages;
 CREATE POLICY "Receiver can update messages" ON public.messages FOR UPDATE
-USING (receiver_id = (select auth.uid()::text));
+USING (receiver_id = (select auth.jwt()->>'sub'));
 
 -- 4. STORAGE BUCKET FIXES
 -- Avatars bucket

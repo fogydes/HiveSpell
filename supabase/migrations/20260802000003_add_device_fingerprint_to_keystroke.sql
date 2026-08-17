@@ -6,12 +6,12 @@
 -- ============================================================
 CREATE TABLE IF NOT EXISTS shadow_ban_queue (
     id bigserial PRIMARY KEY,
-    user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_id text NOT NULL, -- Firebase UID (TEXT), no FK to auth.users
     reason text NOT NULL, -- 'high_anomaly_score', 'multiple_flags', 'device_mismatch', 'manual_review'
     anomaly_score numeric NOT NULL,
     flagged_at timestamptz DEFAULT now(),
     reviewed_at timestamptz,
-    reviewed_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+    reviewed_by text, -- Firebase UID (TEXT), no FK to auth.users
     resolution text, -- 'confirmed_cheat', 'false_positive', 'monitoring'
     resolution_notes text,
     created_at timestamptz DEFAULT now()
@@ -26,7 +26,7 @@ DROP POLICY IF EXISTS "Admins can view shadow ban queue" ON shadow_ban_queue;
 CREATE POLICY "Admins can view shadow ban queue" ON shadow_ban_queue
     FOR SELECT USING (
         EXISTS (
-            SELECT 1 FROM profiles WHERE id = auth.uid() AND (tier = 'admin' OR tier = 'moderator')
+            SELECT 1 FROM profiles WHERE id = (select auth.jwt() ->> 'sub') AND (tier = 'admin' OR tier = 'moderator')
         )
     );
 
@@ -34,7 +34,7 @@ DROP POLICY IF EXISTS "Admins can insert shadow ban queue" ON shadow_ban_queue;
 CREATE POLICY "Admins can insert shadow ban queue" ON shadow_ban_queue
     FOR INSERT WITH CHECK (
         EXISTS (
-            SELECT 1 FROM profiles WHERE id = auth.uid() AND (tier = 'admin' OR tier = 'moderator')
+            SELECT 1 FROM profiles WHERE id = (select auth.jwt() ->> 'sub') AND (tier = 'admin' OR tier = 'moderator')
         )
     );
 
@@ -42,7 +42,7 @@ DROP POLICY IF EXISTS "Admins can update shadow ban queue" ON shadow_ban_queue;
 CREATE POLICY "Admins can update shadow ban queue" ON shadow_ban_queue
     FOR UPDATE USING (
         EXISTS (
-            SELECT 1 FROM profiles WHERE id = auth.uid() AND (tier = 'admin' OR tier = 'moderator')
+            SELECT 1 FROM profiles WHERE id = (select auth.jwt() ->> 'sub') AND (tier = 'admin' OR tier = 'moderator')
         )
     );
 
@@ -51,7 +51,7 @@ CREATE POLICY "Admins can update shadow ban queue" ON shadow_ban_queue
 -- ============================================================
 CREATE TABLE IF NOT EXISTS user_device_fingerprints (
     id bigserial PRIMARY KEY,
-    user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_id text NOT NULL, -- Firebase UID (TEXT), no FK to auth.users
     fingerprint_id text NOT NULL, -- Shortened hash for matching
     full_fingerprint jsonb NOT NULL,
     first_seen_at timestamptz DEFAULT now(),
@@ -69,17 +69,17 @@ ALTER TABLE user_device_fingerprints ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can view own device fingerprints" ON user_device_fingerprints;
 CREATE POLICY "Users can view own device fingerprints" ON user_device_fingerprints
-    FOR SELECT USING (auth.uid() = user_id);
+    FOR SELECT USING ((select auth.jwt() ->> 'sub') = user_id);
 
 DROP POLICY IF EXISTS "System can upsert device fingerprints" ON user_device_fingerprints;
 CREATE POLICY "System can upsert device fingerprints" ON user_device_fingerprints
-    FOR INSERT WITH CHECK (auth.uid() = user_id);
+    FOR INSERT WITH CHECK ((select auth.jwt() ->> 'sub') = user_id);
 
 DROP POLICY IF EXISTS "Admins can view all device fingerprints" ON user_device_fingerprints;
 CREATE POLICY "Admins can view all device fingerprints" ON user_device_fingerprints
     FOR SELECT USING (
         EXISTS (
-            SELECT 1 FROM profiles WHERE id = auth.uid() AND (tier = 'admin' OR tier = 'moderator')
+            SELECT 1 FROM profiles WHERE id = (select auth.jwt() ->> 'sub') AND (tier = 'admin' OR tier = 'moderator')
         )
     );
 
@@ -87,7 +87,7 @@ CREATE POLICY "Admins can view all device fingerprints" ON user_device_fingerpri
 -- RPC: Register/Update Device Fingerprint
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.register_device_fingerprint(
-    p_user_id uuid,
+    p_user_id text,
     p_fingerprint_id text,
     p_full_fingerprint jsonb
 )
@@ -138,7 +138,7 @@ $$;
 -- RPC: Check Device Fingerprint Anomaly (device switching detection)
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.check_device_fingerprint_anomaly(
-    p_user_id uuid,
+    p_user_id text,
     p_fingerprint_id text
 )
 RETURNS TABLE (
@@ -190,7 +190,7 @@ $$;
 -- RPC: Flag Player for Shadow Ban Review
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.flag_for_shadow_ban(
-    p_user_id uuid,
+    p_user_id text,
     p_reason text,
     p_anomaly_score numeric
 )
@@ -216,14 +216,14 @@ CREATE OR REPLACE FUNCTION public.get_shadow_ban_queue(
 )
 RETURNS TABLE (
     id bigint,
-    user_id uuid,
+    user_id text,
     username text,
     avatar_url text,
     reason text,
     anomaly_score numeric,
     flagged_at timestamptz,
     reviewed_at timestamptz,
-    reviewed_by uuid,
+    reviewed_by text,
     resolution text,
     resolution_notes text
 )
@@ -259,7 +259,7 @@ $$;
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.resolve_shadow_ban(
     p_queue_id bigint,
-    p_admin_id uuid,
+    p_admin_id text,
     p_resolution text, -- 'confirmed_cheat', 'false_positive', 'monitoring'
     p_notes text DEFAULT NULL
 )
@@ -282,7 +282,7 @@ $$;
 -- RPC: Check if User is Shadow Banned (for matchmaking)
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.is_shadow_banned(
-    p_user_id uuid
+    p_user_id text
 )
 RETURNS TABLE (
     is_shadow_banned boolean,
@@ -318,8 +318,8 @@ $$;
 
 -- Update the verify_keystroke_log to include device fingerprint check
 CREATE OR REPLACE FUNCTION public.verify_keystroke_log(
-    p_room_id uuid,
-    p_player_id uuid,
+    p_room_id text,
+    p_player_id text,
     p_word text
 )
 RETURNS TABLE (
@@ -580,10 +580,10 @@ $$;
 -- ============================================================
 -- GRANT EXECUTE PERMISSIONS
 -- ============================================================
-GRANT EXECUTE ON FUNCTION public.verify_keystroke_log(uuid, uuid, text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.register_device_fingerprint(uuid, text, jsonb) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.check_device_fingerprint_anomaly(uuid, text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.flag_for_shadow_ban(uuid, text, numeric) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.verify_keystroke_log(text, text, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.register_device_fingerprint(text, text, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.check_device_fingerprint_anomaly(text, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.flag_for_shadow_ban(text, text, numeric) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_shadow_ban_queue(int, int, boolean) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.resolve_shadow_ban(bigint, uuid, text, text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.is_shadow_banned(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.resolve_shadow_ban(bigint, text, text, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_shadow_banned(text) TO authenticated;

@@ -62,4 +62,9 @@ if (typeof window !== 'undefined') {
   i18n.on('languageChanged', initDirection);
 }
 
+// Expose i18n on window for debugging
+if (typeof window !== 'undefined') {
+  (window as any).i18n = i18n;
+}
+
 export default i18n;

@@ -41,11 +41,11 @@ CREATE POLICY "Public can view tournaments" ON tournaments
 
 DROP POLICY IF EXISTS "Authenticated can create tournaments" ON tournaments;
 CREATE POLICY "Authenticated can create tournaments" ON tournaments
-    FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+    FOR INSERT WITH CHECK ((select auth.jwt() ->> 'sub') IS NOT NULL);
 
 DROP POLICY IF EXISTS "Tournament creators can update" ON tournaments;
 CREATE POLICY "Tournament creators can update" ON tournaments
-    FOR UPDATE USING (auth.uid() = created_by); -- Need created_by column
+    FOR UPDATE USING ((select auth.jwt() ->> 'sub') = created_by); -- Need created_by column
 
 -- ============================================================
 -- TABLE: Tournament Participants
@@ -53,7 +53,7 @@ CREATE POLICY "Tournament creators can update" ON tournaments
 CREATE TABLE IF NOT EXISTS tournament_participants (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     tournament_id uuid NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
-    user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_id text NOT NULL, -- Firebase UID (TEXT), no FK to auth.users
     seed int DEFAULT NULL,
     rating_at_registration int NOT NULL,
     status text NOT NULL DEFAULT 'registered', -- 'registered', 'checked_in', 'active', 'eliminated', 'winner', 'disqualified', 'withdrawn'
@@ -78,11 +78,11 @@ CREATE POLICY "Users can view tournament participants" ON tournament_participant
 
 DROP POLICY IF EXISTS "Users can register for tournaments" ON tournament_participants;
 CREATE POLICY "Users can register for tournaments" ON tournament_participants
-    FOR INSERT WITH CHECK (auth.uid() = user_id);
+    FOR INSERT WITH CHECK ((select auth.jwt() ->> 'sub') = user_id);
 
 DROP POLICY IF EXISTS "Users can update own participation" ON tournament_participants;
 CREATE POLICY "Users can update own participation" ON tournament_participants
-    FOR UPDATE USING (auth.uid() = user_id);
+    FOR UPDATE USING ((select auth.jwt() ->> 'sub') = user_id);
 
 -- ============================================================
 -- TABLE: Tournament Matches
@@ -92,10 +92,10 @@ CREATE TABLE IF NOT EXISTS tournament_matches (
     tournament_id uuid NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
     round_number int NOT NULL,
     match_number int NOT NULL, -- Position in bracket
-    player1_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
-    player2_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
-    winner_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
-    room_id uuid REFERENCES rooms(id) ON DELETE SET NULL, -- Link to the actual game room
+    player1_id text, -- Firebase UID (TEXT), no FK to auth.users
+    player2_id text, -- Firebase UID (TEXT), no FK to auth.users
+    winner_id text, -- Firebase UID (TEXT), no FK to auth.users
+    room_id text, -- Firebase room push ID (TEXT); no FK (rooms table is created later in migration order)
     status text NOT NULL DEFAULT 'pending', -- 'pending', 'ready', 'in_progress', 'completed', 'walkover', 'dispute'
     scheduled_at timestamptz,
     started_at timestamptz,
@@ -146,7 +146,7 @@ CREATE POLICY "Public can view tournament brackets" ON tournament_brackets
 -- ============================================================
 -- Add created_by to tournaments
 -- ============================================================
-ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS created_by text; -- Firebase UID (TEXT), no FK to auth.users
 
 -- ============================================================
 -- RPC: Create Tournament
@@ -156,14 +156,14 @@ CREATE OR REPLACE FUNCTION public.create_tournament(
     p_description text,
     p_season_id text,
     p_mode text,
+    p_starts_at timestamptz,
+    p_registration_closes_at timestamptz,
     p_format text DEFAULT 'single_elimination',
     p_max_participants int DEFAULT 64,
     p_min_rating int DEFAULT 0,
     p_max_rating int DEFAULT NULL,
     p_entry_fee_nectar int DEFAULT 0,
     p_prize_pool_nectar int DEFAULT 0,
-    p_starts_at timestamptz,
-    p_registration_closes_at timestamptz,
     p_settings jsonb DEFAULT '{}'
 )
 RETURNS TABLE (tournament_id uuid)
@@ -193,7 +193,7 @@ BEGIN
         p_max_participants, p_min_rating, p_max_rating,
         p_entry_fee_nectar, p_prize_pool_nectar,
         p_starts_at, p_registration_closes_at,
-        p_settings, 'upcoming', auth.uid()
+        p_settings, 'upcoming', (select auth.jwt() ->> 'sub')
     ) RETURNING id INTO v_tournament_id;
 
     RETURN QUERY SELECT v_tournament_id;
@@ -252,7 +252,7 @@ BEGIN
     -- Get user's rating for this mode
     SELECT rating INTO v_user_rating
     FROM ranked_ratings
-    WHERE user_id = auth.uid()
+    WHERE user_id = (select auth.jwt() ->> 'sub')
         AND season_id = v_tournament.season_id
         AND mode = v_tournament.mode
         AND placement_matches_remaining = 0;
@@ -273,14 +273,14 @@ BEGIN
     IF v_tournament.entry_fee_nectar > 0 THEN
         -- Would call a function to deduct nectar here
         -- For now just check
-        -- PERFORM deduct_nectar(auth.uid(), v_tournament.entry_fee_nectar);
+        -- PERFORM deduct_nectar((select auth.jwt() ->> 'sub'), v_tournament.entry_fee_nectar);
     END IF;
 
     -- Register
     INSERT INTO tournament_participants (
         tournament_id, user_id, rating_at_registration
     ) VALUES (
-        p_tournament_id, auth.uid(), v_user_rating
+        p_tournament_id, (select auth.jwt() ->> 'sub'), v_user_rating
     ) RETURNING id INTO v_participant_id;
 
     RETURN QUERY SELECT true, 'Registered successfully', v_participant_id;
@@ -309,7 +309,7 @@ BEGIN
 
     SELECT * INTO v_participant
     FROM tournament_participants
-    WHERE tournament_id = p_tournament_id AND user_id = auth.uid();
+    WHERE tournament_id = p_tournament_id AND user_id = (select auth.jwt() ->> 'sub');
 
     IF NOT FOUND THEN
         RETURN QUERY SELECT false, 'Not registered for this tournament';
@@ -359,7 +359,7 @@ BEGIN
         RETURN QUERY SELECT false, 'Tournament not found';
     END IF;
 
-    IF v_tournament.created_by != auth.uid() THEN
+    IF v_tournament.created_by != (select auth.jwt() ->> 'sub') THEN
         RETURN QUERY SELECT false, 'Only tournament creator can start';
     END IF;
 
@@ -435,7 +435,7 @@ $$;
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.report_tournament_match_result(
     p_match_id uuid,
-    p_winner_id uuid,
+    p_winner_id text,
     p_score jsonb DEFAULT NULL
 )
 RETURNS TABLE (success boolean, message text)
@@ -446,7 +446,7 @@ AS $$
 DECLARE
     v_match tournament_matches%ROWTYPE;
     v_tournament tournaments%ROWTYPE;
-    v_loser_id uuid;
+    v_loser_id text;
     v_next_round int;
     v_next_match_num int;
     v_next_match_id uuid;
@@ -561,7 +561,7 @@ RETURNS TABLE (
     total_rounds int,
     bracket_data jsonb,
     settings jsonb,
-    created_by uuid,
+    created_by text,
     created_at timestamptz,
     updated_at timestamptz,
     participant_count bigint
@@ -573,7 +573,12 @@ AS $$
 BEGIN
     RETURN QUERY
     SELECT
-        t.*,
+        t.id, t.name, t.description, t.season_id, t.mode, t.format,
+        t.max_participants, t.min_rating, t.max_rating,
+        t.entry_fee_nectar, t.prize_pool_nectar, t.prize_pool_cosmetics,
+        t.starts_at, t.registration_closes_at, t.check_in_starts_at,
+        t.status, t.current_round, t.total_rounds, t.bracket_data, t.settings,
+        t.created_by, t.created_at, t.updated_at,
         (SELECT count(*) FROM tournament_participants tp WHERE tp.tournament_id = t.id) as participant_count
     FROM tournaments t
     WHERE t.id = p_tournament_id;
@@ -615,7 +620,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-    v_user_id uuid := auth.uid();
+    v_user_id text := (select auth.jwt() ->> 'sub');
 BEGIN
     RETURN QUERY
     SELECT
@@ -670,10 +675,10 @@ RETURNS TABLE (
     tournament_id uuid,
     round_number int,
     match_number int,
-    player1_id uuid,
-    player2_id uuid,
-    winner_id uuid,
-    room_id uuid,
+    player1_id text,
+    player2_id text,
+    winner_id text,
+    room_id text,
     status text,
     scheduled_at timestamptz,
     started_at timestamptz,
@@ -768,11 +773,11 @@ $$;
 -- ============================================================
 -- GRANT EXECUTE PERMISSIONS
 -- ============================================================
-GRANT EXECUTE ON FUNCTION public.create_tournament(text, text, text, text, text, int, int, int, int, int, timestamptz, timestamptz, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_tournament(text, text, text, text, timestamptz, timestamptz, text, int, int, int, int, int, jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.register_for_tournament(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.check_in_tournament(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.start_tournament(uuid) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.report_tournament_match_result(uuid, uuid, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.report_tournament_match_result(uuid, text, jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_tournament(uuid) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.list_tournaments(text, text, text, int, int) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.get_tournament_matches(uuid, int) TO anon, authenticated;

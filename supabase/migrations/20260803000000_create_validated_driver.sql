@@ -43,7 +43,7 @@ $$;
 -- Atomic: sets status=playing, picks first word, initializes turnOrder
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.start_game(
-    p_room_id UUID,
+    p_room_id TEXT,  -- rooms.id is TEXT (Firebase push ID), not UUID
     p_locale TEXT,
     p_difficulty TEXT
 )
@@ -165,7 +165,7 @@ $$;
 -- Atomic: picks word avoiding recent, sets startTime, timerDuration, turnOrder, currentTurnPlayerId
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.pick_word(
-    p_room_id UUID,
+    p_room_id TEXT,  -- rooms.id is TEXT (Firebase push ID), not UUID
     p_locale TEXT,
     p_difficulty TEXT
 )
@@ -265,7 +265,7 @@ $$;
 -- Atomic: updates score, clears input, advances to next player or intermission
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.advance_turn(
-    p_room_id UUID,
+    p_room_id TEXT,  -- rooms.id is TEXT (Firebase push ID), not UUID
     p_player_id TEXT,
     p_was_correct BOOLEAN,
     p_new_streak INT
@@ -462,7 +462,7 @@ $$;
 -- Atomic: marks eliminated, advances turn or triggers intermission
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.eliminate_player(
-    p_room_id UUID,
+    p_room_id TEXT,  -- rooms.id is TEXT (Firebase push ID), not UUID
     p_player_id TEXT,
     p_reason TEXT
 )
@@ -593,7 +593,7 @@ $$;
 -- 7. RPC: restart_round(room_id)
 -- Atomic: resets all alive players, clears gameState, sets status=playing
 -- ============================================================
-CREATE OR REPLACE FUNCTION public.restart_round(p_room_id UUID)
+CREATE OR REPLACE FUNCTION public.restart_round(p_room_id TEXT)
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -669,15 +669,12 @@ $$;
 
 -- 8. RLS: Lock game_state writes to RPC-only
 -- ============================================================
--- Direct client UPDATE on rooms.game_state denied
-CREATE POLICY "Deny direct game_state writes"
-    ON public.rooms FOR UPDATE
-    TO authenticated
-    USING (false)
-    WITH CHECK (false);
-
--- But allow RPCs (SECURITY DEFINER bypasses RLS)
--- Note: RPCs run as the function owner, not the caller
+-- The "Deny direct game_state writes" policy lives in
+-- 20260803000001_create_rooms_table.sql, which creates public.rooms.
+-- This migration (…_create_validated_driver) applies BEFORE the rooms
+-- table exists (lexicographically 000000 < 000001), so a CREATE POLICY
+-- ON public.rooms here would fail with "relation does not exist".
+-- The RPCs above are SECURITY DEFINER and bypass RLS regardless.
 
 -- 9. pg_cron Safety-Net Jobs
 -- ============================================================

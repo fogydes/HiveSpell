@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useFriendInvites, FriendWithPresence, OnlineFriend, getPresenceDisplay, formatLastSeen } from "@/hooks/useFriendInvites";
 import { PresenceIndicator, PresenceBadge, PresenceDot } from "@/components/PresenceIndicator";
 
@@ -21,6 +22,7 @@ export const FriendList: React.FC<FriendListProps> = ({
 }) => {
   const { friends, onlineFriends, loading, error, refresh } = useFriendInvites();
   const [activeTab, setActiveTab] = useState<"all" | "online">("all");
+  const { t } = useTranslation("friends");
 
   // Determine which friend list to show
   const friendList = activeTab === "online" ? onlineFriends : friends;
@@ -48,22 +50,6 @@ export const FriendList: React.FC<FriendListProps> = ({
     },
     [onInvite, onSpectate, onJoin]
   );
-
-  const getActivityText = (friend: FriendWithPresence | OnlineFriend): string => {
-    if (friend.current_activity) return friend.current_activity;
-    switch (friend.presence_status) {
-      case "in_game":
-        return "Playing a match";
-      case "in_lobby":
-        return "In lobby";
-      case "spectating":
-        return "Spectating";
-      case "online":
-        return "Available";
-      default:
-        return "Offline";
-    }
-  };
 
   const canInteract = (friend: FriendWithPresence | OnlineFriend): boolean => {
     return friend.presence_status !== "offline" && friend.presence_status !== "in_game";
@@ -93,7 +79,7 @@ export const FriendList: React.FC<FriendListProps> = ({
           onClick={refresh}
           className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
         >
-          Retry
+          {t("common.retry")}
         </button>
       </div>
     );
@@ -104,8 +90,8 @@ export const FriendList: React.FC<FriendListProps> = ({
       <div className={`text-center py-8 ${className}`}>
         <div className="text-slate-500 mb-2">
           {activeTab === "online"
-            ? "No friends online right now"
-            : "No friends yet. Invite someone to play!"}
+            ? t("friends.noFriendsOnline")
+            : t("friends.noFriendsYetInvite")}
         </div>
         {activeTab !== "online" && (
           <button
@@ -115,7 +101,7 @@ export const FriendList: React.FC<FriendListProps> = ({
             }}
             className="mt-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
           >
-            Invite Friends
+            {t("friends.inviteFriends")}
           </button>
         )}
       </div>
@@ -134,7 +120,7 @@ export const FriendList: React.FC<FriendListProps> = ({
           }`}
           onClick={() => setActiveTab("all")}
         >
-          All Friends ({friends.length})
+          {t("friends.allFriends", { count: friends.length })}
         </button>
         <button
           className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
@@ -144,7 +130,7 @@ export const FriendList: React.FC<FriendListProps> = ({
           }`}
           onClick={() => setActiveTab("online")}
         >
-          Online ({onlineFriends.length})
+          {t("friends.onlineCount", { count: onlineFriends.length })}
         </button>
       </div>
 
@@ -220,7 +206,7 @@ export const FriendList: React.FC<FriendListProps> = ({
                   />
                   {friend.current_room_id && (
                     <span className="text-xs text-slate-500 font-mono">
-                      Room: {friend.current_room_id.slice(0, 8)}...
+                      {t("friends.room", { code: friend.current_room_id.slice(0, 8) })}...
                     </span>
                   )}
                 </div>
@@ -233,7 +219,7 @@ export const FriendList: React.FC<FriendListProps> = ({
                     <button
                       onClick={() => handleAction("join", friend)}
                       className="p-2 text-slate-600 dark:text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 rounded-lg hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
-                      title="Join Lobby"
+                      title={t("friends.joinLobby")}
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 15v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 12a9 9 0 1018 0 9 9 0 00-18 0z" />
@@ -244,7 +230,7 @@ export const FriendList: React.FC<FriendListProps> = ({
                     <button
                       onClick={() => handleAction("spectate", friend)}
                       className="p-2 text-slate-600 dark:text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 rounded-lg hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
-                      title="Spectate"
+                      title={t("friends.spectate")}
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -256,7 +242,7 @@ export const FriendList: React.FC<FriendListProps> = ({
                     <button
                       onClick={() => handleAction("invite", friend)}
                       className="p-2 text-slate-600 dark:text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 rounded-lg hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
-                      title="Invite to Game"
+                      title={t("friends.inviteToGame")}
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
@@ -285,6 +271,7 @@ export const CompactFriendList: React.FC<{
   maxVisible?: number;
   onFriendClick?: (friend: FriendWithPresence | OnlineFriend) => void;
 }> = ({ friends, maxVisible = 5, onFriendClick }) => {
+  const { t } = useTranslation("friends");
   const visibleFriends = friends.slice(0, maxVisible);
   const remaining = friends.length - maxVisible;
 
@@ -331,7 +318,7 @@ export const CompactFriendList: React.FC<{
       ))}
       {remaining > 0 && (
         <button className="w-full text-center text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 py-2">
-          +{remaining} more friends
+          {t("friends.moreFriends", { count: remaining })}
         </button>
       )}
     </div>

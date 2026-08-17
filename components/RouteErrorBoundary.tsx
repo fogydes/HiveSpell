@@ -76,6 +76,21 @@ export class RouteErrorBoundary extends React.Component<
         message:
           "Something went wrong in the arena. Your progress may not be saved. Please return to the lobby.",
       },
+      Leaderboards: {
+        title: "Leaderboards Unavailable",
+        message:
+          "We couldn't load the rankings right now. Please refresh or head back home.",
+      },
+      BattlePass: {
+        title: "Battle Pass Unavailable",
+        message:
+          "The Battle Pass couldn't load. Your progress is safe — please refresh and try again.",
+      },
+      Challenges: {
+        title: "Challenges Unavailable",
+        message:
+          "We couldn't load your challenges. Please refresh or head back home.",
+      },
     };
 
     const routeInfo = routeMessages[this.props.routeName] || {
@@ -152,4 +167,31 @@ export const PlayErrorBoundary: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => (
   <RouteErrorBoundary routeName="Play">{children}</RouteErrorBoundary>
+);
+
+/**
+ * Convenience wrapper for Leaderboards route
+ */
+export const LeaderboardsErrorBoundary: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => (
+  <RouteErrorBoundary routeName="Leaderboards">{children}</RouteErrorBoundary>
+);
+
+/**
+ * Convenience wrapper for Battle Pass route
+ */
+export const BattlePassErrorBoundary: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => (
+  <RouteErrorBoundary routeName="BattlePass">{children}</RouteErrorBoundary>
+);
+
+/**
+ * Convenience wrapper for Challenges route
+ */
+export const ChallengesErrorBoundary: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => (
+  <RouteErrorBoundary routeName="Challenges">{children}</RouteErrorBoundary>
 );

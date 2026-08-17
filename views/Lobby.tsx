@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { getWordBankForLocale } from "../services/gameService";
 import { useMultiplayer } from "../context/MultiplayerContext";
@@ -8,9 +8,12 @@ import { type LocaleId } from "../data/localization";
 import { db } from "../firebase";
 import { ref, get, query, orderByChild, equalTo } from "firebase/database";
 import { FriendsPanel } from "../components/friends";
+import { SceneCanvasLayer } from "../components/scene";
 import { useScene } from "@/context/SceneContext";
 import { useSettings } from "../context/SettingsContext";
 import { useReduceMotion } from "@/hooks/useAccessibility";
+import gsap from "gsap";
+import { useGSAP } from "@gsap/react";
 
 const Lobby: React.FC = () => {
   const navigate = useNavigate();
@@ -22,6 +25,24 @@ const Lobby: React.FC = () => {
   const { currentScene, performanceTier } = useScene();
   const reduceMotion = useReduceMotion();
   const disableAnimations = performanceTier === "static" || reduceMotion;
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  // Mode cards stagger in on mount. clearProps hands `transform` back to CSS so
+  // the existing hover:-translate-y-2 lift keeps working after the intro.
+  useGSAP(
+    () => {
+      if (disableAnimations || !gridRef.current) return;
+      gsap.from(Array.from(gridRef.current.children), {
+        opacity: 0,
+        y: 20,
+        duration: 0.4,
+        stagger: 0.06,
+        ease: "power2.out",
+        clearProps: "transform,opacity",
+      });
+    },
+    { scope: gridRef },
+  );
   const [joinCode, setJoinCode] = useState("");
   const { createGameRoom, joinGameRoom, joinPublicGame, loading } =
     useMultiplayer();
@@ -125,19 +146,23 @@ const Lobby: React.FC = () => {
     }
   };
 
+  // Difficulty ramp derived from the active theme's --primary token so the mode
+  // cards adapt when the user switches themes (previously hardcoded cyan→purple
+  // hues that ignored the theme system). Difficulty is encoded as border
+  // prominence — harder modes get a stronger border — while the title inherits
+  // --primary. Text labels (name, word count, hint) carry the actual meaning.
   const getModeColor = (mode: string) => {
-    const colors: any = {
-      baby: "text-cyan-400 border-cyan-500/30 hover:border-cyan-400",
-      cakewalk: "text-teal-400 border-teal-500/30 hover:border-teal-400",
-      learner:
-        "text-emerald-400 border-emerald-500/30 hover:border-emerald-400",
-      intermediate: "text-green-400 border-green-500/30 hover:border-green-400",
-      heated: "text-yellow-400 border-yellow-500/30 hover:border-yellow-400",
-      genius: "text-orange-400 border-orange-500/30 hover:border-orange-400",
-      omniscient: "text-red-500 border-red-500/30 hover:border-red-500",
-      polymath: "text-purple-400 border-purple-500/30 hover:border-purple-400",
+    const colors: Record<string, string> = {
+      baby: "text-primary border-primary/20 hover:border-primary/40",
+      cakewalk: "text-primary border-primary/30 hover:border-primary/50",
+      learner: "text-primary border-primary/40 hover:border-primary/60",
+      intermediate: "text-primary border-primary/50 hover:border-primary/70",
+      heated: "text-primary border-primary/60 hover:border-primary/80",
+      genius: "text-primary border-primary/70 hover:border-primary/90",
+      omniscient: "text-primary border-primary/80 hover:border-primary",
+      polymath: "text-primary border-primary/90 hover:border-primary",
     };
-    return colors[mode] || "text-white border-slate-700";
+    return colors[mode] || "text-text-main border-surface";
   };
 
   const getModeHint = (mode: string) => {
@@ -156,6 +181,7 @@ const Lobby: React.FC = () => {
 
   return (
     <div className="theme-scene min-h-screen bg-app pt-20 pb-28 sm:pt-24 sm:pb-24">
+      <SceneCanvasLayer />
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div
           className="absolute left-[8%] top-24 h-64 w-64 rounded-full blur-3xl opacity-80"
@@ -184,7 +210,7 @@ const Lobby: React.FC = () => {
         </p>
       </div>
 
-      <div className="grid w-full max-w-6xl grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
+      <div ref={gridRef} className="grid w-full max-w-6xl grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
         {modes.map((mode) => (
           <div
             key={mode}

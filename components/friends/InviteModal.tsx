@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useFriendInvites, FriendInvite, InviteResult } from "@/hooks/useFriendInvites";
 import { X, Copy, Link2, Share2, AlertCircle, CheckCircle } from "lucide-react";
 
@@ -20,6 +21,7 @@ export const InviteModal: React.FC<InviteModalProps> = ({
     loading,
     error,
   } = useFriendInvites();
+  const { t } = useTranslation("friends");
 
   const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
@@ -87,8 +89,8 @@ export const InviteModal: React.FC<InviteModalProps> = ({
     if (inviteUrl && navigator.share) {
       try {
         await navigator.share({
-          title: "Join me in HiveSpell!",
-          text: "I'm playing HiveSpell. Come join my game!",
+          title: t("friends.shareInviteTitle"),
+          text: t("friends.shareInviteText"),
           url: inviteUrl,
         });
       } catch (err) {
@@ -118,7 +120,7 @@ export const InviteModal: React.FC<InviteModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-            Invite Friends
+            {t("friends.inviteFriends")}
           </h2>
           <button
             onClick={onClose}
@@ -138,7 +140,7 @@ export const InviteModal: React.FC<InviteModalProps> = ({
             }`}
             onClick={() => setTab("share")}
           >
-            Share Link
+            {t("friends.shareLink")}
           </button>
           <button
             className={`flex-1 py-2 px-3 text-sm font-medium rounded-lg transition-colors ${
@@ -148,7 +150,7 @@ export const InviteModal: React.FC<InviteModalProps> = ({
             }`}
             onClick={() => setTab("direct")}
           >
-            Direct Invite
+            {t("friends.directInvite")}
           </button>
         </div>
 
@@ -163,44 +165,44 @@ export const InviteModal: React.FC<InviteModalProps> = ({
                     <Link2 className="w-8 h-8 text-primary-600 dark:text-primary-400" />
                   </div>
                   <h3 className="text-lg font-medium text-slate-900 dark:text-white mb-1">
-                    Create an Invite Link
+                    {t("friends.createInviteLink")}
                   </h3>
                   <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-                    Share this link with anyone. They'll join your friends list instantly.
+                    {t("friends.createInviteLinkDesc")}
                   </p>
                   <button
                     onClick={handleCreateShareableInvite}
                     disabled={creating || loading}
                     className="w-full py-3 px-6 bg-primary-600 text-white rounded-xl font-medium hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                    {creating ? "Creating..." : "Generate Invite Link"}
+                    {creating ? t("friends.creating") : t("friends.generateInviteLink")}
                   </button>
                 </div>
               ) : (
                 <div className="space-y-4 p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
                   <div className="flex items-center gap-2 text-sm">
-                    <span className="text-slate-500 dark:text-slate-400">Invite Code:</span>
+                    <span className="text-slate-500 dark:text-slate-400">{t("friends.inviteCodeLabel")}</span>
                     <code className="flex-1 px-3 py-2 bg-white dark:bg-slate-700 rounded-lg font-mono text-sm text-slate-900 dark:text-white break-all">
                       {inviteCode}
                     </code>
                     <button
                       onClick={() => navigator.clipboard.writeText(inviteCode!)}
                       className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded transition-colors"
-                      title="Copy code"
+                      title={t("friends.copyCode")}
                     >
                       <Copy className="w-4 h-4" />
                     </button>
                   </div>
 
                   <div className="flex items-center gap-2 text-sm">
-                    <span className="text-slate-500 dark:text-slate-400 w-20">Link:</span>
+                    <span className="text-slate-500 dark:text-slate-400 w-20">{t("friends.linkLabel")}</span>
                     <code className="flex-1 px-3 py-2 bg-white dark:bg-slate-700 rounded-lg font-mono text-sm text-slate-900 dark:text-white break-all">
                       {inviteUrl}
                     </code>
                     <button
                       onClick={handleCopy}
                       className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded transition-colors"
-                      title={copied ? "Copied!" : "Copy link"}
+                      title={copied ? t("common.copied") : t("friends.copyLink")}
                     >
                       {copied ? (
                         <CheckCircle className="w-4 h-4 text-green-500" />
@@ -212,7 +214,7 @@ export const InviteModal: React.FC<InviteModalProps> = ({
 
                   <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
                     <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                    <span>Expires in {expiresAt && formatExpiry(expiresAt)}</span>
+                    <span>{t("friends.expiresIn", { time: expiresAt ? formatExpiry(expiresAt) : "" })}</span>
                   </div>
 
                   <div className="flex gap-2 pt-2">
@@ -221,13 +223,13 @@ export const InviteModal: React.FC<InviteModalProps> = ({
                       className="flex-1 py-2 px-4 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors flex items-center justify-center gap-2"
                     >
                       <Share2 className="w-4 h-4" />
-                      Share
+                      {t("common.share")}
                     </button>
                     <button
                       onClick={handleCopy}
                       className="flex-1 py-2 px-4 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg font-medium hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                     >
-                      Copy Link
+                      {t("friends.copyLink")}
                     </button>
                   </div>
 
@@ -235,7 +237,7 @@ export const InviteModal: React.FC<InviteModalProps> = ({
                     onClick={() => setInviteCode(null)}
                     className="w-full text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
                   >
-                    Create New Link
+                    {t("friends.createNewLink")}
                   </button>
                 </div>
               )}
@@ -247,17 +249,17 @@ export const InviteModal: React.FC<InviteModalProps> = ({
             <div className="space-y-4">
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Friend's User ID or Username
+                  {t("friends.friendIdLabel")}
                 </label>
                 <input
                   type="text"
                   value={directInviteUserId}
                   onChange={(e) => setDirectInviteUserId(e.target.value)}
-                  placeholder="Enter their User ID or username"
+                  placeholder={t("friends.friendIdPlaceholder")}
                   className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                 />
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  They'll receive a direct notification in-app.
+                  {t("friends.directInviteDesc")}
                 </p>
               </div>
 
@@ -266,17 +268,17 @@ export const InviteModal: React.FC<InviteModalProps> = ({
                 disabled={creating || loading || !directInviteUserId.trim()}
                 className="w-full py-3 px-6 bg-primary-600 text-white rounded-xl font-medium hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {creating ? "Sending..." : "Send Direct Invite"}
+                {creating ? t("friends.sending") : t("friends.sendDirectInvite")}
               </button>
 
               {inviteCode && (
                 <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
                   <div className="flex items-center gap-2 text-green-800 dark:text-green-300 mb-2">
                     <CheckCircle className="w-5 h-5" />
-                    <span className="font-medium">Invite sent!</span>
+                    <span className="font-medium">{t("friends.inviteSent")}</span>
                   </div>
                   <p className="text-sm text-green-700 dark:text-green-400">
-                    They'll see it in their notifications immediately.
+                    {t("friends.inviteSentDesc")}
                   </p>
                 </div>
               )}
@@ -287,7 +289,7 @@ export const InviteModal: React.FC<InviteModalProps> = ({
           {pendingInvites.length > 0 && (
             <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
               <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
-                Pending Invites ({pendingInvites.length})
+                {t("friends.pendingInvitesCount", { count: pendingInvites.length })}
               </h4>
               <div className="space-y-2 max-h-40 overflow-y-auto">
                 {pendingInvites.map((invite) => (
@@ -304,7 +306,7 @@ export const InviteModal: React.FC<InviteModalProps> = ({
                           {invite.inviter_username}
                         </p>
                         <p className="text-xs text-slate-500 dark:text-slate-400">
-                          Expires {formatExpiry(invite.expires_at)}
+                          {t("friends.expiresRelative", { time: formatExpiry(invite.expires_at) })}
                         </p>
                       </div>
                     </div>

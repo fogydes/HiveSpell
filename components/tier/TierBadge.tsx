@@ -213,7 +213,7 @@ export const TierBadgeMini: React.FC<{
     <span
       className={`
         inline-flex items-center gap-1 px-2 py-0.5 rounded-full
-        border bg-black/20 backdrop-blur-sm
+        border bg-black/20 backdrop-blur-sm whitespace-nowrap
         text-[10px] font-bold uppercase tracking-wider
         ${className}
       `}
@@ -226,7 +226,7 @@ export const TierBadgeMini: React.FC<{
       aria-label={`${tier.name} tier`}
     >
       {showIcon && <span className="text-sm">{tier.icon}</span>}
-      <span>{tier.name.slice(0, 3)}</span>
+      <span>{tier.name}</span>
     </span>
   );
 };

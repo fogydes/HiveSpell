@@ -3,8 +3,13 @@ DROP FUNCTION IF EXISTS public.award_profile_win(text, text);
 DROP FUNCTION IF EXISTS public.apply_correct_answer_reward(text, text, integer);
 DROP FUNCTION IF EXISTS public.purchase_item(p_user_id text, item_id text, cost integer, category text);
 
--- 2. RECREATE RPCS SECURELY USING auth.uid() (NO PARAMETERS NEEDED FOR IDENTITY)
+-- 2. RECREATE RPCS SECURELY. Firebase-authenticated clients pass their own UID as
+--    p_user_id (PostgREST resolves function overloads by named args, and the app +
+--    tests call these RPCs with p_user_id). Each function validates p_user_id against
+--    the verified JWT subject (auth.jwt()->>'sub') so a caller cannot act as another
+--    user. Identity for the actual write is taken from the JWT, not the client arg.
 create or replace function public.award_profile_win(
+  p_user_id text,
   p_username text default null
 )
 returns jsonb
@@ -16,8 +21,8 @@ declare
   v_profile profiles%rowtype;
   v_user_id text;
 begin
-  v_user_id := auth.uid()::text;
-  if v_user_id is null then
+  v_user_id := auth.jwt()->>'sub';
+  if v_user_id is null or v_user_id != p_user_id then
     return jsonb_build_object('error', 'Unauthorized');
   end if;
 
@@ -67,6 +72,7 @@ end;
 $$;
 
 create or replace function public.apply_correct_answer_reward(
+  p_user_id text,
   p_username text default null,
   p_nectar_to_add integer default 0
 )
@@ -79,8 +85,8 @@ declare
   v_profile profiles%rowtype;
   v_user_id text;
 begin
-  v_user_id := auth.uid()::text;
-  if v_user_id is null then
+  v_user_id := auth.jwt()->>'sub';
+  if v_user_id is null or v_user_id != p_user_id then
     return jsonb_build_object('error', 'Unauthorized');
   end if;
 
@@ -133,7 +139,7 @@ begin
 end;
 $$;
 
-CREATE OR REPLACE FUNCTION public.purchase_item(item_id text, cost integer, category text)
+CREATE OR REPLACE FUNCTION public.purchase_item(p_user_id text, item_id text, cost integer, category text)
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
@@ -144,8 +150,8 @@ DECLARE
   v_current_inventory JSONB;
   v_user_id text;
 BEGIN
-  v_user_id := auth.uid()::text;
-  IF v_user_id IS NULL THEN
+  v_user_id := auth.jwt()->>'sub';
+  IF v_user_id IS NULL OR v_user_id != p_user_id THEN
     RETURN jsonb_build_object('success', false, 'message', 'Unauthorized');
   END IF;
 
@@ -180,72 +186,72 @@ END;
 $function$;
 
 -- Revoke anon and public access from new functions
-REVOKE EXECUTE ON FUNCTION public.award_profile_win(text) FROM anon, public;
-REVOKE EXECUTE ON FUNCTION public.apply_correct_answer_reward(text, integer) FROM anon, public;
-REVOKE EXECUTE ON FUNCTION public.purchase_item(text, integer, text) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.award_profile_win(text, text) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.apply_correct_answer_reward(text, text, integer) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.purchase_item(text, text, integer, text) FROM anon, public;
 
 -- Grant authenticated access
-GRANT EXECUTE ON FUNCTION public.award_profile_win(text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.apply_correct_answer_reward(text, integer) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.purchase_item(text, integer, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.award_profile_win(text, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.apply_correct_answer_reward(text, text, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.purchase_item(text, text, integer, text) TO authenticated;
 
 -- 3. FIX RLS POLICIES FOR ALL TABLES (NATIVE auth.uid() WITH InitPlan)
 -- Profiles
 DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
 CREATE POLICY "Users can insert own profile" ON public.profiles FOR INSERT
-WITH CHECK (id = (select auth.uid()::text));
+WITH CHECK (id = (select auth.jwt()->>'sub'));
 
 DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE
-USING (id = (select auth.uid()::text));
+USING (id = (select auth.jwt()->>'sub'));
 
 -- Friendships
 DROP POLICY IF EXISTS "Users can view own friendships" ON public.friendships;
 CREATE POLICY "Users can view own friendships" ON public.friendships FOR SELECT
-USING (requester_id = (select auth.uid()::text) OR addressee_id = (select auth.uid()::text));
+USING (requester_id = (select auth.jwt()->>'sub') OR addressee_id = (select auth.jwt()->>'sub'));
 
 DROP POLICY IF EXISTS "Users can send friend requests" ON public.friendships;
 CREATE POLICY "Users can send friend requests" ON public.friendships FOR INSERT
-WITH CHECK (requester_id = (select auth.uid()::text));
+WITH CHECK (requester_id = (select auth.jwt()->>'sub'));
 
 DROP POLICY IF EXISTS "Addressee can respond to requests" ON public.friendships;
 CREATE POLICY "Addressee can respond to requests" ON public.friendships FOR UPDATE
-USING (addressee_id = (select auth.uid()::text));
+USING (addressee_id = (select auth.jwt()->>'sub'));
 
 DROP POLICY IF EXISTS "Users can remove friendships" ON public.friendships;
 CREATE POLICY "Users can remove friendships" ON public.friendships FOR DELETE
-USING (requester_id = (select auth.uid()::text) OR addressee_id = (select auth.uid()::text));
+USING (requester_id = (select auth.jwt()->>'sub') OR addressee_id = (select auth.jwt()->>'sub'));
 
 -- Notifications
 DROP POLICY IF EXISTS "Users can view own notifications" ON public.notifications;
 CREATE POLICY "Users can view own notifications" ON public.notifications FOR SELECT
-USING (user_id = (select auth.uid()::text));
+USING (user_id = (select auth.jwt()->>'sub'));
 
 DROP POLICY IF EXISTS "Users can update own notifications" ON public.notifications;
 CREATE POLICY "Users can update own notifications" ON public.notifications FOR UPDATE
-USING (user_id = (select auth.uid()::text));
+USING (user_id = (select auth.jwt()->>'sub'));
 
 DROP POLICY IF EXISTS "Users can delete own notifications" ON public.notifications;
 CREATE POLICY "Users can delete own notifications" ON public.notifications FOR DELETE
-USING (user_id = (select auth.uid()::text));
+USING (user_id = (select auth.jwt()->>'sub'));
 
 -- Messages
 DROP POLICY IF EXISTS "Users can view own messages" ON public.messages;
 CREATE POLICY "Users can view own messages" ON public.messages FOR SELECT
-USING (sender_id = (select auth.uid()::text) OR receiver_id = (select auth.uid()::text));
+USING (sender_id = (select auth.jwt()->>'sub') OR receiver_id = (select auth.jwt()->>'sub'));
 
 DROP POLICY IF EXISTS "Users can send messages" ON public.messages;
 CREATE POLICY "Users can send messages" ON public.messages FOR INSERT
-WITH CHECK (sender_id = (select auth.uid()::text));
+WITH CHECK (sender_id = (select auth.jwt()->>'sub'));
 
 DROP POLICY IF EXISTS "Receiver can update messages" ON public.messages;
 CREATE POLICY "Receiver can update messages" ON public.messages FOR UPDATE
-USING (receiver_id = (select auth.uid()::text));
+USING (receiver_id = (select auth.jwt()->>'sub'));
 
 DROP POLICY IF EXISTS "Sender can update messages" ON public.messages;
 CREATE POLICY "Sender can update messages" ON public.messages FOR UPDATE
-USING (sender_id = (select auth.uid()::text));
+USING (sender_id = (select auth.jwt()->>'sub'));
 
 DROP POLICY IF EXISTS "Sender can delete messages" ON public.messages;
 CREATE POLICY "Sender can delete messages" ON public.messages FOR DELETE
-USING (sender_id = (select auth.uid()::text));
+USING (sender_id = (select auth.jwt()->>'sub'));

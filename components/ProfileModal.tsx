@@ -350,7 +350,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                             {profile.title || t("profileModal.newbee")}
                           </span>
                           <span className="rounded-full border border-surface/70 bg-surface/30 px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-text-muted">
-                            {collectionCount} {t("profileModal.relicsLogged")}
+                            {t("profileModal.relicsLogged", { count: collectionCount })}
                           </span>
                         </div>
                         {/* Tier progress bar */}
@@ -578,7 +578,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                             </h3>
                           </div>
                           <p className="text-sm text-text-muted">
-                            {collectionCount} item{collectionCount === 1 ? "" : "s"} logged
+                            {t("profileModal.relicsLogged", { count: collectionCount })}
                           </p>
                         </div>
 

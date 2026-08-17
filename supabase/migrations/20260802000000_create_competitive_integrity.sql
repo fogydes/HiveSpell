@@ -5,11 +5,11 @@
 -- TABLE: Room Keystroke Log (for replay verification)
 -- ============================================================
 -- Note: room_id references Firebase Realtime DB rooms, not a Supabase table
--- We store the Firebase room ID as uuid (it's a push ID from Firebase)
+-- The Firebase room ID is a push ID (e.g. "-Nxyz123"), stored as TEXT (not a uuid)
 CREATE TABLE IF NOT EXISTS room_keystroke_log (
     id bigserial PRIMARY KEY,
-    room_id uuid NOT NULL, -- Firebase room ID (no FK - rooms are in Firebase RDB)
-    player_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    room_id text NOT NULL, -- Firebase room ID (no FK - rooms are in Firebase RDB)
+    player_id text NOT NULL, -- Firebase UID (no FK - auth is in Firebase, not auth.users)
     word text NOT NULL,
     keystrokes jsonb NOT NULL, -- [{char: 'a', t: 123}, {char: 'b', t: 145}, ...]
     submitted_at timestamptz DEFAULT now(),
@@ -32,17 +32,17 @@ ALTER TABLE room_keystroke_log ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Players can insert own keystrokes" ON room_keystroke_log;
 CREATE POLICY "Players can insert own keystrokes" ON room_keystroke_log
-    FOR INSERT WITH CHECK (auth.uid() = player_id);
+    FOR INSERT WITH CHECK ((select auth.jwt() ->> 'sub') = player_id);
 
 DROP POLICY IF EXISTS "Players can view own keystrokes" ON room_keystroke_log;
 CREATE POLICY "Players can view own keystrokes" ON room_keystroke_log
-    FOR SELECT USING (auth.uid() = player_id);
+    FOR SELECT USING ((select auth.jwt() ->> 'sub') = player_id);
 
 DROP POLICY IF EXISTS "Admins can view all keystrokes" ON room_keystroke_log;
 CREATE POLICY "Admins can view all keystrokes" ON room_keystroke_log
     FOR SELECT USING (
         EXISTS (
-            SELECT 1 FROM profiles WHERE id = auth.uid() AND (tier = 'admin' OR tier = 'moderator')
+            SELECT 1 FROM profiles WHERE id = (select auth.jwt() ->> 'sub') AND (tier = 'admin' OR tier = 'moderator')
         )
     );
 
@@ -51,7 +51,7 @@ CREATE POLICY "Admins can view all keystrokes" ON room_keystroke_log
 -- ============================================================
 CREATE TABLE IF NOT EXISTS ranked_ratings (
     id bigserial PRIMARY KEY,
-    user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_id text NOT NULL, -- Firebase UID (no FK - auth is in Firebase, not auth.users)
     season_id text NOT NULL, -- e.g., '2026-s1', '2026-s2'
     mode text NOT NULL, -- 'baby', 'easy', 'medium', 'hard', 'genius', 'competitive'
     rating numeric NOT NULL DEFAULT 1500, -- Glicko-2 rating (mu)
@@ -74,7 +74,7 @@ ALTER TABLE ranked_ratings ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can view own ranked ratings" ON ranked_ratings;
 CREATE POLICY "Users can view own ranked ratings" ON ranked_ratings
-    FOR SELECT USING (auth.uid() = user_id);
+    FOR SELECT USING ((select auth.jwt() ->> 'sub') = user_id);
 
 DROP POLICY IF EXISTS "Public can view ranked ratings for leaderboards" ON ranked_ratings;
 CREATE POLICY "Public can view ranked ratings for leaderboards" ON ranked_ratings
@@ -82,11 +82,11 @@ CREATE POLICY "Public can view ranked ratings for leaderboards" ON ranked_rating
 
 DROP POLICY IF EXISTS "System can upsert ranked ratings" ON ranked_ratings;
 CREATE POLICY "System can upsert ranked ratings" ON ranked_ratings
-    FOR INSERT WITH CHECK (auth.uid() = user_id);
+    FOR INSERT WITH CHECK ((select auth.jwt() ->> 'sub') = user_id);
 
 DROP POLICY IF EXISTS "System can update ranked ratings" ON ranked_ratings;
 CREATE POLICY "System can update ranked ratings" ON ranked_ratings
-    FOR UPDATE USING (auth.uid() = user_id);
+    FOR UPDATE USING ((select auth.jwt() ->> 'sub') = user_id);
 
 -- ============================================================
 -- TABLE: Ranked Match History
@@ -94,11 +94,11 @@ CREATE POLICY "System can update ranked ratings" ON ranked_ratings
 -- Note: room_id references Firebase Realtime DB rooms, not a Supabase table
 CREATE TABLE IF NOT EXISTS ranked_match_history (
     id bigserial PRIMARY KEY,
-    room_id uuid NOT NULL, -- Firebase room ID (no FK - rooms are in Firebase RDB)
+    room_id text NOT NULL, -- Firebase room ID (no FK - rooms are in Firebase RDB)
     season_id text NOT NULL,
     mode text NOT NULL,
-    player_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    opponent_ids uuid[] NOT NULL,
+    player_id text NOT NULL, -- Firebase UID (no FK - auth is in Firebase, not auth.users)
+    opponent_ids text[] NOT NULL, -- Firebase UIDs
     rating_before numeric NOT NULL,
     rd_before numeric NOT NULL,
     volatility_before numeric NOT NULL,
@@ -123,9 +123,10 @@ ALTER TABLE ranked_match_history ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can view own match history" ON ranked_match_history;
 CREATE POLICY "Users can view own match history" ON ranked_match_history
-    FOR SELECT USING (auth.uid() = player_id);
+    FOR SELECT USING ((select auth.jwt() ->> 'sub') = player_id);
 
-DROP POLICY IF EXISTS "Public can view match history for leaderboards" ON ranked_match_history
+DROP POLICY IF EXISTS "Public can view match history for leaderboards" ON ranked_match_history;
+CREATE POLICY "Public can view match history for leaderboards" ON ranked_match_history
     FOR SELECT USING (true);
 
 -- ============================================================
@@ -175,8 +176,8 @@ ON CONFLICT (id) DO NOTHING;
 -- RPC: Log Keystroke Data (called from client during gameplay)
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.log_keystroke_data(
-    p_room_id uuid,
-    p_player_id uuid,
+    p_room_id text,
+    p_player_id text,
     p_word text,
     p_keystrokes jsonb,
     p_wpm int,
@@ -202,8 +203,8 @@ $$;
 -- RPC: Verify Keystroke Log (statistical analysis)
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.verify_keystroke_log(
-    p_room_id uuid,
-    p_player_id uuid,
+    p_room_id text,
+    p_player_id text,
     p_word text
 )
 RETURNS TABLE (
@@ -584,11 +585,11 @@ $$;
 -- RPC: Update Ranked Rating (called after ranked match)
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.update_ranked_rating(
-    p_player_id uuid,
+    p_player_id text,
     p_season_id text,
     p_mode text,
-    p_room_id uuid,               -- Firebase room ID (no FK - rooms are in Firebase RDB)
-    p_opponent_ids uuid[],       -- Array of opponent user IDs
+    p_room_id text,               -- Firebase room ID (no FK - rooms are in Firebase RDB)
+    p_opponent_ids text[],       -- Array of opponent Firebase UIDs
     p_result text,               -- 'win', 'loss', 'draw'
     p_place int,                 -- Final place (1 = winner)
     p_total_players int,
@@ -733,12 +734,12 @@ $$;
 -- RPC: Get Ranked Rating
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.get_ranked_rating(
-    p_user_id uuid,
+    p_user_id text,
     p_season_id text DEFAULT NULL,
     p_mode text DEFAULT NULL
 )
 RETURNS TABLE (
-    user_id uuid,
+    user_id text,
     season_id text,
     mode text,
     rating numeric,
@@ -795,14 +796,14 @@ $$;
 -- RPC: Get Ranked Leaderboard
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.get_ranked_leaderboard(
-    p_season_id text DEFAULT NULL,
     p_mode text,
+    p_season_id text DEFAULT NULL,
     p_limit int DEFAULT 50,
     p_offset int DEFAULT 0
 )
 RETURNS TABLE (
     rank int,
-    user_id uuid,
+    user_id text,
     username text,
     avatar_url text,
     rating numeric,
@@ -899,11 +900,11 @@ $$;
 -- ============================================================
 -- GRANT EXECUTE PERMISSIONS
 -- ============================================================
-GRANT EXECUTE ON FUNCTION public.log_keystroke_data(uuid, uuid, text, jsonb, int, int, int, jsonb) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.verify_keystroke_log(uuid, uuid, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.log_keystroke_data(text, text, text, jsonb, int, int, int, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.verify_keystroke_log(text, text, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.glicko2_update_rating(numeric, numeric, numeric, numeric[], numeric[], numeric[], numeric) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.update_ranked_rating(uuid, text, text, uuid, uuid[], text, int, int, int, int, int, int) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.get_ranked_rating(uuid, text, text) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.update_ranked_rating(text, text, text, text, text[], text, int, int, int, int, int, int) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_ranked_rating(text, text, text) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.get_ranked_leaderboard(text, text, int, int) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.apply_ranked_decay(text) TO authenticated;
 

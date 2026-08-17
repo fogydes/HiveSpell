@@ -4,6 +4,7 @@ import { ref, set, get } from 'firebase/database';
 import { auth, db } from '../firebase';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { SceneCanvasLayer } from '../components/scene';
 
 const Auth: React.FC = () => {
   const [emailOrUser, setEmailOrUser] = useState('');
@@ -95,8 +96,9 @@ const Auth: React.FC = () => {
   };
 
   return (
-    <div className="theme-scene min-h-screen flex items-center justify-center bg-app p-4">
-      <div className="theme-panel-shell relative w-full max-w-[430px] overflow-hidden rounded-[2rem] border bg-panel/55 p-8 backdrop-blur-xl">
+    <div className="theme-scene relative min-h-screen flex items-center justify-center overflow-hidden bg-app p-4">
+      <SceneCanvasLayer />
+      <div className="theme-panel-shell relative z-10 w-full max-w-[430px] overflow-hidden rounded-[2rem] border bg-panel/55 p-8 backdrop-blur-xl">
         <div
           className="absolute top-0 left-1/2 h-1 w-full -translate-x-1/2 opacity-70"
           style={{
@@ -111,8 +113,6 @@ const Auth: React.FC = () => {
           </p>
           <h2 data-display="true" className="text-3xl font-black text-text-main">
             <span className="text-primary">{isLogin ? 'Log in' : 'Sign up'}</span>
-            <span className="text-text-main"> or </span>
-            <span className="text-primary">{!isLogin ? 'Log in' : 'Sign up'}</span>
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-text-muted">
             Your profile, inventory, and arena progress follow you across the hive.

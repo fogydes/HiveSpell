@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useMultiplayer } from "../context/MultiplayerContext";
@@ -12,13 +12,9 @@ import { TierBadge, TierBadgeMini, TierProgressBar } from "../components/tier/Ti
 import { ChallengeSummaryBar } from "../components/challenges/ChallengeCard";
 import { getTierFromStats, getTierProgress, getNextTierName, formatTierDisplay, type PlayerStats } from "../utils/tierRanking";
 import { navigateToBattlePass, navigateToChallenges } from "../utils/navigation";
-
-const LAST_MODE_KEY = "hive_last_mode";
-
-/** Call this from Play.tsx when a game starts to record the last difficulty. */
-export const saveLastPlayedMode = (mode: string) => {
-  localStorage.setItem(LAST_MODE_KEY, mode);
-};
+import { CountUp } from "../components/ui/CountUp";
+import { SceneCanvasLayer } from "../components/scene";
+import { getLastPlayedMode } from "../utils/lastPlayedMode";
 
 const Home: React.FC = () => {
   const { user, userData } = useAuth();
@@ -27,7 +23,7 @@ const Home: React.FC = () => {
   const navigate = useNavigate();
   const [joining, setJoining] = useState(false);
 
-  const lastMode = localStorage.getItem(LAST_MODE_KEY);
+  const lastMode = getLastPlayedMode();
 
   // Session-aware state
   const sessionState = useSessionState();
@@ -37,10 +33,10 @@ const Home: React.FC = () => {
   // Challenges data for summary bar
   const { completedDailyCount, totalDailyCount, completedWeeklyCount, totalWeeklyCount } = useChallenges(user?.uid || null);
 
-  // Haptic patterns
-  const lightImpact = () => vibrate("light");
-  const mediumImpact = () => vibrate("medium");
-  const successImpact = () => vibrate("success");
+  // Haptic patterns — memoized so effect deps stay stable across renders
+  const lightImpact = useCallback(() => vibrate("light"), [vibrate]);
+  const mediumImpact = useCallback(() => vibrate("medium"), [vibrate]);
+  const successImpact = useCallback(() => vibrate("success"), [vibrate]);
 
   // Track CTA clicks for haptics
   const handlePrimaryCTA = () => {
@@ -49,13 +45,6 @@ const Home: React.FC = () => {
       handleQuickPlay();
     } else {
       navigate(segmentContent.primaryCTA.href);
-    }
-  };
-
-  const handleSecondaryCTA = () => {
-    if (segmentContent.secondaryCTA) {
-      lightImpact();
-      navigate(segmentContent.secondaryCTA.href);
     }
   };
 
@@ -120,6 +109,7 @@ const Home: React.FC = () => {
 
   return (
     <div className="theme-scene min-h-screen flex flex-col items-center justify-center bg-app p-4 relative overflow-hidden">
+      <SceneCanvasLayer />
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
         <div
           className="absolute -top-12 left-[10%] h-80 w-80 rounded-full blur-3xl opacity-80"
@@ -185,11 +175,11 @@ const Home: React.FC = () => {
             </div>
 
             <div className="rounded-xl border border-surface bg-panel/50 px-4 py-3 text-center">
-              <div className="text-2xl font-black text-primary">{userData.wins}</div>
+              <div className="text-2xl font-black text-primary"><CountUp value={userData.wins ?? 0} /></div>
               <div className="text-[10px] uppercase tracking-wider text-text-muted">Wins</div>
             </div>
             <div className="rounded-xl border border-surface bg-panel/50 px-4 py-3 text-center">
-              <div className="text-2xl font-black text-primary">{userData.corrects?.toLocaleString()}</div>
+              <div className="text-2xl font-black text-primary"><CountUp value={userData.corrects ?? 0} format={(n) => Math.round(n).toLocaleString()} /></div>
               <div className="text-[10px] uppercase tracking-wider text-text-muted">Corrects</div>
             </div>
             <div className="rounded-xl border border-surface bg-panel/50 px-4 py-3 text-center">
@@ -202,7 +192,7 @@ const Home: React.FC = () => {
               <div className="rounded-xl border border-accent/50 bg-accent/10 px-4 py-3 text-center">
                 <div className="flex items-center justify-center gap-2 text-2xl font-black text-accent">
                   <span>🔥</span>
-                  <span>{sessionState.dailyStreak}</span>
+                  <CountUp value={sessionState.dailyStreak} />
                 </div>
                 <div className="text-[10px] uppercase tracking-wider text-accent/80">Day Streak</div>
               </div>
@@ -211,7 +201,7 @@ const Home: React.FC = () => {
             {/* Session count badge */}
             {sessionState.sessionCount > 1 && (
               <div className="rounded-xl border border-primary/50 bg-primary/10 px-4 py-3 text-center">
-                <div className="text-2xl font-black text-primary">{sessionState.sessionCount}</div>
+                <div className="text-2xl font-black text-primary"><CountUp value={sessionState.sessionCount} /></div>
                 <div className="text-[10px] uppercase tracking-wider text-primary/80">Sessions</div>
               </div>
             )}
@@ -230,65 +220,44 @@ const Home: React.FC = () => {
         )}
 
         {/* Segment-specific CTA buttons */}
-        <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center sm:gap-4">
+        <div className="mt-10 flex flex-col items-center gap-6">
+          {/* Main Primary Action Button */}
           <button
             onClick={handlePrimaryCTA}
             disabled={joining || loading}
-            className="rounded-full bg-primary px-10 py-4 text-lg font-black tracking-[0.18em] text-app transition-all hover:scale-[var(--hover-scale)] disabled:opacity-50 disabled:cursor-wait"
+            className="w-full max-w-md whitespace-nowrap rounded-full bg-primary px-10 py-5 text-xl font-black tracking-[0.2em] text-app shadow-lg transition-all hover:scale-[var(--hover-scale)] hover:brightness-110 active:scale-95 disabled:opacity-50 disabled:cursor-wait"
             style={{ boxShadow: "var(--theme-shadow-glow)" }}
           >
             {joining ? "FINDING MATCH..." : segmentContent.primaryCTA.label}
           </button>
 
-          {segmentContent.secondaryCTA && (
-            <button
-              onClick={handleSecondaryCTA}
-              className="rounded-full border border-surface px-8 py-4 text-sm font-bold uppercase tracking-wider text-text-muted transition-colors hover:border-primary hover:text-primary"
-            >
-              {segmentContent.secondaryCTA.label}
-            </button>
-          )}
-
-          {user && segmentContent.secondaryCTA && (
-            <button
-              onClick={() => navigate("/lobby")}
-              className="rounded-full border border-surface px-8 py-4 text-sm font-bold uppercase tracking-wider text-text-muted transition-colors hover:border-primary hover:text-primary"
-            >
-              Browse Lobby
-            </button>
-          )}
-
-          {/* Battle Pass button for logged-in users */}
+          {/* Secondary Action Grid */}
           {user && (
-            <button
-              onClick={() => navigate("/battle-pass")}
-              className="rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-8 py-4 text-sm font-bold uppercase tracking-wider text-app transition-all hover:opacity-90 hover:scale-105"
-              style={{ boxShadow: "0 4px 14px 0 rgb(245 158 11 / 0.4)" }}
-            >
-              👑 Battle Pass
-            </button>
-          )}
+            <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
+              {/* Battle Pass button */}
+              <button
+                onClick={() => navigate("/battle-pass")}
+                className="whitespace-nowrap rounded-full border border-surface bg-panel/40 px-6 py-3 text-xs font-bold uppercase tracking-wider text-text-muted transition-all hover:border-primary hover:text-primary hover:bg-primary/10 hover:scale-105"
+              >
+                👑 Battle Pass
+              </button>
 
-          {/* Challenges button for logged-in users */}
-          {user && (
-            <button
-              onClick={() => navigate("/challenges")}
-              className="rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 px-8 py-4 text-sm font-bold uppercase tracking-wider text-app transition-all hover:opacity-90 hover:scale-105"
-              style={{ boxShadow: "0 4px 14px 0 rgb(16 185 129 / 0.4)" }}
-            >
-              📋 Challenges
-            </button>
-          )}
+              {/* Challenges button */}
+              <button
+                onClick={() => navigate("/challenges")}
+                className="whitespace-nowrap rounded-full border border-surface bg-panel/40 px-6 py-3 text-xs font-bold uppercase tracking-wider text-text-muted transition-all hover:border-primary hover:text-primary hover:bg-primary/10 hover:scale-105"
+              >
+                📋 Challenges
+              </button>
 
-          {/* Leaderboards button for logged-in users */}
-          {user && (
-            <button
-              onClick={() => navigate("/leaderboards")}
-              className="rounded-full bg-gradient-to-r from-purple-500 to-violet-500 px-8 py-4 text-sm font-bold uppercase tracking-wider text-app transition-all hover:opacity-90 hover:scale-105"
-              style={{ boxShadow: "0 4px 14px 0 rgb(139 92 246 / 0.4)" }}
-            >
-              🏆 Leaderboards
-            </button>
+              {/* Leaderboards button */}
+              <button
+                onClick={() => navigate("/leaderboards")}
+                className="whitespace-nowrap rounded-full border border-surface bg-panel/40 px-6 py-3 text-xs font-bold uppercase tracking-wider text-text-muted transition-all hover:border-primary hover:text-primary hover:bg-primary/10 hover:scale-105"
+              >
+                🏆 Leaderboards
+              </button>
+            </div>
           )}
         </div>
 

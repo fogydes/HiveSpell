@@ -113,6 +113,29 @@ export const ChallengesView: React.FC = () => {
     );
   }
 
+  if (challenges.length === 0) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+        <div className="text-center max-w-md">
+          <div className="w-16 h-16 mx-auto mb-4 bg-slate-800 rounded-full flex items-center justify-center">
+            <span className="text-3xl">🐝</span>
+          </div>
+          <h2 className="text-xl font-bold text-white mb-2">No Challenges Right Now</h2>
+          <p className="text-slate-400 mb-6">
+            There are no active challenges for this season yet. Check back soon — new dailies
+            drop at 00:00 UTC and weeklies every Monday.
+          </p>
+          <button
+            onClick={refresh}
+            className="px-6 py-3 bg-amber-500 text-slate-900 font-bold rounded-xl hover:bg-amber-400 transition-colors"
+          >
+            Refresh
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 pt-20 pb-16 px-4">
       {/* Background ambient glow */}

@@ -6,14 +6,14 @@
 -- ============================================================
 CREATE TABLE IF NOT EXISTS shadow_ban_queue (
     id bigserial PRIMARY KEY,
-    user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_id text NOT NULL, -- Firebase UID (TEXT), no FK to auth.users
     reason text NOT NULL, -- e.g., 'high_anomaly_score', 'multiple_flags', 'device_mismatch', 'manual_review'
     anomaly_score numeric NOT NULL, -- 0-1 score from statistical analysis
     anomaly_details jsonb, -- Full details: { anomaly_reasons: [], keystroke_log_ids: [], device_fingerprint: {} }
     flagged_at timestamptz DEFAULT now(),
-    flagged_by uuid REFERENCES auth.users(id) ON DELETE SET NULL, -- System or admin user
+    flagged_by text, -- Firebase UID (TEXT), no FK to auth.users - system or admin user
     reviewed_at timestamptz,
-    reviewed_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+    reviewed_by text, -- Firebase UID (TEXT), no FK to auth.users
     resolution text, -- 'confirmed_cheat', 'false_positive', 'monitoring'
     resolution_notes text,
     -- Player info for display (denormalized for performance)
@@ -23,10 +23,19 @@ CREATE TABLE IF NOT EXISTS shadow_ban_queue (
     updated_at timestamptz DEFAULT now()
 );
 
-CREATE INDEX idx_shadow_ban_queue_user ON shadow_ban_queue (user_id);
-CREATE INDEX idx_shadow_ban_queue_reviewed ON shadow_ban_queue (reviewed_at) WHERE reviewed_at IS NULL;
-CREATE INDEX idx_shadow_ban_queue_flagged ON shadow_ban_queue (flagged_at DESC);
-CREATE INDEX idx_shadow_ban_queue_resolution ON shadow_ban_queue (resolution);
+-- Reconcile with the shadow_ban_queue created earlier in 20260802000003 (a column
+-- subset). The CREATE TABLE IF NOT EXISTS above is a no-op when that table already
+-- exists, so ensure the richer columns this migration depends on are present.
+ALTER TABLE shadow_ban_queue ADD COLUMN IF NOT EXISTS anomaly_details jsonb;
+ALTER TABLE shadow_ban_queue ADD COLUMN IF NOT EXISTS flagged_by text;
+ALTER TABLE shadow_ban_queue ADD COLUMN IF NOT EXISTS player_username text;
+ALTER TABLE shadow_ban_queue ADD COLUMN IF NOT EXISTS player_avatar_url text;
+ALTER TABLE shadow_ban_queue ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+
+CREATE INDEX IF NOT EXISTS idx_shadow_ban_queue_user ON shadow_ban_queue (user_id);
+CREATE INDEX IF NOT EXISTS idx_shadow_ban_queue_reviewed ON shadow_ban_queue (reviewed_at) WHERE reviewed_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_shadow_ban_queue_flagged ON shadow_ban_queue (flagged_at DESC);
+CREATE INDEX IF NOT EXISTS idx_shadow_ban_queue_resolution ON shadow_ban_queue (resolution);
 
 ALTER TABLE shadow_ban_queue ENABLE ROW LEVEL SECURITY;
 
@@ -34,7 +43,7 @@ DROP POLICY IF EXISTS "Admins can view shadow ban queue" ON shadow_ban_queue;
 CREATE POLICY "Admins can view shadow ban queue" ON shadow_ban_queue
     FOR SELECT USING (
         EXISTS (
-            SELECT 1 FROM profiles WHERE id = auth.uid() AND (tier = 'admin' OR tier = 'moderator')
+            SELECT 1 FROM profiles WHERE id = (select auth.jwt() ->> 'sub') AND (tier = 'admin' OR tier = 'moderator')
         )
     );
 
@@ -42,7 +51,7 @@ DROP POLICY IF EXISTS "Admins can update shadow ban queue" ON shadow_ban_queue;
 CREATE POLICY "Admins can update shadow ban queue" ON shadow_ban_queue
     FOR UPDATE USING (
         EXISTS (
-            SELECT 1 FROM profiles WHERE id = auth.uid() AND (tier = 'admin' OR tier = 'moderator')
+            SELECT 1 FROM profiles WHERE id = (select auth.jwt() ->> 'sub') AND (tier = 'admin' OR tier = 'moderator')
         )
     );
 
@@ -77,6 +86,10 @@ CREATE TRIGGER trigger_update_shadow_ban_updated_at
 -- ============================================================
 -- RPC: Get Shadow Ban Queue (for admin panel)
 -- ============================================================
+-- Drop the subset-shape version from 20260802000003 first: this richer RETURNS TABLE
+-- (adds anomaly_details, flagged_by, created_at) cannot be installed with
+-- CREATE OR REPLACE over a different return type ("cannot change return type").
+DROP FUNCTION IF EXISTS public.get_shadow_ban_queue(int, int, boolean);
 CREATE OR REPLACE FUNCTION public.get_shadow_ban_queue(
     p_limit int DEFAULT 50,
     p_offset int DEFAULT 0,
@@ -84,16 +97,16 @@ CREATE OR REPLACE FUNCTION public.get_shadow_ban_queue(
 )
 RETURNS TABLE (
     id bigint,
-    user_id uuid,
+    user_id text,
     username text,
     avatar_url text,
     reason text,
     anomaly_score numeric,
     anomaly_details jsonb,
     flagged_at timestamptz,
-    flagged_by uuid,
+    flagged_by text,
     reviewed_at timestamptz,
-    reviewed_by uuid,
+    reviewed_by text,
     resolution text,
     resolution_notes text,
     created_at timestamptz
@@ -105,7 +118,7 @@ AS $$
 BEGIN
     -- Verify admin/moderator access
     IF NOT EXISTS (
-        SELECT 1 FROM profiles WHERE id = auth.uid() AND (tier = 'admin' OR tier = 'moderator')
+        SELECT 1 FROM profiles WHERE id = (select auth.jwt() ->> 'sub') AND (tier = 'admin' OR tier = 'moderator')
     ) THEN
         RAISE EXCEPTION 'Insufficient permissions';
     END IF;
@@ -140,7 +153,7 @@ $$;
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.resolve_shadow_ban(
     p_queue_id bigint,
-    p_admin_id uuid,
+    p_admin_id text,
     p_resolution text, -- 'confirmed_cheat', 'false_positive', 'monitoring'
     p_notes text DEFAULT NULL
 )
@@ -200,8 +213,11 @@ $$;
 -- ============================================================
 -- RPC: Check if User is Shadow Banned (for matchmaking)
 -- ============================================================
+-- Drop the version from 20260802000003 (same arg name, different RETURNS TABLE) so this
+-- definition can change the return shape without a "cannot change return type" error.
+DROP FUNCTION IF EXISTS public.is_shadow_banned(text);
 CREATE OR REPLACE FUNCTION public.is_shadow_banned(
-    p_user_id uuid
+    p_user_id text
 )
 RETURNS TABLE (
     is_shadow_banned boolean,
@@ -242,8 +258,8 @@ $$;
 -- RPC: Auto-flag Suspicious Players (called after keystroke verification)
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.auto_flag_suspicious_player(
-    p_user_id uuid,
-    p_room_id uuid,
+    p_user_id text,
+    p_room_id text,
     p_word text,
     p_anomaly_score numeric,
     p_anomaly_reasons text[],
@@ -335,9 +351,9 @@ $$;
 -- GRANT EXECUTE PERMISSIONS
 -- ============================================================
 GRANT EXECUTE ON FUNCTION public.get_shadow_ban_queue(int, int, boolean) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.resolve_shadow_ban(bigint, uuid, text, text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.is_shadow_banned(uuid) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.auto_flag_suspicious_player(uuid, uuid, text, numeric, text[], jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.resolve_shadow_ban(bigint, text, text, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_shadow_banned(text) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.auto_flag_suspicious_player(text, text, text, numeric, text[], jsonb) TO authenticated;
 
 -- ============================================================
 -- SEED: Default reason documentation (for reference)

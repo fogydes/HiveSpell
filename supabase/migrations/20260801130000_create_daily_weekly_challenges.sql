@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS public.challenge_definitions (
 
 -- Player challenge progress table
 CREATE TABLE IF NOT EXISTS public.player_challenges (
-    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL, -- Firebase Auth UID (TEXT, not UUID); no FK to auth.users
     challenge_id TEXT NOT NULL REFERENCES public.challenge_definitions(id) ON DELETE CASCADE,
     season_id TEXT NOT NULL, -- Links to battle pass season for reset cycle
     current_progress INTEGER NOT NULL DEFAULT 0,
@@ -48,15 +48,15 @@ CREATE POLICY "challenge_definitions_read_all" ON public.challenge_definitions
 -- Player challenges: users can only see/modify their own
 DROP POLICY IF EXISTS "player_challenges_select_own" ON public.player_challenges;
 CREATE POLICY "player_challenges_select_own" ON public.player_challenges
-    FOR SELECT TO authenticated USING (user_id = auth.uid());
+    FOR SELECT TO authenticated USING (user_id = (select auth.jwt()->>'sub'));
 
 DROP POLICY IF EXISTS "player_challenges_upsert_own" ON public.player_challenges;
 CREATE POLICY "player_challenges_upsert_own" ON public.player_challenges
-    FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
+    FOR INSERT TO authenticated WITH CHECK (user_id = (select auth.jwt()->>'sub'));
 
 DROP POLICY IF EXISTS "player_challenges_update_own" ON public.player_challenges;
 CREATE POLICY "player_challenges_update_own" ON public.player_challenges
-    FOR UPDATE TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+    FOR UPDATE TO authenticated USING (user_id = (select auth.jwt()->>'sub')) WITH CHECK (user_id = (select auth.jwt()->>'sub'));
 
 -- Updated at trigger
 DROP TRIGGER IF EXISTS handle_updated_at ON public.player_challenges;
@@ -93,7 +93,7 @@ ON CONFLICT (id) DO UPDATE SET
     is_active = EXCLUDED.is_active;
 
 -- RPC: Get player challenges for current season
-CREATE OR REPLACE FUNCTION public.get_player_challenges(p_user_id UUID, p_season_id TEXT)
+CREATE OR REPLACE FUNCTION public.get_player_challenges(p_user_id TEXT, p_season_id TEXT)
 RETURNS TABLE (
     challenge_id TEXT,
     type TEXT,
@@ -142,7 +142,7 @@ $$;
 
 -- RPC: Update challenge progress (called from gameplay)
 CREATE OR REPLACE FUNCTION public.update_challenge_progress(
-    p_user_id UUID,
+    p_user_id TEXT,
     p_season_id TEXT,
     p_metric TEXT,
     p_increment INTEGER DEFAULT 1,
@@ -278,7 +278,7 @@ $$;
 
 -- RPC: Claim challenge reward
 CREATE OR REPLACE FUNCTION public.claim_challenge_reward(
-    p_user_id UUID,
+    p_user_id TEXT,
     p_season_id TEXT,
     p_challenge_id TEXT
 )
@@ -299,6 +299,7 @@ BEGIN
 
     IF NOT FOUND THEN
         RETURN QUERY SELECT FALSE, 0, 0, 'Challenge not found';
+        RETURN;
     END IF;
 
     -- Get player progress
@@ -310,14 +311,17 @@ BEGIN
 
     IF NOT FOUND THEN
         RETURN QUERY SELECT FALSE, 0, 0, 'Challenge progress not found';
+        RETURN;
     END IF;
 
     IF NOT player_rec.is_completed THEN
         RETURN QUERY SELECT FALSE, 0, 0, 'Challenge not completed';
+        RETURN;
     END IF;
 
     IF player_rec.is_claimed THEN
         RETURN QUERY SELECT FALSE, 0, 0, 'Reward already claimed';
+        RETURN;
     END IF;
 
     -- Mark as claimed
@@ -336,14 +340,14 @@ BEGIN
     UPDATE public.profiles
     SET current_nectar = COALESCE(current_nectar, 0) + challenge_rec.reward_nectar,
         lifetime_nectar = COALESCE(lifetime_nectar, 0) + challenge_rec.reward_nectar
-    WHERE id = p_user_id::TEXT;
+    WHERE id = p_user_id;
 
     RETURN QUERY SELECT TRUE, challenge_rec.reward_xp, challenge_rec.reward_nectar, 'Reward claimed successfully';
 END;
 $$;
 
 -- RPC: Initialize or refresh player challenges for a season (called on login/season start)
-CREATE OR REPLACE FUNCTION public.ensure_player_challenges(p_user_id UUID, p_season_id TEXT)
+CREATE OR REPLACE FUNCTION public.ensure_player_challenges(p_user_id TEXT, p_season_id TEXT)
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
     cd RECORD;
@@ -360,7 +364,7 @@ END;
 $$;
 
 -- RPC: Get challenge summary for UI (counts, next reset times)
-CREATE OR REPLACE FUNCTION public.get_challenge_summary(p_user_id UUID, p_season_id TEXT)
+CREATE OR REPLACE FUNCTION public.get_challenge_summary(p_user_id TEXT, p_season_id TEXT)
 RETURNS TABLE (
     daily_total INTEGER,
     daily_completed INTEGER,

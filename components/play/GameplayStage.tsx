@@ -1,15 +1,19 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useRef } from "react";
+import gsap from "gsap";
+import { useGSAP } from "@gsap/react";
 import type { Room, Player } from "../../types/multiplayer";
 import IntermissionStatus from "./IntermissionStatus";
 import { TierBadgeMini } from "../tier/TierBadge";
 import { getTierFromStats, type PlayerStats } from "../../utils/tierRanking";
 import { useScene } from "@/context/SceneContext";
 import { useReduceMotion } from "@/hooks/useAccessibility";
+import { TimerRing } from "@/components/ui";
 
 interface GameplayStageProps {
   currentRoom: Room;
   definition: string;
   feedbackMessage?: string;
+  feedbackType?: "success" | "error";
   handleInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleInputDrop: (e: React.DragEvent<HTMLInputElement>) => void;
   handleInputPaste: (e: React.ClipboardEvent<HTMLInputElement>) => void;
@@ -41,6 +45,7 @@ const GameplayStage: React.FC<GameplayStageProps> = ({
   currentRoom,
   definition,
   feedbackMessage,
+  feedbackType,
   handleInputChange,
   handleInputDrop,
   handleInputPaste,
@@ -83,8 +88,74 @@ const GameplayStage: React.FC<GameplayStageProps> = ({
   const reduceMotion = useReduceMotion();
   const disableAnimations = performanceTier === "static" || reduceMotion;
 
+  // --- GSAP animation refs (replaces framer-motion). All effects below are
+  // gated on !disableAnimations so the "static"/reduce-motion paths render a
+  // plain, motionless UI. useGSAP() scopes tweens to stageRef and auto-reverts
+  // them on unmount / dependency change (gsap.context under the hood).
+  const stageRef = useRef<HTMLDivElement>(null);
+  const definitionRef = useRef<HTMLParagraphElement>(null);
+  const nonPlayingRef = useRef<HTMLDivElement>(null);
+  const streakValueRef = useRef<HTMLDivElement>(null);
+  const prevStreakRef = useRef(streak);
+
+  const currentWord = currentRoom?.gameState?.currentWord;
+
+  // Definition fades + slides in on each new word (was <motion.p>).
+  useGSAP(
+    () => {
+      if (disableAnimations || status !== "playing" || !definitionRef.current) return;
+      gsap.fromTo(
+        definitionRef.current,
+        { opacity: 0, y: 6 },
+        { opacity: 1, y: 0, duration: 0.22, ease: "power2.out" },
+      );
+    },
+    { dependencies: [currentWord, status], scope: stageRef },
+  );
+
+  // Non-playing status block fades in (was <motion.div key="non-playing">).
+  useGSAP(
+    () => {
+      if (disableAnimations || status === "playing" || !nonPlayingRef.current) return;
+      gsap.fromTo(
+        nonPlayingRef.current,
+        { opacity: 0 },
+        { opacity: 1, duration: 0.15, ease: "power1.out" },
+      );
+    },
+    { dependencies: [status], scope: stageRef },
+  );
+
+  // Input shake on a wrong answer (feedbackType flips to "error").
+  useGSAP(
+    () => {
+      if (disableAnimations || feedbackType !== "error" || !inputRef.current) return;
+      gsap.fromTo(
+        inputRef.current,
+        { x: -8 },
+        { x: 0, duration: 0.5, ease: "elastic.out(1, 0.3)" },
+      );
+    },
+    { dependencies: [feedbackType, feedbackMessage], scope: stageRef },
+  );
+
+  // Streak "pop" when the streak increments.
+  useGSAP(
+    () => {
+      const el = streakValueRef.current;
+      const prev = prevStreakRef.current;
+      prevStreakRef.current = streak;
+      if (disableAnimations || !el || streak <= prev) return;
+      gsap.fromTo(el, { scale: 1.4 }, { scale: 1, duration: 0.35, ease: "back.out(2)" });
+    },
+    { dependencies: [streak], scope: stageRef },
+  );
+
   return (
-    <div className="relative z-10 flex w-full max-w-[min(100%,38rem)] flex-col items-center rounded-[24px] border border-transparent bg-panel/30 p-3 transition-all duration-500 sm:rounded-3xl sm:p-8">
+    <div
+      ref={stageRef}
+      className="relative z-10 flex w-full max-w-[min(100%,38rem)] flex-col items-center rounded-[24px] border border-transparent bg-panel/30 p-3 transition-all duration-500 sm:rounded-3xl sm:p-8"
+    >
       <button
         onClick={onExitArena}
         className="hidden lg:block absolute top-4 left-4 p-2 text-red-400 hover:text-red-300 font-bold text-xs uppercase tracking-widest transition-colors border border-transparent hover:border-red-500/30 rounded"
@@ -94,11 +165,15 @@ const GameplayStage: React.FC<GameplayStageProps> = ({
 
       <div className="mt-4 mb-3 min-h-[44px] w-full max-w-lg text-center sm:mt-8 sm:mb-8 sm:min-h-[50px]">
         {status === "playing" ? (
-          <p className="text-text-muted text-xs sm:text-sm italic font-serif leading-relaxed px-4 py-2 bg-panel/50 rounded-lg border border-surface line-clamp-3 sm:line-clamp-none">
+          <p
+            key={currentWord}
+            ref={definitionRef}
+            className="text-text-muted text-xs sm:text-sm italic font-serif leading-relaxed px-4 py-2 bg-panel/50 rounded-lg border border-surface line-clamp-3 sm:line-clamp-none"
+          >
             "{definition}"
           </p>
         ) : (
-          <div className="h-[50px]">
+          <div ref={nonPlayingRef} className="h-[50px]">
             {status === "speaking" && (
               <div className="text-primary animate-pulse text-sm font-bold tracking-widest">
                 🔊 Listen to the word...
@@ -126,6 +201,7 @@ const GameplayStage: React.FC<GameplayStageProps> = ({
       <div className="w-full flex justify-between items-end mb-2 px-2 text-text-muted text-[10px] sm:text-xs font-bold tracking-widest">
         <div className="text-center">
           <div
+            ref={streakValueRef}
             className={`text-xl sm:text-2xl mb-1 ${streak > 5 ? "text-accent animate-pulse" : "text-text-main"}`}
           >
             {streak} {streak > 5 && "🔥"}
@@ -145,15 +221,8 @@ const GameplayStage: React.FC<GameplayStageProps> = ({
         </div>
       </div>
 
-      <div className="w-full text-center text-primary font-mono text-sm font-bold mb-1">
-        {timeLeft.toFixed(1)}s
-      </div>
-
-      <div className="relative mb-6 h-2 w-full overflow-hidden rounded-full border border-surface bg-panel sm:mb-8 sm:h-3">
-        <div
-          className={`h-full shadow-[0_0_15px_rgba(var(--primary-rgb),0.6)] ${timeLeft / totalTime < 0.3 ? "bg-red-500" : "bg-primary"}`}
-          style={{ width: `${Math.min(100, (timeLeft / totalTime) * 100)}%` }}
-        ></div>
+      <div className="mb-6 flex w-full justify-center sm:mb-8">
+        <TimerRing timeLeft={timeLeft} totalTime={totalTime} animate={!reduceMotion} />
       </div>
 
       <div className="relative mb-6 flex min-h-[80px] w-full items-center justify-center sm:mb-8 sm:min-h-[100px]">

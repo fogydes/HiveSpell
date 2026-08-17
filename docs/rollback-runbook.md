@@ -116,7 +116,7 @@ ALTER TABLE <table_name> ENABLE ROW LEVEL SECURITY;
 ## 4. Complete Rollback Procedure (Production)
 
 ### Step 1: Assess (30 seconds)
-- Check Sentry/PostHog for error spike
+- Check PostHog for error spike
 - Check Supabase logs: `supabase logs --project-ref <ref> --service postgres`
 - Check Firebase Hosting logs in console
 

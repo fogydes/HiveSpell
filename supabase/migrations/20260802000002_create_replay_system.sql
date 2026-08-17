@@ -6,13 +6,13 @@
 -- ============================================================
 CREATE TABLE IF NOT EXISTS game_replays (
     id bigserial PRIMARY KEY,
-    room_id uuid NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+    room_id text NOT NULL, -- Firebase room push ID (TEXT), no FK to rooms
     season_id text,
     mode text NOT NULL, -- 'baby', 'easy', 'medium', 'hard', 'genius', 'competitive', 'ranked'
     is_ranked boolean DEFAULT false,
     started_at timestamptz NOT NULL,
     ended_at timestamptz,
-    winner_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+    winner_id text, -- Firebase UID (TEXT), no FK to auth.users
     total_players int NOT NULL,
     game_duration_ms int,
     -- Replay data stored as JSONB
@@ -42,8 +42,8 @@ CREATE POLICY "Players can view own replay data" ON game_replays
         EXISTS (
             SELECT 1 FROM room_players rp
             WHERE rp.room_id = game_replays.room_id
-            AND rp.user_id = auth.uid()
-        ) OR winner_id = auth.uid()
+            AND rp.user_id = (select auth.jwt() ->> 'sub')
+        ) OR winner_id = (select auth.jwt() ->> 'sub')
     );
 
 -- ============================================================
@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS replay_events (
     replay_id bigint NOT NULL REFERENCES game_replays(id) ON DELETE CASCADE,
     sequence_num int NOT NULL, -- Order of event in replay
     event_type text NOT NULL, -- 'word_spoken', 'word_correct', 'word_incorrect', 'turn_start', 'turn_end', 'player_eliminated', 'game_start', 'game_end'
-    player_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+    player_id text, -- Firebase UID (TEXT), no FK to auth.users
     word text,
     wpm int,
     time_taken_ms int,
@@ -81,14 +81,16 @@ CREATE POLICY "System can insert replay events" ON replay_events
 -- RPC: Create Game Replay (called at game start/end by driver)
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.create_game_replay(
-    p_room_id uuid,
-    p_season_id text DEFAULT NULL,
+    -- Required params first (Postgres requires defaulted params to come last)
+    p_room_id text,
     p_mode text,
-    p_is_ranked boolean DEFAULT false,
     p_started_at timestamptz,
-    p_ended_at timestamptz DEFAULT NULL,
-    p_winner_id uuid DEFAULT NULL,
     p_total_players int,
+    -- Optional params with defaults
+    p_season_id text DEFAULT NULL,
+    p_is_ranked boolean DEFAULT false,
+    p_ended_at timestamptz DEFAULT NULL,
+    p_winner_id text DEFAULT NULL,
     p_game_duration_ms int DEFAULT NULL,
     p_events jsonb DEFAULT '[]',
     p_player_stats jsonb DEFAULT '{}'
@@ -122,7 +124,7 @@ BEGIN
             v_replay_id,
             (elem->>'sequence_num')::int,
             elem->>'event_type',
-            NULLIF(elem->>'player_id', '')::uuid,
+            NULLIF(elem->>'player_id', '')::text,
             elem->>'word',
             (elem->>'wpm')::int,
             (elem->>'time_taken_ms')::int,
@@ -144,13 +146,13 @@ CREATE OR REPLACE FUNCTION public.get_game_replay(
 )
 RETURNS TABLE (
     id bigint,
-    room_id uuid,
+    room_id text,
     season_id text,
     mode text,
     is_ranked boolean,
     started_at timestamptz,
     ended_at timestamptz,
-    winner_id uuid,
+    winner_id text,
     total_players int,
     game_duration_ms int,
     events jsonb,
@@ -189,17 +191,17 @@ $$;
 -- RPC: Get Replay by Room ID
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.get_replay_by_room(
-    p_room_id uuid
+    p_room_id text
 )
 RETURNS TABLE (
     id bigint,
-    room_id uuid,
+    room_id text,
     season_id text,
     mode text,
     is_ranked boolean,
     started_at timestamptz,
     ended_at timestamptz,
-    winner_id uuid,
+    winner_id text,
     total_players int,
     game_duration_ms int,
     events jsonb,
@@ -235,19 +237,19 @@ $$;
 -- RPC: Get Player Replay History
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.get_player_replays(
-    p_user_id uuid,
+    p_user_id text,
     p_limit int DEFAULT 20,
     p_offset int DEFAULT 0
 )
 RETURNS TABLE (
     id bigint,
-    room_id uuid,
+    room_id text,
     season_id text,
     mode text,
     is_ranked boolean,
     started_at timestamptz,
     ended_at timestamptz,
-    winner_id uuid,
+    winner_id text,
     total_players int,
     game_duration_ms int,
     player_stats jsonb,
@@ -275,7 +277,7 @@ BEGIN
     FROM game_replays gr
     WHERE gr.winner_id = p_user_id
        OR EXISTS (
-           SELECT 1 FROM jsonb_object_keys(gr.player_stats) k WHERE k::uuid = p_user_id
+           SELECT 1 FROM jsonb_object_keys(gr.player_stats) k WHERE k = p_user_id
        )
     ORDER BY gr.started_at DESC
     LIMIT p_limit
@@ -292,7 +294,7 @@ CREATE OR REPLACE FUNCTION public.get_replay_timeline(
 RETURNS TABLE (
     sequence_num int,
     event_type text,
-    player_id uuid,
+    player_id text,
     player_username text,
     player_avatar_url text,
     word text,
@@ -330,8 +332,8 @@ $$;
 -- ============================================================
 -- GRANT EXECUTE PERMISSIONS
 -- ============================================================
-GRANT EXECUTE ON FUNCTION public.create_game_replay(uuid, text, text, boolean, timestamptz, timestamptz, uuid, int, int, jsonb, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_game_replay(text, text, timestamptz, int, text, boolean, timestamptz, text, int, jsonb, jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_game_replay(bigint) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.get_replay_by_room(uuid) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.get_player_replays(uuid, int, int) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_replay_by_room(text) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_player_replays(text, int, int) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_replay_timeline(bigint) TO anon, authenticated;

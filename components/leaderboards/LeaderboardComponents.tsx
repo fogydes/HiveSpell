@@ -1,6 +1,6 @@
 // Phase 4d: Multi-dimension Leaderboards - UI Components
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   LeaderboardEntry,
   GlobalLeaderboardEntry,
@@ -23,6 +23,8 @@ import {
 } from '../../utils/leaderboards';
 import { useScene } from "@/context/SceneContext";
 import { useReduceMotion } from "@/hooks/useAccessibility";
+import gsap from "gsap";
+import { useGSAP } from "@gsap/react";
 
 // ============================================================
 // Tier Badge Component (reused from battle pass / profile)
@@ -378,6 +380,25 @@ export const LeaderboardTable: React.FC<LeaderboardTableProps> = ({
   highlightedUserId,
 }) => {
   const [showLoadMore, setShowLoadMore] = useState(false);
+  const reduceMotion = useReduceMotion();
+  const rowsRef = useRef<HTMLDivElement>(null);
+
+  // Rows stagger in when the dataset changes (initial load, tab switch). Keyed on
+  // the top entry so appending via "load more" doesn't re-animate existing rows.
+  useGSAP(
+    () => {
+      if (reduceMotion || !rowsRef.current) return;
+      gsap.from(Array.from(rowsRef.current.children), {
+        opacity: 0,
+        y: 12,
+        duration: 0.3,
+        stagger: 0.03,
+        ease: "power2.out",
+        clearProps: "transform,opacity",
+      });
+    },
+    { dependencies: [entries[0]?.userId], scope: rowsRef },
+  );
 
   useEffect(() => {
     if (hasMore && !loading && entries.length > 0) {
@@ -445,7 +466,7 @@ export const LeaderboardTable: React.FC<LeaderboardTableProps> = ({
       </div>
 
       {/* Rows */}
-      <div className="divide-y divide-slate-700/30">
+      <div ref={rowsRef} className="divide-y divide-slate-700/30">
         {entries.map((entry, index) => (
           <LeaderboardRow
             key={entry.userId}

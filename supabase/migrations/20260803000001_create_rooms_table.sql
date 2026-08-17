@@ -30,8 +30,16 @@ CREATE POLICY "Players can read rooms they are in"
     TO authenticated
     USING (players ? auth.jwt() ->> 'sub');
 
--- RLF: Players can update their own player data in rooms (via RPCs only, not directly)
--- Game state writes are denied by the policy in the validated_driver migration
+-- Players cannot write to rooms directly; all game-state mutations go through
+-- SECURITY DEFINER RPCs (start_game, advance_turn, eliminate_player, …) which
+-- bypass RLS. Direct client UPDATEs are denied. (Declared here — not in the
+-- validated_driver migration — because that migration applies before this
+-- table exists, so a CREATE POLICY ON public.rooms there would fail.)
+CREATE POLICY "Deny direct game_state writes"
+    ON public.rooms FOR UPDATE
+    TO authenticated
+    USING (false)
+    WITH CHECK (false);
 
 -- 2. Helper: Get current user ID from JWT (Firebase UID stored as text)
 -- ============================================================

@@ -12,6 +12,7 @@ dist
 dist-ssr
 *.local
 output/
+dev-dist/
 
 # Firebase
 .firebase/
@@ -40,3 +41,12 @@ supabase/.temp/
 tasks/
 /graphify-out
 /scripts/
+
+# Playwright MCP scratch output
+.playwright-mcp/
+
+# UI audit screenshots (regenerable artifacts, ~8MB of PNGs)
+ui-audit/
+
+# Generated at build time by scripts/generate-health.mjs
+public/health.json

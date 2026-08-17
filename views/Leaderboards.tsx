@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useLeaderboards } from "../hooks/useLeaderboards";
 import {
@@ -6,18 +6,12 @@ import {
   ModeSelector,
   LeaderboardTable,
   PlayerRankSummary,
-  TierBadge,
 } from "../components/leaderboards/LeaderboardComponents";
+import { SceneCanvasLayer } from "../components/scene";
 import {
   LeaderboardType,
   GameMode,
-  GAME_MODES,
-  GAME_MODE_LABELS,
   LEADERBOARD_TABS,
-  formatRank,
-  formatScore,
-  formatWpm,
-  getRankEmoji,
 } from "../utils/leaderboards";
 import { useScene } from "@/context/SceneContext";
 import { useReduceMotion } from "@/hooks/useAccessibility";
@@ -55,69 +49,49 @@ const LeaderboardsView: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<LeaderboardType>("global");
 
-  // Get the appropriate leaderboard data based on active tab
-  const currentLeaderboard = useMemo(() => {
-    switch (activeTab) {
-      case "global":
-        return globalLeaderboard;
-      case "friends":
-        return friendsLeaderboard;
-      case "daily":
-        return dailyLeaderboard;
-      case "mode":
-        return modeLeaderboard;
-      default:
-        return globalLeaderboard;
-    }
-  }, [activeTab, globalLeaderboard, friendsLeaderboard, dailyLeaderboard, modeLeaderboard]);
+  // Select the leaderboard data for the active tab (trivial O(1) selection)
+  const currentLeaderboard =
+    activeTab === "friends"
+      ? friendsLeaderboard
+      : activeTab === "daily"
+        ? dailyLeaderboard
+        : activeTab === "mode"
+          ? modeLeaderboard
+          : globalLeaderboard;
 
-  // Get the appropriate refresh function
-  const refreshCurrent = useMemo(() => {
+  // Stable refresh fn for the active tab — used as an effect dependency below.
+  const refreshCurrent = useCallback(() => {
     switch (activeTab) {
-      case "global":
-        return () => refreshGlobal(true);
       case "friends":
-        return () => refreshFriends(true);
+        return refreshFriends(true);
       case "daily":
-        return () => refreshDaily(true);
+        return refreshDaily(true);
       case "mode":
-        return () => currentMode && refreshMode(currentMode, true);
+        return currentMode ? refreshMode(currentMode, true) : undefined;
       default:
-        return () => refreshGlobal(true);
+        return refreshGlobal(true);
     }
   }, [activeTab, refreshGlobal, refreshFriends, refreshDaily, refreshMode, currentMode]);
 
-  // Get the appropriate load more function
-  const loadMoreCurrent = useMemo(() => {
-    switch (activeTab) {
-      case "global":
-        return loadMoreGlobal;
-      case "friends":
-        return loadMoreFriends;
-      case "daily":
-        return loadMoreDaily;
-      case "mode":
-        return loadMoreMode;
-      default:
-        return loadMoreGlobal;
-    }
-  }, [activeTab, loadMoreGlobal, loadMoreFriends, loadMoreDaily, loadMoreMode]);
+  // Select the load-more fn for the active tab
+  const loadMoreCurrent =
+    activeTab === "friends"
+      ? loadMoreFriends
+      : activeTab === "daily"
+        ? loadMoreDaily
+        : activeTab === "mode"
+          ? loadMoreMode
+          : loadMoreGlobal;
 
-  // Get the appropriate page number
-  const currentPage = useMemo(() => {
-    switch (activeTab) {
-      case "global":
-        return globalPage;
-      case "friends":
-        return friendsPage;
-      case "daily":
-        return dailyPage;
-      case "mode":
-        return modePage;
-      default:
-        return globalPage;
-    }
-  }, [activeTab, globalPage, friendsPage, dailyPage, modePage]);
+  // Select the page number for the active tab
+  const currentPage =
+    activeTab === "friends"
+      ? friendsPage
+      : activeTab === "daily"
+        ? dailyPage
+        : activeTab === "mode"
+          ? modePage
+          : globalPage;
 
   // Fetch player ranks when user changes or on initial load
   useEffect(() => {
@@ -144,161 +118,6 @@ const LeaderboardsView: React.FC = () => {
     refreshMode(mode, true);
   };
 
-  const getLeaderboardColumns = (type: LeaderboardType) => {
-    switch (type) {
-      case "global":
-        return [
-          { key: "rank", label: "#", width: "60px", align: "center" as const },
-          { key: "username", label: "Player", width: "auto", align: "left" as const },
-          { key: "tier", label: "Tier", width: "100px", align: "center" as const },
-          { key: "compositeScore", label: "Score", width: "100px", align: "center" as const },
-          { key: "gamesWon", label: "Wins", width: "80px", align: "center" as const },
-          { key: "totalCorrectWords", label: "Corrects", width: "100px", align: "center" as const },
-          { key: "maxStreak", label: "Best Streak", width: "100px", align: "center" as const },
-        ];
-      case "friends":
-        return [
-          { key: "rank", label: "#", width: "60px", align: "center" as const },
-          { key: "username", label: "Friend", width: "auto", align: "left" as const },
-          { key: "tier", label: "Tier", width: "100px", align: "center" as const },
-          { key: "compositeScore", label: "Score", width: "100px", align: "center" as const },
-          { key: "gamesWon", label: "Wins", width: "80px", align: "center" as const },
-          { key: "totalCorrectWords", label: "Corrects", width: "100px", align: "center" as const },
-          { key: "maxStreak", label: "Best Streak", width: "100px", align: "center" as const },
-        ];
-      case "daily":
-        return [
-          { key: "rank", label: "#", width: "60px", align: "center" as const },
-          { key: "username", label: "Player", width: "auto", align: "left" as const },
-          { key: "tier", label: "Tier", width: "100px", align: "center" as const },
-          { key: "dailyXp", label: "Daily XP", width: "100px", align: "center" as const },
-          { key: "dailyWins", label: "Wins", width: "80px", align: "center" as const },
-          { key: "dailyCorrectWords", label: "Corrects", width: "100px", align: "center" as const },
-        ];
-      case "mode":
-        return [
-          { key: "rank", label: "#", width: "60px", align: "center" as const },
-          { key: "username", label: "Player", width: "auto", align: "left" as const },
-          { key: "tier", label: "Tier", width: "100px", align: "center" as const },
-          { key: "modeScore", label: "Score", width: "100px", align: "center" as const },
-          { key: "gamesWon", label: "Wins", width: "80px", align: "center" as const },
-          { key: "totalCorrectWords", label: "Corrects", width: "100px", align: "center" as const },
-          { key: "bestWpm", label: "Best WPM", width: "100px", align: "center" as const },
-          { key: "maxStreak", label: "Best Streak", width: "100px", align: "center" as const },
-        ];
-    }
-  };
-
-  const renderRow = (entry: any, index: number) => {
-    const isCurrentUser = entry.isCurrentUser;
-    const rankEmoji = getRankEmoji(entry.rank);
-    const displayRank = rankEmoji || formatRank(entry.rank);
-
-    if (activeTab === "global" || activeTab === "friends") {
-      return (
-        <tr
-          key={entry.userId}
-          className={`theme-row transition-colors ${isCurrentUser ? "bg-primary/10" : ""}`}
-        >
-          <td className="text-center font-mono text-xl">{displayRank}</td>
-          <td className="flex items-center gap-3">
-            {entry.avatarUrl && (
-              <img
-                src={entry.avatarUrl}
-                alt=""
-                className="w-8 h-8 rounded-full border border-surface"
-              />
-            )}
-            <span
-              className={`font-medium ${isCurrentUser ? "text-primary" : ""}`}
-            >
-              {entry.username}{isCurrentUser && " (You)"}
-            </span>
-          </td>
-          <td className="text-center">
-            <TierBadge tier={entry.tier} size="sm" />
-          </td>
-          <td className="text-center font-mono text-lg font-bold text-primary">
-            {formatScore(entry.compositeScore)}
-          </td>
-          <td className="text-center font-mono">{entry.gamesWon}</td>
-          <td className="text-center font-mono">{entry.totalCorrectWords.toLocaleString()}</td>
-          <td className="text-center font-mono text-accent">{entry.maxStreak}</td>
-        </tr>
-      );
-    }
-
-    if (activeTab === "daily") {
-      return (
-        <tr
-          key={entry.userId}
-          className={`theme-row transition-colors ${isCurrentUser ? "bg-primary/10" : ""}`}
-        >
-          <td className="text-center font-mono text-xl">{displayRank}</td>
-          <td className="flex items-center gap-3">
-            {entry.avatarUrl && (
-              <img
-                src={entry.avatarUrl}
-                alt=""
-                className="w-8 h-8 rounded-full border border-surface"
-              />
-            )}
-            <span
-              className={`font-medium ${isCurrentUser ? "text-primary" : ""}`}
-            >
-              {entry.username}{isCurrentUser && " (You)"}
-            </span>
-          </td>
-          <td className="text-center">
-            <TierBadge tier={entry.tier} size="sm" />
-          </td>
-          <td className="text-center font-mono text-lg font-bold text-accent">
-            {formatScore(entry.dailyXp)}
-          </td>
-          <td className="text-center font-mono">{entry.dailyWins}</td>
-          <td className="text-center font-mono">{entry.dailyCorrectWords.toLocaleString()}</td>
-        </tr>
-      );
-    }
-
-    if (activeTab === "mode") {
-      return (
-        <tr
-          key={entry.userId}
-          className={`theme-row transition-colors ${isCurrentUser ? "bg-primary/10" : ""}`}
-        >
-          <td className="text-center font-mono text-xl">{displayRank}</td>
-          <td className="flex items-center gap-3">
-            {entry.avatarUrl && (
-              <img
-                src={entry.avatarUrl}
-                alt=""
-                className="w-8 h-8 rounded-full border border-surface"
-              />
-            )}
-            <span
-              className={`font-medium ${isCurrentUser ? "text-primary" : ""}`}
-            >
-              {entry.username}{isCurrentUser && " (You)"}
-            </span>
-          </td>
-          <td className="text-center">
-            <TierBadge tier={entry.tier} size="sm" />
-          </td>
-          <td className="text-center font-mono text-lg font-bold text-primary">
-            {formatScore(entry.modeScore)}
-          </td>
-          <td className="text-center font-mono">{entry.gamesWon}</td>
-          <td className="text-center font-mono">{entry.totalCorrectWords.toLocaleString()}</td>
-          <td className="text-center font-mono text-secondary">{formatWpm(entry.bestWpm)}</td>
-          <td className="text-center font-mono text-accent">{entry.maxStreak}</td>
-        </tr>
-      );
-    }
-
-    return null;
-  };
-
   const tabConfigs = LEADERBOARD_TABS.filter((tab) => {
     if (!user && tab.requiresAuth) return false;
     return true;
@@ -306,7 +125,8 @@ const LeaderboardsView: React.FC = () => {
 
   return (
     <div className="theme-scene min-h-screen bg-app p-4">
-      <div className="theme-panel-shell relative z-10 w-full max-w-7xl rounded-[2rem] border bg-panel/35 backdrop-blur-xl overflow-hidden">
+      <SceneCanvasLayer />
+      <div className="theme-panel-shell relative z-10 w-full max-w-7xl mx-auto rounded-[2rem] border bg-panel/35 backdrop-blur-xl overflow-hidden">
         {/* Header */}
         <div className="border-b border-surface bg-panel/20 p-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -355,7 +175,7 @@ const LeaderboardsView: React.FC = () => {
           <div className="border-b border-surface bg-panel/10 p-4">
             <div className="flex items-center gap-3">
               <span className="text-sm font-medium text-text-muted">Game Mode:</span>
-              <ModeSelector currentMode={currentMode || "medium"} onModeChange={handleModeChange} />
+              <ModeSelector currentMode={currentMode || "baby"} onModeChange={handleModeChange} />
             </div>
           </div>
         )}
@@ -423,6 +243,7 @@ const LeaderboardsView: React.FC = () => {
                 emptyMessage="No entries yet"
                 onLoadMore={handleLoadMore}
                 hasMore={currentLeaderboard.hasNextPage}
+                highlightedUserId={user?.uid}
               />
               {/* Pagination */}
               {currentLeaderboard.hasNextPage && (

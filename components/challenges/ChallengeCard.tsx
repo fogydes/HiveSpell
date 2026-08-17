@@ -318,16 +318,26 @@ export const ChallengeSection: React.FC<ChallengeSectionProps> = ({
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {challenges.map((challenge) => (
-          <ChallengeCard
-            key={challenge.challengeId}
-            challenge={challenge}
-            onClaim={() => onClaim(challenge.challengeId)}
-            claiming={claimingIds.has(challenge.challengeId)}
-          />
-        ))}
-      </div>
+      {challenges.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-800/30 p-8 text-center">
+          <p className="text-slate-400">
+            {type === 'daily'
+              ? 'No daily challenges right now — check back after the next reset.'
+              : 'No weekly challenges this week — check back on Monday.'}
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {challenges.map((challenge) => (
+            <ChallengeCard
+              key={challenge.challengeId}
+              challenge={challenge}
+              onClaim={() => onClaim(challenge.challengeId)}
+              claiming={claimingIds.has(challenge.challengeId)}
+            />
+          ))}
+        </div>
+      )}
     </section>
   );
 };

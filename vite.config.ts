@@ -109,7 +109,6 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
-      external: ["@sentry/react"],
       output: {
         manualChunks(id) {
           return vendorModules.some((moduleId) => id.includes(moduleId))

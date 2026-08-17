@@ -9,26 +9,30 @@
 
 export type LeaderboardType = 'global' | 'friends' | 'daily' | 'mode';
 
-export type GameMode = 'baby' | 'easy' | 'medium' | 'hard' | 'genius' | 'competitive';
+export type GameMode = 'baby' | 'cakewalk' | 'learner' | 'intermediate' | 'heated' | 'genius' | 'polymath' | 'omniscient';
 
-export const GAME_MODES: GameMode[] = ['baby', 'easy', 'medium', 'hard', 'genius', 'competitive'];
+export const GAME_MODES: GameMode[] = ['baby', 'cakewalk', 'learner', 'intermediate', 'heated', 'genius', 'polymath', 'omniscient'];
 
 export const GAME_MODE_LABELS: Record<GameMode, string> = {
   baby: 'Baby Bee',
-  easy: 'Easy',
-  medium: 'Medium',
-  hard: 'Hard',
+  cakewalk: 'Cakewalk',
+  learner: 'Learner',
+  intermediate: 'Intermediate',
+  heated: 'Heated',
   genius: 'Genius',
-  competitive: 'Competitive',
+  polymath: 'Polymath',
+  omniscient: 'Omniscient',
 };
 
 export const GAME_MODE_TIERS: Record<GameMode, number> = {
   baby: 1,
-  easy: 2,
-  medium: 3,
-  hard: 4,
-  genius: 5,
-  competitive: 6,
+  cakewalk: 2,
+  learner: 3,
+  intermediate: 4,
+  heated: 5,
+  genius: 6,
+  polymath: 7,
+  omniscient: 8,
 };
 
 // ============================================================

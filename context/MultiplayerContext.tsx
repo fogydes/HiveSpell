@@ -317,17 +317,23 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const startGameRoom = async (locale: string, difficulty: string) => {
-    if (!currentRoom?.id) return;
+    if (!currentRoom?.id) {
+      throw new Error("No active room to start");
+    }
     setLoading(true);
     setError(null);
     try {
       const result = await startGame(currentRoom.id, locale, difficulty);
       if (!result.success) {
-        setError(result.error || "Failed to start game");
+        throw new Error(result.error || "Failed to start game");
       }
       // Room will update via realtime subscription
     } catch (err: any) {
+      // Record it in shared context state *and* reject, so the caller can
+      // render its own recovery UI instead of stranding the player in an
+      // arena that never starts (see the arena error state in views/Play.tsx).
       setError(err.message);
+      throw err;
     } finally {
       setLoading(false);
     }

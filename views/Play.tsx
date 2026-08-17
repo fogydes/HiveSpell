@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import { useMultiplayer } from "../context/MultiplayerContext";
 import { leaveRoom } from "../services/multiplayerService";
-import { saveLastPlayedMode } from "./Home";
+import { saveLastPlayedMode } from "../utils/lastPlayedMode";
 import {
   speak,
   checkAnswer,
@@ -20,6 +20,7 @@ import {
   update as dbUpdate,
 } from "firebase/database";
 import { ProfileModal } from "../components/ProfileModal";
+import ArenaStatusScreen from "../components/play/ArenaStatusScreen";
 import GameplayStage from "../components/play/GameplayStage";
 import MobilePlayActions from "../components/play/MobilePlayActions";
 import PlayerListPanel from "../components/play/PlayerListPanel";
@@ -158,6 +159,10 @@ const Play: React.FC = () => {
     userId: user?.uid,
   });
 
+  // Arena start failure surfaced to the player, plus a manual retry trigger.
+  const [startError, setStartError] = useState<string | null>(null);
+  const [startAttempt, setStartAttempt] = useState(0);
+
   // Start game via RPC when room is waiting and I'm the host/local driver
   useEffect(() => {
     if (!currentRoom || !user || !isLocalDriver) return;
@@ -166,19 +171,38 @@ const Play: React.FC = () => {
     if (gameStartAttemptedRef.current) return;
 
     gameStartAttemptedRef.current = true;
+    setStartError(null);
 
     // Host starts the game
     startGameRoom(locale, currentRoom.settings?.difficulty || paramMode || "baby")
       .catch((err) => {
         console.error("[Play] Failed to start game:", err);
-        gameStartAttemptedRef.current = false;
+        // Surface the failure instead of stranding the player in an arena that
+        // never starts. The attempt flag stays set so a failing RPC isn't
+        // hammered on every re-render — recovery goes through retryStartGame.
+        setStartError(err?.message || "Failed to start game");
       });
-  }, [currentRoom?.status, isLocalDriver, locale, paramMode, contextLoading, startGameRoom]);
+  }, [
+    currentRoom?.status,
+    isLocalDriver,
+    locale,
+    paramMode,
+    contextLoading,
+    startGameRoom,
+    startAttempt,
+  ]);
+
+  const retryStartGame = useCallback(() => {
+    gameStartAttemptedRef.current = false;
+    setStartError(null);
+    setStartAttempt((attempt) => attempt + 1);
+  }, []);
 
   // Reset game start flag when room leaves waiting status
   useEffect(() => {
     if (currentRoom && currentRoom.status !== "waiting") {
       gameStartAttemptedRef.current = false;
+      setStartError(null);
     }
   }, [currentRoom?.status]);
 
@@ -693,11 +717,31 @@ const Play: React.FC = () => {
     setActiveTab(activeTab === tab ? "none" : tab);
   };
 
-  if (!currentRoom) {
+  // The arena can only render gameplay once the server has moved the room into
+  // `playing`. Until then, show an explicit status screen rather than an empty
+  // arena — and always leave the player a way back to the lobby.
+  if (startError) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-emerald-500">
-        Connecting...
-      </div>
+      <ArenaStatusScreen
+        errorDetail={startError}
+        onReturnToLobby={exitArena}
+        onRetry={isLocalDriver ? retryStartGame : undefined}
+        variant="error"
+      />
+    );
+  }
+
+  if (!currentRoom) {
+    return <ArenaStatusScreen variant="connecting" />;
+  }
+
+  if (currentRoom.status === "waiting") {
+    return (
+      <ArenaStatusScreen
+        onReturnToLobby={exitArena}
+        playerCount={playersList.length}
+        variant="waiting"
+      />
     );
   }
 
@@ -741,6 +785,7 @@ const Play: React.FC = () => {
         currentRoom={currentRoom}
         definition={definition}
         feedbackMessage={feedback?.msg}
+        feedbackType={feedback?.type}
         handleInputChange={handleInputChange}
         handleInputDrop={handleInputDrop}
         handleInputPaste={handleInputPaste}
@@ -762,6 +807,9 @@ const Play: React.FC = () => {
         timeLeft={timeLeft}
         totalTime={totalTime}
         userId={user?.uid}
+        wins={userData?.wins ?? 0}
+        corrects={userData?.corrects ?? 0}
+        lifetimeNectar={userData?.lifetimeNectar ?? 0}
       />
 
       {/* Theater Components - Phase 2b */}

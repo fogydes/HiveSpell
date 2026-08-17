@@ -8,22 +8,23 @@
 -- ============================================================================
 
 -- The current policies use: current_setting('request.headers', true)::json->>'x-firebase-uid'
--- Supabase recommends: (select auth.uid()::text) for better query planning
+-- Firebase UIDs are non-UUID TEXT, so we compare against (select auth.jwt()->>'sub').
+-- NOTE: do NOT use auth.uid() here -- it casts the JWT sub to uuid and throws 22P02 for Firebase UIDs.
 
 DROP POLICY IF EXISTS "Users can view own battle pass progress" ON public.battle_pass_progress;
 CREATE POLICY "Users can view own battle pass progress"
   ON public.battle_pass_progress FOR SELECT
-  USING (user_id = (select auth.uid()::text));
+  USING (user_id = (select auth.jwt()->>'sub'));
 
 DROP POLICY IF EXISTS "Users can create own battle pass progress" ON public.battle_pass_progress;
 CREATE POLICY "Users can create own battle pass progress"
   ON public.battle_pass_progress FOR INSERT
-  WITH CHECK (user_id = (select auth.uid()::text));
+  WITH CHECK (user_id = (select auth.jwt()->>'sub'));
 
 DROP POLICY IF EXISTS "Users can update own battle pass progress" ON public.battle_pass_progress;
 CREATE POLICY "Users can update own battle pass progress"
   ON public.battle_pass_progress FOR UPDATE
-  USING (user_id = (select auth.uid()::text));
+  USING (user_id = (select auth.jwt()->>'sub'));
 
 -- ============================================================================
 -- 2. Drop unused indexes (INFO level warnings)
@@ -53,7 +54,7 @@ CREATE INDEX IF NOT EXISTS idx_player_challenges_challenge_id
 -- Check friendships - already fixed in 20260316000000_security_and_performance.sql
 -- Check notifications - already fixed in 20260316000000_security_and_performance.sql
 -- Check messages - already fixed in 20260316000000_security_and_performance.sql
--- Check daily_stats - uses auth.uid() directly
--- Check mode_stats - uses auth.uid() directly
--- Check player_challenges - uses auth.uid() directly (UUID)
+-- Check daily_stats - uses (select auth.jwt()->>'sub') = user_id (Firebase TEXT UID)
+-- Check mode_stats - uses (select auth.jwt()->>'sub') = user_id (Firebase TEXT UID)
+-- Check player_challenges - uses (select auth.jwt()->>'sub') = user_id (Firebase TEXT UID)
 -- Check challenge_definitions - no RLS needed (public read)

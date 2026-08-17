@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useScene } from "@/context/SceneContext";
 import { useReduceMotion } from "@/hooks/useAccessibility";
@@ -143,6 +143,24 @@ const NotificationBell: React.FC = () => {
     setRespondingTo(null);
   };
 
+  // Collapse notifications that represent the same logical event (B9). The backend
+  // can emit several rows for one event (e.g. three "X accepted your friend
+  // request!" entries), so friend events are keyed by type + sender and only the
+  // most recent is kept. Notifications without a sender (e.g. system messages) are
+  // keyed by id so distinct ones are never merged. `notifications` is newest-first,
+  // so the first occurrence of each key is the one we keep.
+  const dedupedNotifications = useMemo(() => {
+    const seen = new Set<string>();
+    return notifications.filter((n) => {
+      const key = n.data?.from_user_id
+        ? `${n.type}:${n.data.from_user_id}`
+        : n.id;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [notifications]);
+
   const getNotifIcon = (type: string) => {
     switch (type) {
       case "friend_request":
@@ -167,7 +185,7 @@ const NotificationBell: React.FC = () => {
         title={t("common.settings")}
         aria-expanded={isOpen}
         aria-haspopup="menu"
-        aria-label={unreadCount > 0 ? `${unreadCount} ${t("common.notifications")}` : t("common.notifications")}
+        aria-label={unreadCount > 0 ? `${unreadCount} ${t("nav.notifications")}` : t("nav.notifications")}
       >
         <span className="text-lg">🔔</span>
         {unreadCount > 0 && (
@@ -192,22 +210,22 @@ const NotificationBell: React.FC = () => {
             <h3 className="text-sm font-bold text-text-main uppercase tracking-wider">
               {t("nav.notifications")}
             </h3>
-            {notifications.length > 0 && (
+            {dedupedNotifications.length > 0 && (
               <span className="text-[10px] text-text-muted">
-                {notifications.length} {t("common.total")}
+                {dedupedNotifications.length} {t("common.total")}
               </span>
             )}
           </div>
 
           {/* Notifications List */}
           <div className="overflow-y-auto max-h-80 custom-scrollbar">
-            {notifications.length === 0 ? (
+            {dedupedNotifications.length === 0 ? (
               <div className="p-8 text-center">
                 <span className="text-3xl opacity-50 block mb-2">🐝</span>
                 <p className="text-text-muted text-sm">{t("notifications.noNotifications")}</p>
               </div>
             ) : (
-              notifications.map((notif) => (
+              dedupedNotifications.map((notif) => (
                 <div
                   key={notif.id}
                   className={`px-4 py-3 border-b border-surface/50 hover:bg-surface/30 transition-colors ${

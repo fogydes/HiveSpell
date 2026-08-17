@@ -16,6 +16,16 @@
   --color-text-main: var(--text-main);
   --color-text-muted: var(--text-muted);
 
+  /* Semantic feedback colors (§1.1 — meaning is constant across themes) */
+  --color-correct: var(--correct);
+  --color-wrong: var(--wrong);
+  --color-streak: var(--streak);
+  --color-premium: var(--premium);
+  --color-success: var(--success);
+  --color-error: var(--error);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+
   /* Custom Animations */
   --animate-fade-in: fadeIn 0.5s ease-out;
   --animate-hover-float: float 3s ease-in-out infinite;
@@ -24,6 +34,68 @@
   --animate-scale-in: scaleIn 0.3s ease-out;
   --animate-tier-pulse: tierPulse 2.5s ease-in-out infinite;
   --animate-tier-glow-pulse: tierGlowPulse 2s ease-in-out infinite;
+}
+
+/* ============================================
+   DESIGN SYSTEM — TYPOGRAPHY & LAYOUT (§1.2 / §1.3)
+   Declared in the `components` layer so Tailwind utilities
+   (font-bold, tracking-*, text-primary, …) still win when composed.
+   ============================================ */
+@layer components {
+  /* §1.2 — six semantic text styles giving a clear visual hierarchy */
+  .text-display {
+    font-family: var(--font-display);
+    font-size: clamp(2.5rem, 5vw, 4rem);
+    line-height: 1.05;
+    letter-spacing: var(--heading-tracking);
+    font-weight: 800;
+  }
+  .text-headline {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 3vw, 2.25rem);
+    line-height: 1.15;
+    letter-spacing: 0.04em;
+    font-weight: 700;
+  }
+  .text-subheadline {
+    font-family: var(--font-body);
+    font-size: 1.125rem;
+    line-height: 1.4;
+    font-weight: 600;
+  }
+  .text-body {
+    font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: 1.6;
+    font-weight: 400;
+  }
+  .text-caption {
+    font-family: var(--font-body);
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    letter-spacing: 0.01em;
+  }
+  .text-mono {
+    font-family: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+  }
+
+  /* §1.3 — vertical rhythm helpers on a 4px base scale */
+  .stack-tight > * + * {
+    margin-top: 4px;
+  }
+  .stack-normal > * + * {
+    margin-top: 12px;
+  }
+  .stack-loose > * + * {
+    margin-top: 24px;
+  }
+  .grid-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+  }
 }
 
 @keyframes fadeIn {
@@ -278,6 +350,26 @@
   --app-cursor-default: auto;
   --app-cursor-pointer: pointer;
   --app-cursor-active: pointer;
+
+  /* Semantic feedback palette (§1.1) — fixed values; meaning must not shift
+     per theme (a "correct" answer is always green, "wrong" always red). */
+  --correct: #22c55e;
+  --wrong: #ef4444;
+  --streak: #fb923c;
+  --premium: #fbbf24;
+  --success: #22c55e;
+  --error: #ef4444;
+  --warning: #f59e0b;
+  --info: #3b82f6;
+
+  /* Motion system (§1.5) — spec-named aliases over the existing curves so
+     GSAP configs and inline styles share one source of truth. */
+  --ease-smooth: var(--ease-standard);
+  --ease-bounce: var(--ease-emphasis);
+  --ease-snap: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 300ms;
+  --duration-slow: 500ms;
 }
 
 html,

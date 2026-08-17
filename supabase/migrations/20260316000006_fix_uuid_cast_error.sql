@@ -1,10 +1,19 @@
--- 1. DROP RPCS
+-- 1. DROP RPCS (both the legacy param-less overload and the WITH-param overload from
+--    earlier migrations, so a clean reset leaves exactly one signature per function).
 DROP FUNCTION IF EXISTS public.award_profile_win(text);
+DROP FUNCTION IF EXISTS public.award_profile_win(text, text);
 DROP FUNCTION IF EXISTS public.apply_correct_answer_reward(text, integer);
+DROP FUNCTION IF EXISTS public.apply_correct_answer_reward(text, text, integer);
 DROP FUNCTION IF EXISTS public.purchase_item(text, integer, text);
+DROP FUNCTION IF EXISTS public.purchase_item(text, text, integer, text);
 
--- 2. RECREATE RPCS USING auth.jwt()->>'sub' TO SUPPORT FIREBASE STRING UIDs
+-- 2. RECREATE RPCS USING auth.jwt()->>'sub' TO SUPPORT FIREBASE STRING UIDs.
+--    Firebase-authed clients pass their own UID as p_user_id (PostgREST resolves
+--    function overloads by named args; the app + tests call these with p_user_id).
+--    Each function validates p_user_id against the verified JWT subject so a caller
+--    cannot act as another user; the write uses the JWT identity, not the client arg.
 create or replace function public.award_profile_win(
+  p_user_id text,
   p_username text default null
 )
 returns jsonb
@@ -17,7 +26,7 @@ declare
   v_user_id text;
 begin
   v_user_id := auth.jwt()->>'sub';
-  if v_user_id is null then
+  if v_user_id is null or v_user_id != p_user_id then
     return jsonb_build_object('error', 'Unauthorized');
   end if;
 
@@ -67,6 +76,7 @@ end;
 $$;
 
 create or replace function public.apply_correct_answer_reward(
+  p_user_id text,
   p_username text default null,
   p_nectar_to_add integer default 0
 )
@@ -80,7 +90,7 @@ declare
   v_user_id text;
 begin
   v_user_id := auth.jwt()->>'sub';
-  if v_user_id is null then
+  if v_user_id is null or v_user_id != p_user_id then
     return jsonb_build_object('error', 'Unauthorized');
   end if;
 
@@ -133,7 +143,7 @@ begin
 end;
 $$;
 
-CREATE OR REPLACE FUNCTION public.purchase_item(item_id text, cost integer, category text)
+CREATE OR REPLACE FUNCTION public.purchase_item(p_user_id text, item_id text, cost integer, category text)
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
@@ -145,7 +155,7 @@ DECLARE
   v_user_id text;
 BEGIN
   v_user_id := auth.jwt()->>'sub';
-  IF v_user_id IS NULL THEN
+  IF v_user_id IS NULL OR v_user_id != p_user_id THEN
     RETURN jsonb_build_object('success', false, 'message', 'Unauthorized');
   END IF;
 
@@ -180,14 +190,14 @@ END;
 $function$;
 
 -- Revoke anon and public access from new functions
-REVOKE EXECUTE ON FUNCTION public.award_profile_win(text) FROM anon, public;
-REVOKE EXECUTE ON FUNCTION public.apply_correct_answer_reward(text, integer) FROM anon, public;
-REVOKE EXECUTE ON FUNCTION public.purchase_item(text, integer, text) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.award_profile_win(text, text) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.apply_correct_answer_reward(text, text, integer) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.purchase_item(text, text, integer, text) FROM anon, public;
 
 -- Grant authenticated access
-GRANT EXECUTE ON FUNCTION public.award_profile_win(text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.apply_correct_answer_reward(text, integer) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.purchase_item(text, integer, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.award_profile_win(text, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.apply_correct_answer_reward(text, text, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.purchase_item(text, text, integer, text) TO authenticated;
 
 -- 3. FIX RLS POLICIES FOR ALL TABLES (USE auth.jwt()->>'sub' WITH InitPlan)
 -- Profiles

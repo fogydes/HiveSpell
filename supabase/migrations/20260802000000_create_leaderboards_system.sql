@@ -9,11 +9,11 @@ DROP MATERIALIZED VIEW IF EXISTS mv_daily_leaderboard CASCADE;
 DROP MATERIALIZED VIEW IF EXISTS mv_mode_leaderboard CASCADE;
 
 DROP FUNCTION IF EXISTS public.refresh_leaderboards(void);
-DROP FUNCTION IF EXISTS public.get_global_leaderboard(uuid, text, int, int);
-DROP FUNCTION IF EXISTS public.get_friends_leaderboard(uuid, text, int, int);
-DROP FUNCTION IF EXISTS public.get_daily_leaderboard(uuid, text, int, int);
-DROP FUNCTION IF EXISTS public.get_mode_leaderboard(uuid, text, text, int, int);
-DROP FUNCTION IF EXISTS public.get_player_rank(uuid, text, text);
+DROP FUNCTION IF EXISTS public.get_global_leaderboard(text, text, int, int);
+DROP FUNCTION IF EXISTS public.get_friends_leaderboard(text, text, int, int);
+DROP FUNCTION IF EXISTS public.get_daily_leaderboard(text, text, int, int);
+DROP FUNCTION IF EXISTS public.get_mode_leaderboard(text, text, text, int, int);
+DROP FUNCTION IF EXISTS public.get_player_rank(text, text, text);
 
 -- ============================================================
 -- MATERIALIZED VIEW: Global Season Leaderboard
@@ -59,16 +59,87 @@ SELECT
     ft.friend_group
 FROM profiles p
 INNER JOIN (
-    -- Friend groups: each user + their friends form a group
-    SELECT f.user_id, f.user_id AS friend_group FROM friends f WHERE f.status = 'accepted'
+    -- Friend groups: each user's group = themselves + their accepted friends, in BOTH directions.
+    -- Source table is `friendships` (requester_id / addressee_id, both TEXT Firebase UIDs).
+    SELECT f.requester_id AS user_id, f.requester_id AS friend_group FROM friendships f WHERE f.status = 'accepted'
     UNION
-    SELECT f.friend_id, f.user_id AS friend_group FROM friends f WHERE f.status = 'accepted'
+    SELECT f.addressee_id AS user_id, f.requester_id AS friend_group FROM friendships f WHERE f.status = 'accepted'
+    UNION
+    SELECT f.addressee_id AS user_id, f.addressee_id AS friend_group FROM friendships f WHERE f.status = 'accepted'
+    UNION
+    SELECT f.requester_id AS user_id, f.addressee_id AS friend_group FROM friendships f WHERE f.status = 'accepted'
 ) ft ON p.id = ft.user_id
 WHERE p.lifetime_nectar > 0 OR p.games_played > 0
 ORDER BY ft.friend_group, composite_score DESC;
 
-CREATE INDEX mv_friends_leaderboard_user_id_idx ON mv_friends_leaderboard (user_id);
+-- Unique index required for REFRESH MATERIALIZED VIEW CONCURRENTLY.
+-- (user_id, friend_group) is the natural key; its leading column still serves user_id lookups.
+CREATE UNIQUE INDEX mv_friends_leaderboard_user_group_idx ON mv_friends_leaderboard (user_id, friend_group);
 CREATE INDEX mv_friends_leaderboard_friend_group_idx ON mv_friends_leaderboard (friend_group);
+
+-- ============================================================
+-- TABLE: Daily Stats (for daily leaderboard)
+-- (defined before mv_daily_leaderboard, which reads from it)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS daily_stats (
+    user_id text, -- Firebase UID (TEXT), no FK to auth.users
+    stat_date date NOT NULL DEFAULT CURRENT_DATE,
+    games_played int DEFAULT 0,
+    games_won int DEFAULT 0,
+    correct_words int DEFAULT 0,
+    xp_earned int DEFAULT 0,
+    nectar_earned int DEFAULT 0,
+    best_wpm int DEFAULT 0,
+    max_streak int DEFAULT 0,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now(),
+    PRIMARY KEY (user_id, stat_date)
+);
+
+ALTER TABLE daily_stats ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view own daily stats" ON daily_stats;
+CREATE POLICY "Users can view own daily stats" ON daily_stats
+    FOR SELECT USING ((select auth.jwt() ->> 'sub') = user_id);
+
+DROP POLICY IF EXISTS "Users can upsert own daily stats" ON daily_stats;
+CREATE POLICY "Users can upsert own daily stats" ON daily_stats
+    FOR INSERT WITH CHECK ((select auth.jwt() ->> 'sub') = user_id);
+
+DROP POLICY IF EXISTS "Users can update own daily stats" ON daily_stats;
+CREATE POLICY "Users can update own daily stats" ON daily_stats
+    FOR UPDATE USING ((select auth.jwt() ->> 'sub') = user_id);
+
+-- ============================================================
+-- TABLE: Mode Stats (for mode-specific leaderboard)
+-- (defined before mv_mode_leaderboard, which reads from it)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS mode_stats (
+    user_id text, -- Firebase UID (TEXT), no FK to auth.users
+    mode text NOT NULL, -- 'baby', 'easy', 'medium', 'hard', 'genius', 'competitive'
+    games_played int DEFAULT 0,
+    games_won int DEFAULT 0,
+    total_correct_words int DEFAULT 0,
+    best_wpm int DEFAULT 0,
+    max_streak int DEFAULT 0,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now(),
+    PRIMARY KEY (user_id, mode)
+);
+
+ALTER TABLE mode_stats ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view own mode stats" ON mode_stats;
+CREATE POLICY "Users can view own mode stats" ON mode_stats
+    FOR SELECT USING ((select auth.jwt() ->> 'sub') = user_id);
+
+DROP POLICY IF EXISTS "Users can upsert own mode stats" ON mode_stats;
+CREATE POLICY "Users can upsert own mode stats" ON mode_stats
+    FOR INSERT WITH CHECK ((select auth.jwt() ->> 'sub') = user_id);
+
+DROP POLICY IF EXISTS "Users can update own mode stats" ON mode_stats;
+CREATE POLICY "Users can update own mode stats" ON mode_stats
+    FOR UPDATE USING ((select auth.jwt() ->> 'sub') = user_id);
 
 -- ============================================================
 -- MATERIALIZED VIEW: Daily Leaderboard (resets at 00:00 UTC)
@@ -114,69 +185,9 @@ INNER JOIN mode_stats ms ON p.id = ms.user_id
 WHERE p.lifetime_nectar > 0 OR p.games_played > 0
 ORDER BY ms.mode, mode_score DESC;
 
-CREATE INDEX mv_mode_leaderboard_user_id_idx ON mv_mode_leaderboard (user_id);
+-- Unique index required for REFRESH MATERIALIZED VIEW CONCURRENTLY. (user_id, mode) is the natural key.
+CREATE UNIQUE INDEX mv_mode_leaderboard_user_mode_idx ON mv_mode_leaderboard (user_id, mode);
 CREATE INDEX mv_mode_leaderboard_mode_idx ON mv_mode_leaderboard (mode);
-
--- ============================================================
--- TABLE: Daily Stats (for daily leaderboard)
--- ============================================================
-CREATE TABLE IF NOT EXISTS daily_stats (
-    user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
-    stat_date date NOT NULL DEFAULT CURRENT_DATE,
-    games_played int DEFAULT 0,
-    games_won int DEFAULT 0,
-    correct_words int DEFAULT 0,
-    xp_earned int DEFAULT 0,
-    nectar_earned int DEFAULT 0,
-    best_wpm int DEFAULT 0,
-    max_streak int DEFAULT 0,
-    created_at timestamptz DEFAULT now(),
-    updated_at timestamptz DEFAULT now(),
-    PRIMARY KEY (user_id, stat_date)
-);
-
-ALTER TABLE daily_stats ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Users can view own daily stats" ON daily_stats;
-CREATE POLICY "Users can view own daily stats" ON daily_stats
-    FOR SELECT USING (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "Users can upsert own daily stats" ON daily_stats;
-CREATE POLICY "Users can upsert own daily stats" ON daily_stats
-    FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "Users can update own daily stats" ON daily_stats;
-CREATE POLICY "Users can update own daily stats" ON daily_stats
-    FOR UPDATE USING (auth.uid() = user_id);
-
--- ============================================================
--- TABLE: Mode Stats (for mode-specific leaderboard)
--- ============================================================
-CREATE TABLE IF NOT EXISTS mode_stats (
-    user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
-    mode text NOT NULL, -- 'baby', 'easy', 'medium', 'hard', 'genius', 'competitive'
-    games_played int DEFAULT 0,
-    games_won int DEFAULT 0,
-    total_correct_words int DEFAULT 0,
-    best_wpm int DEFAULT 0,
-    max_streak int DEFAULT 0,
-    created_at timestamptz DEFAULT now(),
-    updated_at timestamptz DEFAULT now(),
-    PRIMARY KEY (user_id, mode)
-);
-
-ALTER TABLE mode_stats ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Users can view own mode stats" ON mode_stats;
-CREATE POLICY "Users can view own mode stats" ON mode_stats
-    FOR SELECT USING (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "Users can upsert own mode stats" ON mode_stats;
-CREATE POLICY "Users can upsert own mode stats" ON mode_stats
-    FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "Users can update own mode stats" ON mode_stats
-    FOR UPDATE USING (auth.uid() = user_id);
 
 -- ============================================================
 -- RPC: Refresh All Leaderboards (called via pg_cron hourly)
@@ -208,13 +219,13 @@ $$;
 -- RPC: Get Global Leaderboard (paginated)
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.get_global_leaderboard(
-    p_viewer_id uuid,
+    p_viewer_id text,
     p_season_id text DEFAULT NULL,
     p_limit int DEFAULT 50,
     p_offset int DEFAULT 0
 )
 RETURNS TABLE (
-    user_id uuid,
+    user_id text,
     username text,
     avatar_url text,
     tier text,
@@ -257,20 +268,20 @@ $$;
 -- RPC: Get Friends Leaderboard (paginated)
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.get_friends_leaderboard(
-    p_viewer_id uuid,
+    p_viewer_id text,
     p_season_id text DEFAULT NULL,
     p_limit int DEFAULT 50,
     p_offset int DEFAULT 0
 )
 RETURNS TABLE (
-    user_id uuid,
+    user_id text,
     username text,
     avatar_url text,
     tier text,
     composite_score numeric,
     friend_rank int,
     is_current_user boolean,
-    friend_group uuid,
+    friend_group text,
     games_won int,
     total_correct_words int,
     lifetime_nectar numeric,
@@ -309,13 +320,13 @@ $$;
 -- RPC: Get Daily Leaderboard (paginated)
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.get_daily_leaderboard(
-    p_viewer_id uuid,
+    p_viewer_id text,
     p_season_id text DEFAULT NULL,
     p_limit int DEFAULT 50,
     p_offset int DEFAULT 0
 )
 RETURNS TABLE (
-    user_id uuid,
+    user_id text,
     username text,
     avatar_url text,
     tier text,
@@ -354,14 +365,14 @@ $$;
 -- RPC: Get Mode-specific Leaderboard (paginated)
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.get_mode_leaderboard(
-    p_viewer_id uuid,
+    p_viewer_id text,
     p_mode text,
     p_season_id text DEFAULT NULL,
     p_limit int DEFAULT 50,
     p_offset int DEFAULT 0
 )
 RETURNS TABLE (
-    user_id uuid,
+    user_id text,
     username text,
     avatar_url text,
     tier text,
@@ -407,7 +418,7 @@ $$;
 -- RPC: Get Player's Rank Across All Leaderboards
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.get_player_rank(
-    p_user_id uuid,
+    p_user_id text,
     p_mode text DEFAULT NULL,
     p_season_id text DEFAULT NULL
 )
@@ -492,11 +503,11 @@ $$;
 -- GRANT EXECUTE PERMISSIONS
 -- ============================================================
 GRANT EXECUTE ON FUNCTION public.refresh_leaderboards() TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.get_global_leaderboard(uuid, text, int, int) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.get_friends_leaderboard(uuid, text, int, int) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.get_daily_leaderboard(uuid, text, int, int) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.get_mode_leaderboard(uuid, text, text, int, int) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.get_player_rank(uuid, text, text) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_global_leaderboard(text, text, int, int) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_friends_leaderboard(text, text, int, int) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_daily_leaderboard(text, text, int, int) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_mode_leaderboard(text, text, text, int, int) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_player_rank(text, text, text) TO anon, authenticated;
 
 -- ============================================================
 -- ENABLE REALTIME FOR LEADERBOARD TABLES (optional, for live updates)
@@ -509,7 +520,7 @@ GRANT EXECUTE ON FUNCTION public.get_player_rank(uuid, text, text) TO anon, auth
 -- FUNCTION: Increment Daily Stats (called from gameplay)
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.increment_daily_stats(
-    p_user_id uuid,
+    p_user_id text,
     p_games_played int DEFAULT 0,
     p_games_won int DEFAULT 0,
     p_correct_words int DEFAULT 0,
@@ -532,8 +543,8 @@ BEGIN
         correct_words = daily_stats.correct_words + EXCLUDED.correct_words,
         xp_earned = daily_stats.xp_earned + EXCLUDED.xp_earned,
         nectar_earned = daily_stats.nectar_earned + EXCLUDED.nectar_earned,
-        best_wpm = GREATEST(daily_stats.best_wpm, EXCLUDED.wpm),
-        max_streak = GREATEST(daily_stats.max_streak, EXCLUDED.streak),
+        best_wpm = GREATEST(daily_stats.best_wpm, EXCLUDED.best_wpm),
+        max_streak = GREATEST(daily_stats.max_streak, EXCLUDED.max_streak),
         updated_at = now();
 END;
 $$;
@@ -542,7 +553,7 @@ $$;
 -- FUNCTION: Increment Mode Stats (called from gameplay)
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.increment_mode_stats(
-    p_user_id uuid,
+    p_user_id text,
     p_mode text,
     p_games_played int DEFAULT 0,
     p_games_won int DEFAULT 0,
@@ -562,11 +573,11 @@ BEGIN
         games_played = mode_stats.games_played + EXCLUDED.games_played,
         games_won = mode_stats.games_won + EXCLUDED.games_won,
         total_correct_words = mode_stats.total_correct_words + EXCLUDED.total_correct_words,
-        best_wpm = GREATEST(mode_stats.best_wpm, EXCLUDED.wpm),
-        max_streak = GREATEST(mode_stats.max_streak, EXCLUDED.streak),
+        best_wpm = GREATEST(mode_stats.best_wpm, EXCLUDED.best_wpm),
+        max_streak = GREATEST(mode_stats.max_streak, EXCLUDED.max_streak),
         updated_at = now();
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.increment_daily_stats(uuid, int, int, int, int, int, int, int) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.increment_mode_stats(uuid, text, int, int, int, int, int) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.increment_daily_stats(text, int, int, int, int, int, int, int) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.increment_mode_stats(text, text, int, int, int, int, int) TO anon, authenticated;

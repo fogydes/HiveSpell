@@ -11,6 +11,7 @@ export type { SceneContextValue } from "@/context/SceneContext";
 export { AmbientBase } from "./AmbientBase";
 export { ParticleField } from "./ParticleField";
 export { AudioReactive, useAudioReactiveValues } from "./AudioReactive";
+export { SceneCanvasLayer } from "./SceneCanvasLayer";
 
 // Scene transitions
 export { SceneTransition, DifficultyChangeTransition, RoundTransition, useTransitions } from "./SceneTransition";
