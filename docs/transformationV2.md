@@ -406,11 +406,13 @@ README mentions CSP headers in Firebase Hosting config, but `firebase.json` wasn
 ```
 `user.uid` comes from Firebase — it's a Firebase-controlled string, so XSS via UID is unlikely, but DiceBear API v7 may have breaking changes. Pin to a specific DiceBear version and add a `Content-Security-Policy` `img-src` directive covering `api.dicebear.com`.
 
-**5. `npm audit --audit-level=high || true`**
+**5. `npm audit --audit-level=high || true`** — ✅ RESOLVED (#31)
 `ci.yml:309` — the `|| true` means high-severity vulnerabilities don't fail CI. This is a documentation smell. Change the audit level to `moderate` and remove `|| true` for critical findings. Add a suppression file for accepted risks.
+> RESOLVED 2026-08-17: `|| true` removed — `ci.yml:305` is now `npm audit --audit-level=high`, so high/critical advisories fail CI. Deviated from the "moderate + suppression file" suggestion and kept `high`: moderate advisories in the transitive frontend tree are largely unactionable and a suppression file becomes maintenance debt; high/critical are the findings that warrant blocking a merge.
 
-**6. `OWASP Dependency-Check` with `continue-on-error: true`**
+**6. `OWASP Dependency-Check` with `continue-on-error: true`** — ✅ RESOLVED (#31)
 `ci.yml:319` — findings never block merge. For a shipped product, CVSS ≥ 7 should block.
+> RESOLVED 2026-08-17: job-level `continue-on-error: true` removed from the `security-scan` job; the OWASP step runs `--failOnCVSS 7`, so CVSS ≥ 7 now blocks. The report-upload step keeps `if: always()` so the HTML artifact still uploads on failure.
 
 **7. Supabase Anon Key in Frontend**
 Expected and documented, but ensure RLS policies are comprehensive. Run `supabase inspect db` to verify no tables are exposed without RLS. The CI supabase-health job should fail if any table has RLS disabled.
@@ -577,7 +579,7 @@ CI warns but never fails when main chunk exceeds 200KB gzip. With Firebase SDK, 
 | 28 | Leaderboard podium redesign with row animations | 1 week | ⬜ todo |
 | 29 | Play view timer ring (circular SVG replacing flat bar) | 2 days | ✅ done |
 | 30 | E2E test coverage for 3 critical flows | 1 week | ⬜ todo |
-| 31 | OWASP/audit failures block CI (remove `|| true`) | 1 day | ⬜ todo |
+| 31 | ~~OWASP/audit failures block CI (remove `\|\| true`)~~ | 1 day | ✅ done — `ci.yml:305` runs `npm audit --audit-level=high` (no `\|\| true`); OWASP step keeps `--failOnCVSS 7` and the `security-scan` job's `continue-on-error` was removed, so high/critical + CVSS≥7 now block merge. Kept audit level at `high` (not `moderate`) — moderate advisories in the transitive frontend tree are largely unactionable and would force a suppression treadmill. Three remaining job-level `continue-on-error` (accessibility/supabase-health/monitoring) are intentional on non-blocking jobs. YAML validated 2026-08-17 |
 | 32 | Social login (Google/Discord) on Auth page | 3 days | ⬜ todo — reduces friction for new players |
 
 ---
@@ -866,3 +868,22 @@ Items 33–48 supplement the existing plan in Section 7:
 ---
 
 *Audit completed 2026-08-07. All 19 screenshots archived in `ui-audit/`. Next action: address items 33–35 (P0 blockers) before any visual polish work.*
+
+---
+
+## 10. End-of-Project: Version Control & Repository Reset
+
+**Version control decision — introduced NOW (YES).** The repo is already git-tracked, but the entire transformationV2 build-out was sitting uncommitted (~91 files, no restore point). As of 2026-08-17 a local checkpoint commit (`8f88535`) snapshots the WIP, and each subsequent task is committed locally as it lands. This is a safety net during the work — commits are **local only, not pushed** (see the terminal reset below). `.env.local` stays untracked (`.gitignore:25`); only `.env.template` is tracked.
+
+**Terminal step — runs ONLY after the whole plan is fully implemented AND verified.** Do not perform any of this until every `⬜ todo` above is `✅ done` and verified:
+
+1. **Wipe git history.** Collapse the local history to a single clean commit (fresh `git init` / orphan branch) so no intermediate WIP or secrets survive in history.
+2. **Delete the GitHub repository** `github.com/fogydes/HiveSpell`.
+   - ⚠️ The current `gh` token (account `fogydes`) has scopes `gist, read:org, repo, workflow` — **no `delete_repo`**. Deletion must be done via the GitHub web UI, or with a PAT that has the `delete_repo` scope. It cannot be done programmatically with the current token.
+3. **Canonical home → self-hosted Forgejo** at `https://forgejo.home.arpa/` (server `192.168.137.2`; confirmed reachable, HTTP 200 via Caddy). The project lives here going forward. Postgres + email services are also available on this server if needed.
+4. **Re-publish to GitHub only if the build is stable** — push a clean, history-wiped repo back up once it's proven solid.
+
+**CI/secrets gaps to resolve before relying on the pipeline** (inventory taken 2026-08-17; 14 repo secrets configured):
+- `VITE_POSTHOG_API_KEY` is referenced by `ci.yml` but not set → all PostHog steps skip silently. Either add it or remove those steps.
+- No `staging` GitHub environment exists (only `production`), yet `staging-deploy` declares `environment: staging`.
+- `backup.yml` references 6 secrets that are **not** configured (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`) → that workflow's "Verify secrets" step would fail today.
