@@ -15,6 +15,7 @@ import {
   onDisconnect,
 } from "firebase/database";
 import { supabase } from "./supabase";
+import type { Json } from "../types/database.types";
 import { Room, Player, GameSettings } from "../types/multiplayer";
 
 /** Maximum room age in ms before it's considered stale (1 hour). */
@@ -415,7 +416,7 @@ export const startGame = async (
       return { success: false, error: error.message };
     }
 
-    return data as { success: boolean; gameState?: any; firstPlayer?: string };
+    return data as { success: boolean; gameState?: Json; firstPlayer?: string };
   } catch (err: any) {
     console.error("[startGame] Exception:", err);
     return { success: false, error: err.message };

@@ -52,6 +52,21 @@ interface RawPlayerChallenge {
   updated_at: string;
 }
 
+// Shapes of the direct-table query results consumed below. These mirror the
+// Supabase generated schema (types/database.types.ts) while preserving the
+// refined 'daily'|'weekly' and tier unions that RawChallengeDef already encodes
+// (the generated challenge_definitions row types those columns only as `string`).
+type ChallengeWithProgressRow = RawChallengeDef & {
+  player_challenges: Array<
+    Pick<RawPlayerChallenge, "challenge_id" | "current_progress" | "is_completed" | "is_claimed">
+  >;
+};
+
+type ChallengeSummaryRow = {
+  type: RawChallengeDef["type"];
+  player_challenges: Array<Pick<RawPlayerChallenge, "is_completed" | "is_claimed">>;
+};
+
 // Joined query types for complex queries
 interface PlayerChallengeWithDef {
   challenge_id: string;
@@ -134,7 +149,7 @@ export function useChallenges(userId: string | null): UseChallengesReturn {
   const mountedRef = useRef(true);
 
   // Convert raw data to PlayerChallenge with computed fields
-  const mapToPlayerChallenge = (challengeDef: RawChallengeDef, playerProgress: RawPlayerChallenge | null): PlayerChallenge => ({
+  const mapToPlayerChallenge = (challengeDef: RawChallengeDef, playerProgress: Pick<RawPlayerChallenge, "current_progress" | "is_completed" | "is_claimed"> | null): PlayerChallenge => ({
     challengeId: challengeDef.id,
     type: challengeDef.type,
     title: challengeDef.title,
@@ -244,7 +259,7 @@ export function useChallenges(userId: string | null): UseChallengesReturn {
 
       if (mountedRef.current) {
         // Map challenges with progress
-        const mappedChallenges = (challengeData || []).map((cd: any) => {
+        const mappedChallenges = (challengeData || []).map((cd: ChallengeWithProgressRow) => {
           const pc = cd.player_challenges?.[0] || null;
           // Remove the nested player_challenges from the challenge definition
           const { player_challenges, ...def } = cd;
@@ -254,12 +269,12 @@ export function useChallenges(userId: string | null): UseChallengesReturn {
 
         // Calculate summary from returned data
         if (summaryData && summaryData.length > 0) {
-          const dailyTotal = summaryData.filter((c: any) => c.type === 'daily').length;
-          const dailyCompleted = summaryData.filter((c: any) => c.type === 'daily' && c.player_challenges?.[0]?.is_completed).length;
-          const dailyClaimed = summaryData.filter((c: any) => c.type === 'daily' && c.player_challenges?.[0]?.is_claimed).length;
-          const weeklyTotal = summaryData.filter((c: any) => c.type === 'weekly').length;
-          const weeklyCompleted = summaryData.filter((c: any) => c.type === 'weekly' && c.player_challenges?.[0]?.is_completed).length;
-          const weeklyClaimed = summaryData.filter((c: any) => c.type === 'weekly' && c.player_challenges?.[0]?.is_claimed).length;
+          const dailyTotal = summaryData.filter((c: ChallengeSummaryRow) => c.type === 'daily').length;
+          const dailyCompleted = summaryData.filter((c: ChallengeSummaryRow) => c.type === 'daily' && c.player_challenges?.[0]?.is_completed).length;
+          const dailyClaimed = summaryData.filter((c: ChallengeSummaryRow) => c.type === 'daily' && c.player_challenges?.[0]?.is_claimed).length;
+          const weeklyTotal = summaryData.filter((c: ChallengeSummaryRow) => c.type === 'weekly').length;
+          const weeklyCompleted = summaryData.filter((c: ChallengeSummaryRow) => c.type === 'weekly' && c.player_challenges?.[0]?.is_completed).length;
+          const weeklyClaimed = summaryData.filter((c: ChallengeSummaryRow) => c.type === 'weekly' && c.player_challenges?.[0]?.is_claimed).length;
 
           // Calculate reset times
           const now = new Date();

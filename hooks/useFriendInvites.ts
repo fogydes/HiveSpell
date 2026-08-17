@@ -1,6 +1,7 @@
 import { useCallback, useState, useEffect, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/services/supabase";
+import type { Tables } from "@/types/database.types";
 
 export interface FriendInvite {
   id: string;
@@ -50,6 +51,47 @@ export interface InviteResult {
   expires_at: string;
 }
 
+// Row shapes for the direct-table queries below, derived from the Supabase
+// generated schema. The shared client is intentionally untyped
+// (see services/supabase.ts), so these annotate the mapper inputs to keep
+// field access type-checked without pulling the app under a <Database> client.
+type PendingInviteRow = Pick<
+  Tables<"friend_invites">,
+  "id" | "invite_code" | "inviter_id" | "created_at" | "expires_at"
+> & { profiles: Pick<Tables<"profiles">, "username" | "avatar_url"> | null };
+
+type SentInviteRow = Pick<
+  Tables<"friend_invites">,
+  "id" | "invite_code" | "invitee_id" | "status" | "created_at" | "expires_at"
+> & { profiles: Pick<Tables<"profiles">, "username"> | null };
+
+type FriendProfileRow = Pick<
+  Tables<"profiles">,
+  | "id"
+  | "username"
+  | "avatar_url"
+  | "tier"
+  | "presence_status"
+  | "current_room_id"
+  | "current_activity"
+  | "last_seen"
+  | "updated_at"
+  | "created_at"
+>;
+
+type OnlineFriendProfileRow = Pick<
+  Tables<"profiles">,
+  | "id"
+  | "username"
+  | "avatar_url"
+  | "presence_status"
+  | "current_room_id"
+  | "current_activity"
+  | "last_seen"
+  | "updated_at"
+  | "created_at"
+>;
+
 /**
  * Hook for managing friend invites and presence
  * Uses direct table queries with RLS (not RPC) to work with Firebase Auth via accessToken
@@ -86,7 +128,9 @@ export function useFriendInvites() {
 
       if (error) throw error;
 
-      const mapped = (data || []).map((row: any) => ({
+      // Supabase infers the to-one `profiles` embed as an array on the untyped
+      // client; at runtime it is a single object|null, so cast to the object shape.
+      const mapped = ((data || []) as unknown as PendingInviteRow[]).map((row) => ({
         id: row.id,
         invite_code: row.invite_code,
         inviter_id: row.inviter_id,
@@ -122,12 +166,13 @@ export function useFriendInvites() {
 
       if (error) throw error;
 
-      const mapped = (data || []).map((row: any) => ({
+      // See fetchPendingInvites: the to-one `profiles` embed is object|null at runtime.
+      const mapped = ((data || []) as unknown as SentInviteRow[]).map((row) => ({
         id: row.id,
         invite_code: row.invite_code,
         invitee_id: row.invitee_id,
         invitee_username: row.profiles?.username || null,
-        status: row.status,
+        status: row.status as SentInvite["status"],
         created_at: row.created_at,
         expires_at: row.expires_at,
       }));
@@ -178,12 +223,12 @@ export function useFriendInvites() {
         return;
       }
 
-      const mapped = profiles.map((p: any) => ({
+      const mapped = profiles.map((p: FriendProfileRow) => ({
         id: p.id,
-        username: p.username,
+        username: p.username as string,
         avatar_url: p.avatar_url,
         tier: p.tier || "Bronze",
-        presence_status: p.presence_status || "offline",
+        presence_status: (p.presence_status || "offline") as FriendWithPresence["presence_status"],
         current_room_id: p.current_room_id,
         current_activity: p.current_activity,
         last_seen: p.last_seen || p.updated_at || p.created_at,
@@ -254,11 +299,11 @@ export function useFriendInvites() {
         return;
       }
 
-      const mapped = profiles.map((p: any) => ({
+      const mapped = profiles.map((p: OnlineFriendProfileRow) => ({
         id: p.id,
-        username: p.username,
+        username: p.username as string,
         avatar_url: p.avatar_url,
-        presence_status: p.presence_status,
+        presence_status: p.presence_status as OnlineFriend["presence_status"],
         current_room_id: p.current_room_id,
         current_activity: p.current_activity,
         last_seen: p.last_seen || p.updated_at || p.created_at,

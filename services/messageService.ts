@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { RealtimeChannel } from "@supabase/supabase-js";
+import type { TablesInsert } from "../types/database.types";
 
 export interface Message {
   id: string;
@@ -146,7 +147,7 @@ export async function sendMessage(
     name: string;
   },
 ): Promise<Message | null> {
-  const payload: any = {
+  const payload: TablesInsert<"messages"> = {
     sender_id: senderId,
     receiver_id: receiverId,
     content: content || "",

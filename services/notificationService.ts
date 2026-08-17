@@ -7,7 +7,7 @@ export interface Notification {
   type: "friend_request" | "friend_accepted" | "system";
   title: string;
   message: string | null;
-  data: Record<string, any>;
+  data: Record<string, string>;
   read: boolean;
   created_at: string;
 }
@@ -82,7 +82,7 @@ export async function createNotification(
   type: Notification["type"],
   title: string,
   message: string | null,
-  data: Record<string, any> = {},
+  data: Record<string, string> = {},
 ): Promise<void> {
   const { error } = await supabase.from("notifications").insert({
     user_id: userId,
