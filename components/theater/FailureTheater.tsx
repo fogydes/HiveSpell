@@ -95,7 +95,7 @@ export const FailureTheater: React.FC<FailureTheaterProps> = ({ onComplete }) =>
                 : `fadeSlideDown 0.2s ${currentScene.transitions.exit.easing} forwards`,
             }}
           >
-            ❌ {t("incorrect")}
+            ❌ {t("failureTheater.incorrect")}
           </div>
 
           {/* What you typed (crossed out) */}
@@ -125,7 +125,7 @@ export const FailureTheater: React.FC<FailureTheaterProps> = ({ onComplete }) =>
               opacity: 0,
             }}
           >
-            {t("correctWordWas", { word })}
+            {t("failureTheater.correctWordWas", { word })}
           </div>
 
           {/* Encouragement message */}

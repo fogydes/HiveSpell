@@ -59,7 +59,8 @@
     "enabled": "Enabled",
     "disabled": "Disabled",
     "on": "On",
-    "off": "Off"
+    "off": "Off",
+    "total": "total"
   },
   "nav": {
     "home": "Home",
@@ -340,7 +341,9 @@
     "noItemsInVault": "No {{category}} in your vault",
     "purchaseBundlesFromBazaar": "Purchase bundles from the Bazaar to complete collections.",
     "visitBazaarToAcquire": "Visit the Bazaar to acquire {{category}}.",
-    "contents": "Contents"
+    "contents": "Contents",
+    "default": "Default",
+    "selectTheme": "Select Theme"
   },
   "battlePass": {
     "title": "Battle Pass",
@@ -609,7 +612,17 @@
       "updatePassword": "Update Password",
       "dangerZone": "Danger zone",
       "deleteAccountDesc": "Permanently delete your account and all data.",
-      "deleteAccount": "Delete Account"
+      "deleteAccount": "Delete Account",
+      "connections": {
+        "title": "Connected accounts",
+        "google": "Google",
+        "discord": "Discord",
+        "link": "Link",
+        "unlink": "Unlink",
+        "linked": "Linked",
+        "notLinked": "Not linked",
+        "lastMethodHint": "Link another sign-in method first."
+      }
     },
     "about": {
       "application": "Application",
@@ -861,7 +874,8 @@
     "invalidFileType": "Invalid file type. Please upload an image (PNG, JPG, JPEG, WEBP, or GIF).",
     "selectImageToUpload": "You must select an image to upload.",
     "setupRequired": "Setup Required: Add Supabase Keys to your Hosting Environment.",
-    "noProfileData": "No profile data found."
+    "noProfileData": "No profile data found.",
+    "newbee": "Newbee"
   },
   "victorySequence": {
     "title": "VICTORY",

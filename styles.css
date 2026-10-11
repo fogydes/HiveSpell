@@ -532,7 +532,11 @@ h4,
   transform-origin: center;
 }
 
-.theme-scene > :not(.absolute) {
+/* Lift in-flow content children above the decorative ::before/::after glow
+   layers. Exempt .absolute AND .fixed children: both establish their own
+   stacking context and set their own z-index, so forcing position:relative
+   would yank a fixed layer (SceneCanvasLayer, pinned bars) back into flow. */
+.theme-scene > :not(.absolute):not(.fixed) {
   position: relative;
   z-index: 1;
 }

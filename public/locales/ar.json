@@ -59,7 +59,8 @@
     "enabled": "مفعل",
     "disabled": "معطل",
     "on": "تشغيل",
-    "off": "إيقاف"
+    "off": "إيقاف",
+    "total": "الإجمالي"
   },
   "nav": {
     "home": "الرئيسية",
@@ -640,7 +641,17 @@
       "changePassword": "تغيير كلمة المرور",
       "deleteAccount": "حذف الحساب",
       "exportData": "تصدير البيانات",
-      "connectedAccounts": "الحسابات المرتبطة"
+      "connectedAccounts": "الحسابات المرتبطة",
+      "connections": {
+        "title": "الحسابات المرتبطة",
+        "google": "جوجل",
+        "discord": "ديسكورد",
+        "link": "ربط",
+        "unlink": "إلغاء الربط",
+        "linked": "مرتبط",
+        "notLinked": "غير مرتبط",
+        "lastMethodHint": "اربط طريقة تسجيل دخول أخرى أولاً."
+      }
     }
   },
   "tutorial": {
@@ -880,7 +891,8 @@
     "invalidFileType": "نوع ملف غير صالح. يرجى تحميل صورة (PNG, JPG, JPEG, WEBP أو GIF).",
     "selectImageToUpload": "يجب عليك اختيار صورة للتحميل.",
     "setupRequired": "التكوين مطلوب: أضف مفاتيح Supabase إلى بيئة الاستضافة.",
-    "noProfileData": "لم يتم العثور على بيانات الملف الشخصي."
+    "noProfileData": "لم يتم العثور على بيانات الملف الشخصي.",
+    "newbee": "مبتدئ"
   },
   "victorySequence": {
     "title": "انتصار!",
@@ -928,5 +940,9 @@
     "streakMessage10": "مشتعل! حافظ على الزخم! 🔥",
     "streakMessage20": "هيمنة. الخلية ترتجف. 🐝",
     "streakMessage50": "أسطوري. لا يُوقف. 👑"
+  },
+  "failureTheater": {
+    "incorrect": "غير صحيح",
+    "correctWordWas": "كانت الكلمة <span class=\"font-serif text-lg text-text-main\">\"{{word}}\"</span>"
   }
 }

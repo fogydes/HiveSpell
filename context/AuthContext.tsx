@@ -19,6 +19,8 @@ export interface UserData {
   equippedBadge?: string | null;
   username: string;
   avatarUrl?: string;
+  /** Linked Discord user id, or null when no Discord account is attached. */
+  discordId?: string | null;
   // Premium currency
   premium: number;
   // Tier system
@@ -92,6 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       equippedBadge: hasEquippedBadge ? profile?.equipped_badge : undefined,
       username: profile?.username ?? firebaseData?.username ?? fallbackUsername,
       avatarUrl: profile?.avatar_url,
+      discordId: profile?.discord_id ?? null,
       premium: profile?.premium ?? 0,
       tier: tierDef.name,
       tierProgress: 0, // Would need profile stats for full progress
@@ -100,6 +103,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const refreshUser = async () => {
+    if (
+      import.meta.env.VITE_E2E === "true" &&
+      (window as unknown as { __E2E_AUTH__?: unknown }).__E2E_AUTH__
+    ) {
+      // E2E seam active: identity is fixture-driven, nothing to refresh.
+      return;
+    }
     if (user) {
       const { data: profile } = await supabase
         .from("profiles")
@@ -142,6 +152,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                   ? profile.equipped_badge
                   : prev.equippedBadge,
                 avatarUrl: profile.avatar_url,
+                discordId: profile.discord_id ?? null,
                 premium: profile.premium ?? prev.premium,
                 tier: tierDef.name,
                 tierProgress: 0,
@@ -154,6 +165,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   useEffect(() => {
+    // --- E2E test seam -------------------------------------------------------
+    // When the app is served with VITE_E2E=true AND a Playwright spec has injected
+    // a fixture on `window.__E2E_AUTH__` (via page.addInitScript), adopt that
+    // identity and skip Firebase/Supabase entirely. Vite statically replaces
+    // `import.meta.env.VITE_E2E`, so this whole branch is dead-code-eliminated from
+    // production bundles (the var is undefined there). With the flag on but no
+    // fixture present we fall through to real auth, preserving the logged-out guard
+    // behaviour that route-protection.spec.ts depends on.
+    if (import.meta.env.VITE_E2E === "true") {
+      const seam = (
+        window as unknown as {
+          __E2E_AUTH__?: { user: User; userData: UserData };
+        }
+      ).__E2E_AUTH__;
+      if (seam) {
+        setUser(seam.user);
+        setUserData(seam.userData);
+        setLoading(false);
+        return;
+      }
+    }
+
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser: any) => {
       setUser(currentUser);
 

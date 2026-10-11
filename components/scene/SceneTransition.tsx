@@ -344,6 +344,26 @@ function cubicBezier(t: number, x1: number, y1: number, x2: number, y2: number):
   return yForT((start + end) / 2);
 }
 
+/**
+ * Parse a color token into an [r, g, b] triple.
+ * Accepts hex ("#rrggbb" or "#rgb") and "r, g, b" strings. Any channel that
+ * fails to parse falls back to 255, so a malformed token can never yield an
+ * invalid `rgba(NaN, ...)` value — which throws inside CanvasGradient and, from
+ * an animation frame during mount, would crash the whole app via the error boundary.
+ */
+function parseRgb(color: string): [number, number, number] {
+  let channels: number[];
+  if (color.startsWith("#")) {
+    const hex = color.slice(1);
+    const pairs = hex.length === 3 ? hex.split("").map((c) => c + c) : hex.match(/.{2}/g) ?? [];
+    channels = pairs.map((h) => parseInt(h, 16));
+  } else {
+    channels = color.match(/\d+/g)?.map(Number) ?? [];
+  }
+  const safe = (n: number) => (Number.isFinite(n) ? n : 255);
+  return [safe(channels[0]), safe(channels[1]), safe(channels[2])];
+}
+
 // Transition drawing functions
 function drawTransition(
   ctx: CanvasRenderingContext2D,
@@ -359,10 +379,8 @@ function drawTransition(
   const centerY = height / 2;
   const maxRadius = Math.sqrt(width * width + height * height) / 2;
 
-  // Parse color
-  const [r, g, b] = color.startsWith("#")
-    ? color.match(/.{2}/g)!.map((h) => parseInt(h, 16))
-    : color.match(/\d+/g)!.map(Number);
+  // Parse color (hex or "r, g, b"); parseRgb strips the leading "#" and guards NaN
+  const [r, g, b] = parseRgb(color);
 
   switch (type) {
     case "iris": {

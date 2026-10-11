@@ -6,10 +6,15 @@ import { auth } from "../firebase";
 import {
   updatePassword,
   EmailAuthProvider,
+  GoogleAuthProvider,
   reauthenticateWithCredential,
+  linkWithPopup,
+  unlink,
 } from "firebase/auth";
 import { useToast } from "../context/ToastContext";
 import { supabase } from "../services/supabase";
+import { DiscordIcon, GoogleIcon } from "./auth/ProviderIcons";
+import { discordLoginEnabled, startDiscordOAuth } from "../services/discordOAuth";
 import { THEME_PACKAGES, type ThemeId } from "../data/themePackages";
 import { SCENE_PACKAGES, type SceneId, getScenePackage } from "../data/themes/scenePackages";
 import { LOCALES, type LocaleId } from "../data/localization";
@@ -51,8 +56,51 @@ const SectionLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   </p>
 );
 
+/** One row of the "Connected accounts" list — provider mark, status, action. */
+const ConnectionRow: React.FC<{
+  icon: React.ReactNode;
+  label: string;
+  statusText: string;
+  linked: boolean;
+  busy: boolean;
+  disabled: boolean;
+  actionLabel: string;
+  onAction: () => void;
+}> = ({
+  icon,
+  label,
+  statusText,
+  linked,
+  busy,
+  disabled,
+  actionLabel,
+  onAction,
+}) => (
+  <div className="flex items-center justify-between gap-3 rounded-lg border border-surface bg-surface/30 px-3 py-2.5">
+    <div className="flex min-w-0 items-center gap-3">
+      {icon}
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-text-main">{label}</p>
+        <p className="text-xs text-text-muted">{statusText}</p>
+      </div>
+    </div>
+    <button
+      onClick={onAction}
+      disabled={disabled || busy}
+      aria-label={`${actionLabel} ${label}`}
+      className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+        linked
+          ? "border-surface text-text-muted hover:border-red-500/30 hover:text-red-400"
+          : "border-primary/30 bg-primary/20 text-primary hover:bg-primary/30"
+      }`}
+    >
+      {busy ? "..." : actionLabel}
+    </button>
+  </div>
+);
+
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
-  const { user, userData } = useAuth();
+  const { user, userData, refreshUser } = useAuth();
   const { showToast } = useToast();
   const { t } = useTranslation();
 
@@ -107,6 +155,20 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [newUsername, setNewUsername] = useState("");
   const [usernameLoading, setUsernameLoading] = useState(false);
+
+  // Connected accounts. `providerData` isn't reactive, so the Google row keeps
+  // its own state and re-reads it after a link/unlink. Discord lives in the
+  // Supabase profile instead (it's a custom-token bridge, not a Firebase
+  // provider), so it comes straight from `userData`.
+  const [googleLinked, setGoogleLinked] = useState(
+    () =>
+      auth.currentUser?.providerData.some(
+        (p) => p.providerId === "google.com",
+      ) ?? false,
+  );
+  const [connectionLoading, setConnectionLoading] = useState<
+    "google" | "discord" | null
+  >(null);
 
   const disableAnimations = performanceTier === "static" || reduceMotion;
 
@@ -177,6 +239,124 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
       showToast({ title: "Failed", message: err.message || "Could not update username.", variant: "error" });
     } finally {
       setUsernameLoading(false);
+    }
+  };
+
+  const discordLinked = !!userData?.discordId;
+  // Discord-first accounts sign in with a custom token, so their Firebase
+  // `providerData` is empty — counting it plus the Discord link yields 1 for
+  // them, which is exactly what the last-method guard needs.
+  const linkedMethods =
+    (auth.currentUser?.providerData.length ?? 0) + (discordLinked ? 1 : 0);
+  const canUnlink = linkedMethods > 1;
+  // A linked row stays visible even when the feature flag is off, so nobody
+  // gets stranded with a link they can't remove.
+  const showDiscordRow = discordLoginEnabled() || discordLinked;
+
+  const handleLinkGoogle = async () => {
+    const current = auth.currentUser;
+    if (!current) return;
+    setConnectionLoading("google");
+    try {
+      const result = await linkWithPopup(current, new GoogleAuthProvider());
+      setGoogleLinked(
+        result.user.providerData.some((p) => p.providerId === "google.com"),
+      );
+      showToast({
+        title: "Google linked",
+        message: "You can now sign in with Google.",
+        variant: "success",
+      });
+    } catch (err: any) {
+      const code: string = err?.code ?? "";
+      // User dismissed / superseded the popup — nothing worth surfacing.
+      if (
+        code === "auth/popup-closed-by-user" ||
+        code === "auth/cancelled-popup-request"
+      ) {
+        return;
+      }
+      let message = "Could not link your Google account.";
+      if (
+        code === "auth/credential-already-in-use" ||
+        code === "auth/email-already-in-use"
+      ) {
+        message =
+          "That Google account is already attached to another HiveSpell account.";
+      } else if (code === "auth/provider-already-linked") {
+        message = "Google is already linked to this account.";
+      } else if (code === "auth/popup-blocked") {
+        message = "Popup blocked — please allow popups and try again.";
+      } else if (code === "auth/requires-recent-login") {
+        message = "Please sign in again, then retry linking.";
+      }
+      console.error("Google link error", err);
+      showToast({ title: "Linking failed", message, variant: "error" });
+    } finally {
+      setConnectionLoading(null);
+    }
+  };
+
+  const handleUnlinkGoogle = async () => {
+    const current = auth.currentUser;
+    if (!current || !canUnlink) return;
+    setConnectionLoading("google");
+    try {
+      const updated = await unlink(current, "google.com");
+      setGoogleLinked(
+        updated.providerData.some((p) => p.providerId === "google.com"),
+      );
+      showToast({
+        title: "Google unlinked",
+        message: "Google sign-in has been removed from this account.",
+        variant: "success",
+      });
+    } catch (err: any) {
+      console.error("Google unlink error", err);
+      showToast({
+        title: "Failed",
+        message: err?.message || "Could not unlink your Google account.",
+        variant: "error",
+      });
+    } finally {
+      setConnectionLoading(null);
+    }
+  };
+
+  const handleLinkDiscord = () => {
+    // Leaves the app for Discord's consent screen; the exchange finishes in
+    // `views/LinkDiscordCallback.tsx` (route `/link/discord`).
+    if (!auth.currentUser) return;
+    setConnectionLoading("discord");
+    startDiscordOAuth("link");
+  };
+
+  const handleUnlinkDiscord = async () => {
+    if (!auth.currentUser || !user || !canUnlink) return;
+    setConnectionLoading("discord");
+    try {
+      // Clearing `discord_id` is permitted by the `profiles_guard_discord_id`
+      // trigger; only the Edge Function (service role) may ever set it.
+      const { error } = await supabase
+        .from("profiles")
+        .update({ discord_id: null })
+        .eq("id", user.uid);
+      if (error) throw error;
+      await refreshUser();
+      showToast({
+        title: "Discord unlinked",
+        message: "Discord sign-in has been removed from this account.",
+        variant: "success",
+      });
+    } catch (err: any) {
+      console.error("Discord unlink error", err);
+      showToast({
+        title: "Failed",
+        message: err?.message || "Could not unlink your Discord account.",
+        variant: "error",
+      });
+    } finally {
+      setConnectionLoading(null);
     }
   };
 
@@ -453,6 +633,63 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
                       {usernameLoading ? "..." : t("settings.account.save")}
                     </button>
                   </div>
+                </div>
+
+                <div>
+                  <SectionLabel>{t("settings.account.connections.title")}</SectionLabel>
+                  <div className="space-y-2">
+                    <ConnectionRow
+                      icon={<GoogleIcon />}
+                      label={t("settings.account.connections.google")}
+                      statusText={
+                        googleLinked
+                          ? t("settings.account.connections.linked")
+                          : t("settings.account.connections.notLinked")
+                      }
+                      linked={googleLinked}
+                      busy={connectionLoading === "google"}
+                      disabled={
+                        connectionLoading !== null || (googleLinked && !canUnlink)
+                      }
+                      actionLabel={
+                        googleLinked
+                          ? t("settings.account.connections.unlink")
+                          : t("settings.account.connections.link")
+                      }
+                      onAction={googleLinked ? handleUnlinkGoogle : handleLinkGoogle}
+                    />
+
+                    {showDiscordRow && (
+                      <ConnectionRow
+                        icon={<DiscordIcon />}
+                        label={t("settings.account.connections.discord")}
+                        statusText={
+                          discordLinked
+                            ? t("settings.account.connections.linked")
+                            : t("settings.account.connections.notLinked")
+                        }
+                        linked={discordLinked}
+                        busy={connectionLoading === "discord"}
+                        disabled={
+                          connectionLoading !== null ||
+                          (discordLinked && !canUnlink)
+                        }
+                        actionLabel={
+                          discordLinked
+                            ? t("settings.account.connections.unlink")
+                            : t("settings.account.connections.link")
+                        }
+                        onAction={
+                          discordLinked ? handleUnlinkDiscord : handleLinkDiscord
+                        }
+                      />
+                    )}
+                  </div>
+                  {!canUnlink && (
+                    <p className="mt-2 text-[11px] text-text-muted/60">
+                      {t("settings.account.connections.lastMethodHint")}
+                    </p>
+                  )}
                 </div>
 
                 <div>

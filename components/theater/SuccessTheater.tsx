@@ -126,7 +126,7 @@ export const SuccessTheater: React.FC<SuccessTheaterProps> = ({ onComplete }) =>
               opacity: 0,
             }}
           >
-            {t("correctWord", { word })}
+            {t("successTheater.correctWord", { word })}
           </div>
 
           {/* WPM display */}
@@ -140,7 +140,7 @@ export const SuccessTheater: React.FC<SuccessTheaterProps> = ({ onComplete }) =>
                 : `wpmCountUp 0.6s ${currentScene.transitions.enter.easing} 0.2s forwards`,
             }}
           >
-            {t("wpm", { wpm })}
+            {t("successTheater.wpm", { wpm })}
           </div>
 
           {/* Streak display */}
@@ -158,7 +158,7 @@ export const SuccessTheater: React.FC<SuccessTheaterProps> = ({ onComplete }) =>
             >
               <span className="text-lg">🔥</span>
               <span className="font-bold text-text-main">{streak}</span>
-              <span className="text-xs text-text-muted uppercase tracking-wide">{t("streak")}</span>
+              <span className="text-xs text-text-muted uppercase tracking-wide">{t("successTheater.streak")}</span>
             </div>
 
             {/* Milestone badge */}
@@ -166,7 +166,7 @@ export const SuccessTheater: React.FC<SuccessTheaterProps> = ({ onComplete }) =>
               <div
                 className="relative px-4 py-2 rounded-full bg-success/20 border border-success text-success font-bold text-sm uppercase tracking-wider animate-pulse"
               >
-                {t("milestone", { streak })}
+                {t("successTheater.milestone", { streak })}
               </div>
             )}
           </div>
@@ -182,7 +182,7 @@ export const SuccessTheater: React.FC<SuccessTheaterProps> = ({ onComplete }) =>
                 opacity: 0,
               }}
             >
-              {t(`streakMessage${streak >= 50 ? 50 : streak >= 20 ? 20 : streak >= 10 ? 10 : streak >= 5 ? 5 : 3}`)}
+              {t(`successTheater.streakMessage${streak >= 50 ? 50 : streak >= 20 ? 20 : streak >= 10 ? 10 : streak >= 5 ? 5 : 3}`)}
             </div>
           )}
         </div>

@@ -13,6 +13,7 @@ interface ProfileRow {
   equipped_theme?: ThemeId | null;
   equipped_cursor?: string | null;
   equipped_badge?: string | null;
+  discord_id?: string | null;
 }
 
 const loadProfile = async (userId: string): Promise<ProfileRow | null> => {

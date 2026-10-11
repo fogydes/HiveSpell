@@ -20,10 +20,14 @@ env:
   VITE_FIREBASE_DATABASE_URL: ${{ secrets.VITE_FIREBASE_DATABASE_URL }}
   SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
   SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+  # PostHog must live here (not only in step secrets) so the `if: env.VITE_POSTHOG_API_KEY != ''`
+  # guards below can actually evaluate it — secrets are not readable inside `if:` conditions.
+  VITE_POSTHOG_API_KEY: ${{ secrets.VITE_POSTHOG_API_KEY }}
+  VITE_POSTHOG_HOST: ${{ secrets.VITE_POSTHOG_HOST }}
 
 jobs:
   check:
-    name: Lint, Typecheck, Test & Build
+    name: Typecheck, Test & Build
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -43,6 +47,9 @@ jobs:
 
       - name: Run typecheck
         run: npm run typecheck 2>&1 | tee typecheck-report.txt
+
+      - name: Check i18n keys (fail on keys missing from en.json)
+        run: npm run i18n:check
 
       - name: Run tests
         run: npm run test -- --reporter=verbose
@@ -255,6 +262,7 @@ jobs:
           path: dist
 
       - name: Deploy to Firebase Hosting Preview Channel
+        id: firebase_hosting_preview
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
@@ -272,7 +280,13 @@ jobs:
             });
 
             const botComment = comments.find(c => c.user.type === 'Bot' && c.body.includes('Firebase Preview'));
-            const previewUrl = 'https://${{ github.event.pull_request.head.repo.owner.login }}--${{ github.event.pull_request.head.repo.name }}--pr-${{ github.event.pull_request.number }}.web.app';
+            // Use the real URL emitted by the deploy step. Preview-channel URLs contain a
+            // random hash and cannot be reconstructed by hand.
+            const previewUrl = '${{ steps.firebase_hosting_preview.outputs.details_url }}';
+            if (!previewUrl) {
+              core.info('No preview URL was produced by the deploy step; skipping PR comment.');
+              return;
+            }
 
             const body = `## 🔗 Firebase Preview Deployment\n\n**Preview URL:** ${previewUrl}\n\n*This preview is automatically updated on each push to this PR.*`;
 
@@ -373,6 +387,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: check
+    # Non-blocking, consistent with the bundle-size (warning-only) and accessibility
+    # audits: Lighthouse runs against live prod and varies run-to-run, so it informs
+    # rather than gates. The missing budget file below is also now provided.
+    continue-on-error: true
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

@@ -59,7 +59,8 @@
     "enabled": "Activado",
     "disabled": "Desactivado",
     "on": "Encendido",
-    "off": "Apagado"
+    "off": "Apagado",
+    "total": "en total"
   },
   "nav": {
     "home": "Inicio",
@@ -611,7 +612,17 @@
       "updatePassword": "Actualizar contraseña",
       "dangerZone": "Zona de peligro",
       "deleteAccountDesc": "Eliminar permanentemente tu cuenta y todos los datos.",
-      "deleteAccount": "Eliminar cuenta"
+      "deleteAccount": "Eliminar cuenta",
+      "connections": {
+        "title": "Cuentas conectadas",
+        "google": "Google",
+        "discord": "Discord",
+        "link": "Vincular",
+        "unlink": "Desvincular",
+        "linked": "Vinculada",
+        "notLinked": "No vinculada",
+        "lastMethodHint": "Vincula otro método de inicio de sesión primero."
+      }
     },
     "about": {
       "application": "Aplicación",
@@ -862,7 +873,8 @@
     "invalidFileType": "Tipo de archivo inválido. Sube una imagen (PNG, JPG, JPEG, WEBP o GIF).",
     "selectImageToUpload": "Debes seleccionar una imagen para subir.",
     "setupRequired": "Configuración requerida: Añade las claves de Supabase a tu entorno de hosting.",
-    "noProfileData": "No se encontraron datos de perfil."
+    "noProfileData": "No se encontraron datos de perfil.",
+    "newbee": "Novato"
   },
   "victorySequence": {
     "title": "VICTORIA",
@@ -910,5 +922,9 @@
     "streakMessage10": "¡EN LLAMAS! ¡Mantén el ritmo! 🔥",
     "streakMessage20": "DOMINANDO. La colmena tiembla. 🐝",
     "streakMessage50": "LEGENDARIO. Imparable. 👑"
+  },
+  "failureTheater": {
+    "incorrect": "Incorrecto",
+    "correctWordWas": "La palabra era <span class=\"font-serif text-lg text-text-main\">\"{{word}}\"</span>"
   }
 }

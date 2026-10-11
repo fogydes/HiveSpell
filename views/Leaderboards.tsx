@@ -1,26 +1,22 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useLeaderboards } from "../hooks/useLeaderboards";
 import {
   LeaderboardTabs,
   ModeSelector,
-  LeaderboardTable,
-  PlayerRankSummary,
+  LeaderboardList,
+  PinnedRankBar,
 } from "../components/leaderboards/LeaderboardComponents";
 import { SceneCanvasLayer } from "../components/scene";
 import {
   LeaderboardType,
   GameMode,
   LEADERBOARD_TABS,
+  getModeLabel,
 } from "../utils/leaderboards";
-import { useScene } from "@/context/SceneContext";
-import { useReduceMotion } from "@/hooks/useAccessibility";
 
 const LeaderboardsView: React.FC = () => {
-  const { user } = useAuth();
-  const { performanceTier } = useScene();
-  const reduceMotion = useReduceMotion();
-  const disableAnimations = performanceTier === "static" || reduceMotion;
+  const { user, userData } = useAuth();
   const {
     globalLeaderboard,
     friendsLeaderboard,
@@ -43,7 +39,6 @@ const LeaderboardsView: React.FC = () => {
     loadMoreDaily,
     loadMoreMode,
     setCurrentMode,
-    refreshAll,
     fetchPlayerRanks,
   } = useLeaderboards(user?.uid || null);
 
@@ -93,6 +88,37 @@ const LeaderboardsView: React.FC = () => {
           ? modePage
           : globalPage;
 
+  // Resolve the viewer's own rank for the active board — feeds the pinned bottom
+  // bar. Prefer the authoritative get_player_rank snapshot (works even when the
+  // viewer is off the loaded page); fall back to their row if it's on-screen.
+  const myRankInfo = useMemo(() => {
+    if (!user) return null;
+    const match = playerRanks.find(
+      (r) =>
+        r.leaderboardType === activeTab &&
+        (activeTab !== "mode" || r.metadata?.mode === currentMode),
+    );
+    if (match && match.rank > 0) {
+      return { rank: match.rank, totalPlayers: match.totalPlayers, score: match.score };
+    }
+    const entry = currentLeaderboard?.entries.find((e) => e.isCurrentUser);
+    if (entry) {
+      const score =
+        entry.type === "global" || entry.type === "friends"
+          ? entry.compositeScore
+          : entry.type === "daily"
+            ? entry.dailyXp
+            : entry.modeScore;
+      return { rank: entry.rank, totalPlayers: currentLeaderboard?.totalEntries ?? 0, score };
+    }
+    return null;
+  }, [user, playerRanks, activeTab, currentMode, currentLeaderboard]);
+
+  const myRankLabel =
+    activeTab === "mode" && currentMode
+      ? getModeLabel(currentMode)
+      : LEADERBOARD_TABS.find((t) => t.id === activeTab)?.label ?? "Global";
+
   // Fetch player ranks when user changes or on initial load
   useEffect(() => {
     if (user?.uid) {
@@ -118,13 +144,12 @@ const LeaderboardsView: React.FC = () => {
     refreshMode(mode, true);
   };
 
-  const tabConfigs = LEADERBOARD_TABS.filter((tab) => {
-    if (!user && tab.requiresAuth) return false;
-    return true;
-  });
-
   return (
-    <div className="theme-scene min-h-screen bg-app p-4">
+    <div
+      className={`theme-scene min-h-screen bg-app p-4 ${
+        user && userData && myRankInfo ? "pb-28" : ""
+      }`}
+    >
       <SceneCanvasLayer />
       <div className="theme-panel-shell relative z-10 w-full max-w-7xl mx-auto rounded-[2rem] border bg-panel/35 backdrop-blur-xl overflow-hidden">
         {/* Header */}
@@ -165,8 +190,6 @@ const LeaderboardsView: React.FC = () => {
             activeTab={activeTab}
             onTabChange={setActiveTab}
             userId={user?.uid || null}
-            currentMode={currentMode}
-            onModeChange={handleModeChange}
           />
         </div>
 
@@ -180,14 +203,7 @@ const LeaderboardsView: React.FC = () => {
           </div>
         )}
 
-        {/* Player Rank Summary */}
-        {playerRanks.length > 0 && (
-          <div className="border-b border-surface bg-panel/10 p-4">
-            <PlayerRankSummary ranks={playerRanks} onClick={() => {}} />
-          </div>
-        )}
-
-        {/* Leaderboard Table */}
+        {/* Leaderboard content */}
         <div className="p-4 overflow-x-auto">
           {loading && (!currentLeaderboard || currentLeaderboard.entries.length === 0) ? (
             <div className="flex items-center justify-center py-12">
@@ -235,14 +251,8 @@ const LeaderboardsView: React.FC = () => {
             </div>
           ) : (
             <>
-              <LeaderboardTable
-                title={LEADERBOARD_TABS.find(t => t.id === activeTab)?.label || 'Leaderboard'}
+              <LeaderboardList
                 entries={currentLeaderboard.entries}
-                loading={loading}
-                error={error}
-                emptyMessage="No entries yet"
-                onLoadMore={handleLoadMore}
-                hasMore={currentLeaderboard.hasNextPage}
                 highlightedUserId={user?.uid}
               />
               {/* Pagination */}
@@ -270,6 +280,19 @@ const LeaderboardsView: React.FC = () => {
           </p>
         </div>
       </div>
+
+      {/* Your rank, pinned to the viewport bottom (directive #4). Sourced from
+          the real get_player_rank snapshot for the active board. */}
+      {user && userData && myRankInfo && (
+        <PinnedRankBar
+          rank={myRankInfo.rank}
+          totalPlayers={myRankInfo.totalPlayers}
+          score={myRankInfo.score}
+          label={myRankLabel}
+          username={userData.username}
+          avatarUrl={userData.avatarUrl ?? null}
+        />
+      )}
     </div>
   );
 };

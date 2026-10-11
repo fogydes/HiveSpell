@@ -73,7 +73,7 @@ export function SceneCanvasLayer({ className = "" }: SceneCanvasLayerProps) {
   // Reduced tier → hand-written canvas effects only (deliberately no WebGL).
   if (performanceTier !== "full") {
     return (
-      <div className={layerClass} aria-hidden="true">
+      <div className={layerClass} aria-hidden="true" style={{ position: "fixed" }}>
         {canvasFallback}
       </div>
     );
@@ -81,7 +81,7 @@ export function SceneCanvasLayer({ className = "" }: SceneCanvasLayerProps) {
 
   // Full tier → lazy WebGL, degrading to the canvas effects on any failure.
   return (
-    <div className={layerClass} aria-hidden="true">
+    <div className={layerClass} aria-hidden="true" style={{ position: "fixed" }}>
       <WebGLErrorBoundary fallback={canvasFallback}>
         <Suspense fallback={null}>
           <WebGLScene fallbackNode={canvasFallback} />

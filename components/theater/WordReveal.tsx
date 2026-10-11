@@ -121,7 +121,7 @@ export const WordReveal: React.FC<WordRevealProps> = ({
                 : `fadeIn 0.3s ${roundStartEasing} forwards`,
             }}
           >
-            {t("listening")}
+            {t("wordReveal.listening")}
           </div>
 
           {/* The word */}

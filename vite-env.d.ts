@@ -12,6 +12,10 @@ interface ImportMetaEnv {
   readonly VITE_FIREBASE_APP_ID: string;
   readonly VITE_FIREBASE_MESSAGING_ID: string;
   readonly VITE_FIREBASE_DATABASE_URL: string;
+  readonly VITE_DISCORD_CLIENT_ID?: string;
+  readonly VITE_ENABLE_DISCORD_LOGIN?: string;
+  /** Set to "true" only by the Playwright webServer to arm the AuthContext E2E seam. */
+  readonly VITE_E2E?: string;
   readonly VITE_VERSION: string;
   readonly VITE_APP_VERSION: string;
 }

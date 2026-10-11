@@ -59,7 +59,8 @@
     "enabled": "Activé",
     "disabled": "Désactivé",
     "on": "Activé",
-    "off": "Désactivé"
+    "off": "Désactivé",
+    "total": "au total"
   },
   "nav": {
     "home": "Accueil",
@@ -640,7 +641,17 @@
       "changePassword": "Changer mot de passe",
       "deleteAccount": "Supprimer compte",
       "exportData": "Exporter données",
-      "connectedAccounts": "Comptes liés"
+      "connectedAccounts": "Comptes liés",
+      "connections": {
+        "title": "Comptes connectés",
+        "google": "Google",
+        "discord": "Discord",
+        "link": "Lier",
+        "unlink": "Délier",
+        "linked": "Lié",
+        "notLinked": "Non lié",
+        "lastMethodHint": "Liez d'abord une autre méthode de connexion."
+      }
     }
   },
   "tutorial": {
@@ -880,7 +891,8 @@
     "invalidFileType": "Type de fichier invalide. Veuillez télécharger une image (PNG, JPG, JPEG, WEBP ou GIF).",
     "selectImageToUpload": "Vous devez sélectionner une image à télécharger.",
     "setupRequired": "Configuration requise : ajoutez les clés Supabase à votre environnement d'hébergement.",
-    "noProfileData": "Aucune donnée de profil trouvée."
+    "noProfileData": "Aucune donnée de profil trouvée.",
+    "newbee": "Novice"
   },
   "victorySequence": {
     "title": "VICTOIRE",
@@ -928,5 +940,9 @@
     "streakMessage10": "EN FEU ! Maintenez l'élan ! 🔥",
     "streakMessage20": "DOMINATION. La ruche tremble. 🐝",
     "streakMessage50": "LÉGENDAIRE. Imparable. 👑"
+  },
+  "failureTheater": {
+    "incorrect": "Incorrect",
+    "correctWordWas": "Le mot était <span class=\"font-serif text-lg text-text-main\">\"{{word}}\"</span>"
   }
 }

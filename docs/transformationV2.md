@@ -1,7 +1,8 @@
 # HiveSpell Transformation V2 — The Honest Take
 
-**Date:** Last updated: 2026-08-17  
-**Status:** Live audit complete — bugs fixed. Animation stack: **GSAP + Three.js** (switched from Framer Motion on 2026-08-12; see §0 Library decision). GameplayStage migration to GSAP complete (verified 2026-08-17); `framer-motion` removed from `package.json`.
+**Date:** Last updated: 2026-08-18  
+**Status:** Live audit complete — bugs fixed. Animation stack: **GSAP + Three.js** (switched from Framer Motion on 2026-08-12; see §0 Library decision). GameplayStage migration to GSAP complete (verified 2026-08-17); `framer-motion` removed from `package.json`.  
+**Implementation status (2026-08-18):** All numbered tracker items (§7 #1–32, §9.5 #33–48) and bugs B1–B14 are ✅ done. The in-scope narrative items in §3 (Security) and §4 (Repo Tidiness) are now closed: §3 #1/#7 (RLS verified — 21/21 `public` tables), §3 #3/#4 (CSP added to `firebase.json` + DiceBear `img-src`; version already `7.x`-pinned), §4 #9 (`check-env.mjs` + `predev` hook), §4 #10 (`CHANGELOG.md` stub), §2 #4 / §4 #5 (version `0.0.0` — semantic-release-managed, by design). Deferred by the spec and NOT implemented: §4 #6 ("no `src/`" — the spec itself says "isn't blocking"), §3 #8 (CSRF — "Firebase handles it"). Remaining closeout: the final verification gate sweep, then the §10 git-history wipe / Forgejo migration.
 
 ---
 
@@ -333,8 +334,9 @@ Multiple `profile: any` casts in `Header.tsx:133`. The Supabase response types s
 > `RouteErrorBoundary.tsx` provides dedicated `BattlePassErrorBoundary`/`ChallengesErrorBoundary`/`LeaderboardsErrorBoundary` with route-specific copy; `App.tsx` wraps each route accordingly.
 `/battle-pass`, `/challenges`, `/leaderboards` all use `HomeErrorBoundary` — wrong boundary. A leaderboard error should say "leaderboard failed to load", not a home-page error message.
 
-**4. Version is 0.0.0**
+**4. Version is 0.0.0** — ✅ RESOLVED (by design)
 `package.json:5` — `"version": "0.0.0"`. CI checks for this and warns. If semantic-release is set up, either commit a proper initial version or let it do its job.
+> RESOLVED 2026-08-18: Left at `0.0.0` intentionally — semantic-release owns the version. `@semantic-release/npm` bumps `package.json` from Conventional Commits at release time (it does NOT publish to npm — the package is `private: true`), so hand-editing the version would fight the release tool. The CI warning is expected before the first release and clears once semantic-release cuts v1.0.0. Same resolution as §4 #5.
 
 #### Major
 
@@ -390,21 +392,24 @@ The security architecture is documented but has some implementation gaps.
 
 #### Issues
 
-**1. Firebase Auth → Supabase Trust Gap**
+**1. Firebase Auth → Supabase Trust Gap** — ✅ RESOLVED (verified)
 The app uses Firebase Auth UIDs as Supabase profile identifiers. Migration `20260805000000_fix_firebase_uid_and_profiles_updated_at.sql` addresses part of this, but the trust boundary between Firebase JWTs and Supabase anon key operations needs explicit RLS validation. Verify every Supabase table's RLS policies enforce `auth.uid() = firebase_uid` correctly.
+> RESOLVED 2026-08-18: Verified on the active Supabase project (`jpfcjpaddwqagyhjtunm`) via the security advisor + table sweep — **all 21 tables in `public` have `rls_enabled = true`**. Policies key off `auth.jwt()->>'sub'` (the Firebase UID) per migration `20260805000000` (see §9.5 #35). The only advisor findings are WARN-level: the 3 leaderboard materialized views (`mv_global_leaderboard`, `mv_friends_leaderboard`, `mv_daily_leaderboard`) are selectable by `anon`/`authenticated` — **by design** (leaderboards are public and non-sensitive; a materialized view cannot carry RLS). Combined with #7 below.
 
 **2. No Rate Limiting on Leaderboard Fetches**
 `Header.tsx:118` fetches leaderboard data with no debounce, cache, or rate limit. A user who spam-clicks the leaderboard button fires unlimited Supabase queries. Add a minimum refresh interval (e.g., 30 seconds) and cache the result in component state.
 
-**3. CSP Configuration Unverified**
+**3. CSP Configuration Unverified** — ✅ RESOLVED
 README mentions CSP headers in Firebase Hosting config, but `firebase.json` wasn't checked in this audit. Verify `Content-Security-Policy` is set, includes `connect-src` for Supabase and Firebase URLs, and blocks `unsafe-eval`.
+> RESOLVED 2026-08-18: Audited `firebase.json` — it carried 4 security headers (X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy) but **no CSP**. Added a full `Content-Security-Policy` (5th header entry, `source: "**"`). `script-src 'self' https://apis.google.com` blocks `unsafe-eval` (and `unsafe-inline` — verified safe: `index.html` loads `./index.tsx` as an external module, with no inline bootstrap script; re-confirmed against `dist/index.html` in the final sweep). `connect-src` was built from grepped runtime origins and covers Firebase RTDB (`*.firebaseio.com` + `*.firebasedatabase.app`, http **and** wss), `*.googleapis.com` (auth/installations), Supabase (http + `wss://*.supabase.co` for realtime), `api.dictionaryapi.dev`, and `*.posthog.com`; plus `style-src`/`font-src` for Google Fonts, `frame-src` for the Firebase/Google auth iframe, `worker-src blob:` for the Vite/Three worker. ⚠️ Firebase Hosting headers apply to **deployed** builds only — the Vite :3000 dev server ignores `firebase.json`, so this is inert locally and MUST be smoke-tested at first deploy (popup login, RTDB match, Supabase realtime, DiceBear avatars, Inter font).
 
-**4. DiceBear Avatar URL Construction**
+**4. DiceBear Avatar URL Construction** — ✅ RESOLVED
 `Header.tsx:204` and `Header.tsx:379`:
 ```ts
 `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`
 ```
 `user.uid` comes from Firebase — it's a Firebase-controlled string, so XSS via UID is unlikely, but DiceBear API v7 may have breaking changes. Pin to a specific DiceBear version and add a `Content-Security-Policy` `img-src` directive covering `api.dicebear.com`.
+> RESOLVED 2026-08-18: Two parts. **(a) img-src** — the new CSP (see #3) includes `img-src 'self' data: blob: https://api.dicebear.com https://*.supabase.co`, so DiceBear (and Supabase) avatar images are explicitly allow-listed. **(b) Version pin** — already correct and deliberately left unchanged: the DiceBear HTTP API only accepts a `<major>.x` path segment (`/7.0.0/` returns 404), so `7.x` **is** the maximal pin against breaking changes — narrowing it would break every avatar call. All current call sites (`Header.tsx`, `friends/FriendsPanel.tsx`, `chat/ChatUtils.ts`, `ProfileModal.tsx`) already use `7.x`, so no file churn. (The cited `Header.tsx:204/379` line numbers predate #4's Header-leaderboard removal, but the DiceBear usage itself is unchanged.)
 
 **5. `npm audit --audit-level=high || true`** — ✅ RESOLVED (#31)
 `ci.yml:309` — the `|| true` means high-severity vulnerabilities don't fail CI. This is a documentation smell. Change the audit level to `moderate` and remove `|| true` for critical findings. Add a suppression file for accepted risks.
@@ -414,8 +419,9 @@ README mentions CSP headers in Firebase Hosting config, but `firebase.json` wasn
 `ci.yml:319` — findings never block merge. For a shipped product, CVSS ≥ 7 should block.
 > RESOLVED 2026-08-17: job-level `continue-on-error: true` removed from the `security-scan` job; the OWASP step runs `--failOnCVSS 7`, so CVSS ≥ 7 now blocks. The report-upload step keeps `if: always()` so the HTML artifact still uploads on failure.
 
-**7. Supabase Anon Key in Frontend**
+**7. Supabase Anon Key in Frontend** — ✅ RESOLVED (verified)
 Expected and documented, but ensure RLS policies are comprehensive. Run `supabase inspect db` to verify no tables are exposed without RLS. The CI supabase-health job should fail if any table has RLS disabled.
+> RESOLVED 2026-08-18: Verified alongside #1 — 21/21 `public` tables have RLS enabled; the only anon-selectable objects are the 3 leaderboard materialized views (by design, non-sensitive). The anon key in the frontend is expected and safe given comprehensive RLS.
 
 **8. No CSRF Protection on Logout**
 `Header.tsx:112` — logout fires on button click with no CSRF token. Firebase Auth's `signOut` handles this server-side, but if the app adds custom backend endpoints, this pattern won't scale safely.
@@ -452,8 +458,9 @@ If commitlint config was intentionally deleted, remove the CI step. If it was ac
 **4. `package.json:16` — `@playwright/test` in `dependencies`**
 Should be `devDependencies`. It affects npm audit output and bundle analysis.
 
-**5. `version: "0.0.0"` in package.json**
+**5. `version: "0.0.0"` in package.json** — ✅ RESOLVED (by design)
 Either release a v1.0.0 or configure semantic-release to manage it.
+> RESOLVED 2026-08-18: semantic-release is configured to manage it (see §2 #4) — `0.0.0` is the correct pre-release placeholder; the first `feat:`/`fix:` release sets a real version. No manual bump.
 
 #### Structure Issues
 
@@ -466,11 +473,13 @@ All source files are at root level alongside config files. Standard practice is 
 **8. `public/health.json` is build-generated**
 `package.json` build script runs `node scripts/generate-health.mjs` to write `public/health.json`. This file should be in `.gitignore` since it's generated. Currently it's tracked (`M public/health.json`).
 
-**9. Missing `.env.template` validation**
+**9. Missing `.env.template` validation** — ✅ RESOLVED
 README documents `.env.template` but the CI job checks for env vars at runtime. Add a `scripts/check-env.mjs` script that validates `.env.local` has all required keys before `npm run dev`, integrated as a pre-dev hook.
+> RESOLVED 2026-08-18: Added `scripts/check-env.mjs` (dependency-free ESM — it runs before Vite, so it must not import from the graph it guards) and wired it as `"predev": "node scripts/check-env.mjs"`, so `npm run dev` fails fast on a half-configured `.env.local`. It validates the 9 required client keys (Firebase ×7 + Supabase ×2), resolving from `process.env` first then `.env.local`, and rejects copied-in placeholders (`your_…`, the `firebase.ts` test fallbacks). Optional keys (analytics/flags) warn, never fail. **CI/E2E bypass**: exits 0 when `process.env.CI` or `VITE_E2E` is set — Playwright's `webServer` runs `npm run dev` (which would otherwise trip predev) and pipelines manage config via secrets, so the guard is a local-human convenience, not a pipeline gate. Verified locally: exit 0 against the complete `.env.local`.
 
-**10. No `CHANGELOG.md`**
+**10. No `CHANGELOG.md`** — ✅ RESOLVED
 `semantic-release` is configured but there's no `CHANGELOG.md` in the repo. Either commit an initial changelog or add it to `.gitignore` if semantic-release manages it dynamically.
+> RESOLVED 2026-08-18: Created a Keep-a-Changelog stub `CHANGELOG.md`. Gitignoring it was the **wrong** option here: `.releaserc.json` uses `@semantic-release/changelog` (prepends each release to the file) **and** lists `CHANGELOG.md` in `@semantic-release/git` `assets` (commits it as a release artifact) — an ignored file cannot be committed, which would break the release. The stub gives semantic-release a stable file to prepend to.
 
 ---
 
@@ -574,13 +583,13 @@ CI warns but never fails when main chunk exceeds 200KB gzip. With Firebase SDK, 
 
 | # | Item | Effort | Status |
 |---|------|--------|--------|
-| 26 | Play view resting state redesign — visual word echo, waveform speaking indicator, custom input | 1 week | ⬜ todo — highest visual priority |
-| 27 | Full Home view redesign (player card, live count) | 1 week | ⬜ todo |
-| 28 | Leaderboard podium redesign with row animations | 1 week | ⬜ todo |
+| 26 | Play view resting state redesign — visual word echo, waveform speaking indicator, custom input | 1 week | ✅ done — three composable, pure-presentational pieces added to `GameplayStage` (so both Play **and** the spectator `Watch` view inherit them), all gated on the existing `disableAnimations` (`performanceTier==="static" \|\| reduceMotion`) so reduce-motion/low-perf paths render motionless. **(1) `SpeakingWaveform`** — GSAP equaliser (per-bar infinite yoyo `scaleY`, `sine.inOut`, staggered delays) + static "Listen to the word" caption; replaces the pulsing 🔊 text **and** the spinning 🔊 circle. **(2) `WordEcho`** ("visual word echo") — a row of slots, one per letter of the heard word, that fill as the speller types (`typedCount` from `inputValue`/`syncedInput`), with a pulsing caret on the next slot; renders fill STATE only, never target letters, so it discloses nothing beyond length — and `WordReveal` already flashes the full word on round start, so even that is not new information. GSAP stagger-in on word change + per-slot pop on fill. **(3) Custom input** — the bare `border-b-2` underline → a rounded (`rounded-2xl`) glassy field (`bg-panel/40`, `border-2`) with turn-aware border + focus glow (`focus:ring-4 focus:ring-primary/25`, `focus:bg-panel/60`); **every** anti-cheat handler/attr preserved verbatim (onChange/onDrop/onPaste/onBeforeInput, disabled logic, value binding, refs, autofocus). No data/turn/audio logic touched. Verified: typecheck clean · unit 45/45 · build green (Three.js stays lazy-split out of main) · E2E 14/14 |
+| 27 | Full Home view redesign (player card, live count) | 1 week | ✅ done — `views/Home.tsx` reworked against all six spec directives, all motion gated on the shared `disableAnimations` (`performanceTier==="static" \|\| reduceMotion`) via `useScene()`+`useReduceMotion()` (safe: `SceneProvider` wraps every route in `App.tsx`). **(1) Blobs → scene** — the two giant `blur-3xl` gradient blobs removed; the lazy WebGL `SceneCanvasLayer` is the real animated ambience, backed by a single restrained wash for depth/static fallback. **(2) Stats → player card** — the flat row of near-identical stat boxes consolidated into one cohesive card: `Avatar` identity row (username + title) + featured prestige `TierBadge` + full-width `TierProgressBar` + a 4-tile hierarchical stat strip (Wins/Corrects/Day Streak/Sessions via `CountUp`) + `ChallengeSummaryBar`; GSAP fade/slide entrance with staggered tiles. **(3) CTA presence** — the large CTA gains a blurred glow layer that GSAP breathes (repeat/yoyo scale+opacity), degrading to a soft static glow when motion is off. **(4) Live count ticker** — new `hooks/useOnlinePlayerCount.ts` sums active (non-disconnected) players across non-stale, unfinished PUBLIC rooms using the SAME rules-permitted `orderByChild("type").equalTo("public")` query the matchmaker uses; auth-gated (a global `/rooms` read is denied by RTDB rules), returns `null` on error/offline/dummy-DB so the ticker is simply hidden — never a fabricated number. **(5) Activity strip** — a "↻ Resume {lastMode}" quick-play chip for returning players (renders only when a `lastMode` exists) alongside the ticker as social proof. **(6) Status chip** — the tracking `div` became a status chip with a pulsing live dot (`animate-ping`, gated). Dead imports dropped (`formatTierDisplay`/`navigateToBattlePass`/`navigateToChallenges`/`TierBadgeMini`). Verified: typecheck clean · unit 45/45 · build green (Three.js stays lazy-split out of main) · E2E 14/14 |
+| 28 | Leaderboard podium redesign with row animations | 1 week | ✅ done — `components/leaderboards/LeaderboardComponents.tsx` fully reworked + `views/Leaderboards.tsx` swapped off the old table, all motion gated on the shared `disableAnimations` (`performanceTier==="static" \|\| reduceMotion` via `useScene()`+`useReduceMotion()`; `SceneProvider` wraps every route). **(1) Table → ranked list** — `LeaderboardTable` replaced by `LeaderboardList` (top-3 `LeaderboardPodium` + `LeaderboardRow` for rank 4+, themed to design tokens: `bg-panel/40`, `border-surface`, current-user `ring-primary/30`). **(2) Trophy podium** — `LeaderboardPodium` renders the top 3 in `[runner-up \| champion \| third]` column order with real podium treatment: place-colored avatar rings + glow (gold/silver/bronze, distinct from tier colors), 🏆/🥈/🥉 icons, and graduated pedestals (champion tallest/gold) with the rank number — not bare emoji. **(3) Row stagger** — GSAP `from({opacity,y,stagger})` entrances on both podium items/pedestals (`back.out`/`power3.out`) and the 4+ rows, keyed on entry-id lists so they replay on data change; motion-off → plain state. **(4) Pinned rank bar** — new `PinnedRankBar` (`fixed inset-x-0 bottom-4`) shows the viewer's own rank from the authoritative `get_player_rank` snapshot (falls back to their on-page row), with tier-colored score + "Top N%" percentile; root gains `pb-28` when shown so it never occludes content. **(5) Sparkline — honestly deferred, NOT faked** (mirrors the Home live-count `null`→hidden precedent): every leaderboard RPC returns a scalar score snapshot and `ranked_match_history` is a separate self-scoped ELO feature with no per-player score-**series** RPC, so no honest score-history source exists. Shipping a fabricated trend would violate the honest-data principle; the micro-chart is deferred (documented in the component header) rather than shipped on invented data. **(6) Weighted tabs** — `LeaderboardTabs`/`ModeSelector` became a weighted segmented control (active = filled `bg-primary text-app` + `--theme-shadow-glow`, inactive = outlined pill w/ icon chip), replacing the bland pill row. Dead exports removed (`LeaderboardTable`/`PlayerRankSummary`/`PlayerRankCard`; grep-confirmed no other importer). Verified: typecheck clean · unit 45/45 · build green (Leaderboards chunk lazy-split) · E2E 14/14 · **live render against real Supabase data — podium/rings/pedestals/pinned-bar all paint, 0 console errors** |
 | 29 | Play view timer ring (circular SVG replacing flat bar) | 2 days | ✅ done |
-| 30 | E2E test coverage for 3 critical flows | 1 week | ⬜ todo |
+| 30 | E2E test coverage for 3 critical flows | 1 week | ✅ done — Playwright (`e2e/`, chromium): **(1) route protection** — logged-out `/lobby`,`/play`,`/leaderboard` redirect to `/`; **(2) matchmaking** — authed lobby shows difficulty + Public/Private controls, private-code input force-uppercases; **(3) shop** — opens from header, storefront lanes render, purchase completes with `purchase_item` RPC (+CORS preflight) network-stubbed. Authed flows use an env-gated **test seam**: `VITE_E2E=true` (set only by the Playwright `webServer`) arms a branch in `AuthContext` that adopts a `window.__E2E_AUTH__` fixture (injected via `page.addInitScript`, see `e2e/support/auth.ts`) and skips Firebase/Supabase; dormant without a fixture so logged-out guard specs still hit real auth, and dead-code-eliminated from prod (`import.meta.env.VITE_E2E` statically replaced → verified absent from `dist/`). RTDB match-join (WebChannel) can't be hermetically stubbed, so the spec stops at the deterministic pre-match surface. `reducedMotion: reduce` (via `contextOptions`) + `serviceWorkers: block` + SwiftShader arg tame the Three.js/GSAP scene. Verified: typecheck clean · E2E 14/14 · unit 45/45 · build green |
 | 31 | ~~OWASP/audit failures block CI (remove `\|\| true`)~~ | 1 day | ✅ done — `ci.yml:305` runs `npm audit --audit-level=high` (no `\|\| true`); OWASP step keeps `--failOnCVSS 7` and the `security-scan` job's `continue-on-error` was removed, so high/critical + CVSS≥7 now block merge. Kept audit level at `high` (not `moderate`) — moderate advisories in the transitive frontend tree are largely unactionable and would force a suppression treadmill. Three remaining job-level `continue-on-error` (accessibility/supabase-health/monitoring) are intentional on non-blocking jobs. YAML validated 2026-08-17 |
-| 32 | Social login (Google/Discord) on Auth page | 3 days | ⬜ todo — reduces friction for new players |
+| 32 | ~~Social login (Google/Discord) on Auth page~~ | 3 days | ✅ **DONE** — `views/Auth.tsx`: shared `signInWithPopup` handler. **Google** via `GoogleAuthProvider` — live once the provider is toggled on in Firebase Console (no secret in code). **Discord** via `OAuthProvider('oidc.discord')`, gated behind `VITE_ENABLE_DISCORD_LOGIN` (default off) because Firebase has no native Discord provider — it needs Identity Platform OIDC (`oidc.discord`) + a Discord app; button hidden until configured so no broken UX ships. New social users get RTDB `users/{uid}` + unique `usernames/{handle}` provisioned (mirrors the email flow) so AuthContext takes the healthy migration path instead of re-inserting a Supabase profile each load. Graceful error mapping (popup-closed silent; operation-not-allowed/config-not-found → friendly msg; popup-blocked, account-exists, network). Env typed + `.env.template` documents the one-time console setup. typecheck / i18n / test(45) / build all green |
 
 ---
 
@@ -828,7 +837,7 @@ Items 33–48 supplement the existing plan in Section 7:
 | 38 | ✅ **DONE** — `common.pending` present in en/es/fr/ar | P2 | 10 min |
 | 39 | ✅ **DONE** — `friends.viewProfile` present in en/es/fr/ar | P2 | 10 min |
 | 40 | ✅ **DONE** — `FriendsPanel` modal tabs use `flex flex-1 items-center justify-center gap-1.5`; label wrapped in `<span>`, count pill separated | P2 | 5 min |
-| 41 | Add i18next-parser CI step — fail on missing keys | P2 | 2 hours |
+| 41 | ✅ **DONE** — `npm run i18n:check` (i18next-parser AST-extract → `scripts/check-i18n.mjs`) wired into CI `check` job after typecheck; HARD-fails on used keys missing from `en.json` (fallback locale; plural-aware), WARNs non-blocking on es/fr/ar gaps; caught + fixed 8 broken bare theater keys (`successTheater`/`failureTheater`/`wordReveal`), backfilled 4 catalog keys; also un-ignored `scripts/` (was hiding build-critical `generate-health.mjs`) | P2 | 2 hours |
 | 42 | ✅ **DONE** — `dedupedNotifications` memo keyed by `type:from_user_id` in `NotificationBell.tsx` | P2 | 1 hour |
 | 43 | ✅ **DONE** — Fixed Challenges 0/0: distinct loading/empty/error states rendered in `views/Challenges.tsx` | P2 | 2 hours |
 | 44 | ✅ **DONE** — Fixed tier truncation "Pla"/"Bro": added `whitespace-nowrap` to `TierBadge` containers | P3 | 30 min |

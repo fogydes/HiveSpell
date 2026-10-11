@@ -8,6 +8,8 @@ import { getTierFromStats, type PlayerStats } from "../../utils/tierRanking";
 import { useScene } from "@/context/SceneContext";
 import { useReduceMotion } from "@/hooks/useAccessibility";
 import { TimerRing } from "@/components/ui";
+import SpeakingWaveform from "./SpeakingWaveform";
+import WordEcho from "./WordEcho";
 
 interface GameplayStageProps {
   currentRoom: Room;
@@ -174,11 +176,6 @@ const GameplayStage: React.FC<GameplayStageProps> = ({
           </p>
         ) : (
           <div ref={nonPlayingRef} className="h-[50px]">
-            {status === "speaking" && (
-              <div className="text-primary animate-pulse text-sm font-bold tracking-widest">
-                🔊 Listen to the word...
-              </div>
-            )}
             <IntermissionStatus
               status={currentRoom?.status}
               winnerId={currentRoom?.gameState?.winnerId}
@@ -228,9 +225,7 @@ const GameplayStage: React.FC<GameplayStageProps> = ({
       <div className="relative mb-6 flex min-h-[80px] w-full items-center justify-center sm:mb-8 sm:min-h-[100px]">
         {status !== "intermission" ? (
           status === "speaking" ? (
-            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-primary-dim border-2 border-primary flex items-center justify-center animate-spin-slow">
-              <span className="text-2xl">🔊</span>
-            </div>
+            <SpeakingWaveform animate={!disableAnimations} />
           ) : (
             <button
               onClick={onReplayWord}
@@ -270,6 +265,15 @@ const GameplayStage: React.FC<GameplayStageProps> = ({
         <div className="mb-2 text-center text-[10px] font-bold tracking-[0.2em] text-text-muted sm:mb-4">
           {isMyTurn ? "TYPE THE WORD YOU HEAR" : `WATCHING ${currentTurnPlayerName}`}
         </div>
+        {currentWord && status !== "intermission" && (
+          <WordEcho
+            word={currentWord}
+            typedCount={(isMyTurn ? inputValue : syncedInput).length}
+            active={status === "playing" && isMyTurn && myStatus !== "eliminated"}
+            animate={!disableAnimations}
+            className="mb-4"
+          />
+        )}
         <form onSubmit={handleSubmit}>
           <input
             ref={inputRef}
@@ -306,7 +310,11 @@ const GameplayStage: React.FC<GameplayStageProps> = ({
                   ? "Watching..."
                   : "Type word..."
             }
-            className={`w-full bg-transparent border-b-2 ${isMyTurn ? "border-primary" : "border-surface"} py-2 text-center text-2xl font-bold outline-none transition-colors placeholder:text-surface disabled:cursor-not-allowed disabled:opacity-70 sm:py-4 sm:text-5xl ${isMyTurn ? "text-text-main" : "text-text-muted"}`}
+            className={`w-full rounded-2xl border-2 bg-panel/40 py-3 text-center text-2xl font-bold outline-none transition-all placeholder:text-surface/70 disabled:cursor-not-allowed disabled:opacity-70 sm:py-5 sm:text-5xl ${
+              isMyTurn
+                ? "border-primary/60 text-text-main focus:border-primary focus:bg-panel/60 focus:ring-4 focus:ring-primary/25"
+                : "border-surface text-text-muted"
+            }`}
           />
         </form>
       </div>

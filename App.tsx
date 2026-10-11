@@ -34,6 +34,7 @@ import NotFound from "./views/NotFound";
 // Lazily-loaded route views — each ships as its own code-split chunk so the
 // initial bundle only carries the shell + Home.
 const Auth = lazy(() => import("./views/Auth"));
+const LinkDiscordCallback = lazy(() => import("./views/LinkDiscordCallback"));
 const Lobby = lazy(() => import("./views/Lobby"));
 const Play = lazy(() => import("./views/Play"));
 const ScenePreview = lazy(() => import("./views/ScenePreview"));
@@ -131,6 +132,18 @@ const AppRoutes: React.FC = () => {
             <AuthErrorBoundary>
               <Auth />
             </AuthErrorBoundary>
+          }
+        />
+        {/* Discord account-linking callback. Separate from /auth, which bounces
+            signed-in users to /lobby and would swallow the callback. */}
+        <Route
+          path="/link/discord"
+          element={
+            <ProtectedRoute>
+              <AuthErrorBoundary>
+                <LinkDiscordCallback />
+              </AuthErrorBoundary>
+            </ProtectedRoute>
           }
         />
         <Route
